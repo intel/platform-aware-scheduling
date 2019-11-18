@@ -1,0 +1,8 @@
+while true
+do
+
+../descheduler --policy-config-file /root/policy.yaml --kubeconfig /root/.kube/config --logtostderr -v 2
+
+sleep 5
+
+done
