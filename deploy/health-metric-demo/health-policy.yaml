@@ -1,0 +1,21 @@
+apiVersion: telemetry.intel.com/v1alpha1
+kind: TASPolicy
+metadata:
+  name: demo-policy
+  namespace: default
+spec:
+  strategies:
+    deschedule:
+      rules:
+      - metricname: health_metric
+        operator: Equals
+        target: -1
+    dontschedule:
+      rules:
+      - metricname: health_metric
+        operator: Equals
+        target: 0
+    scheduleonmetric:
+      rules:
+      - metricname: health_metric
+        operator: GreaterThan

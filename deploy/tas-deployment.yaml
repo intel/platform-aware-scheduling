@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telemetry-aware-scheduling
+  namespace: default 
+  labels:
+    app: tas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tas
+  template:
+    metadata:
+      labels:
+        app: tas
+    spec:
+      serviceAccountName: telemetry-aware-scheduling-service-account
+      containers:
+      - name: tascont
+        command:
+        - /controller
+        - --syncPeriod=2s
+        image: tas-controller 
+        imagePullPolicy: IfNotPresent
+      - name: tasext
+        command:
+        - /extender
+        - --cert=/tas/cert/tls.crt
+        - --key=/tas/cert/tls.key
+        image: tas-extender
+        imagePullPolicy: IfNotPresent 
+        volumeMounts:
+        - name: certs
+          mountPath: /tas/cert
+      volumes:
+      - name: certs
+        secret:
+          secretName: extender-secret
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/master
+                operator: Exists
