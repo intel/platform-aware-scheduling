@@ -81,10 +81,6 @@ After these steps the scheduler extender should be registered with the kubernete
 Telemetry Aware Scheduling uses go modules. It requires Go 1.13+ with modules enabled in order to build. TAS has been tested with Kubernetes 1.14+. TAS was tested on Intel® Server Board S2600WF-Based Systems (Wolf Pass).
 A yaml file for TAS is contained in the deploy folder along with it's service and service account. 
 
-In order to build and deploy run:
-
-``make build && make image && kubectl apply -f deploy/``
-
 **Note:** If run without the unsafe flag a secret called extender-secret will need to be created with the cert and key for the TLS endpoint.
 TAS will not deploy if there is no secret available with the given deployment file.
 
@@ -93,6 +89,9 @@ A secret can be created with:
 ``
 kubectl create secret tls extender-secret --cert /etc/kubernetes/<PATH_TO_CERT> --key /etc/kubernetes/<PATH_TO_KEY> 
 ``
+In order to build and deploy run:
+
+``make build && make image && kubectl apply -f deploy/``
 
 After this is run TAS should be operable in the cluster and should be visible after running kubectl get pods.
 

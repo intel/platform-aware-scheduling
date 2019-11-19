@@ -1,0 +1,24 @@
+# Default values for prometheus_helm_chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+clusterRoleNme: prometheus
+clusterRoleBindingName: prometheus
+serviceAccountName: default
+serviceAccountNamespace: monitoring
+
+configMapName: prometheus-server-conf
+configMapNamespace: monitoring
+
+deploymentName: prometheus-deployment
+deploymentNamespace: monitoring
+deploymentAppName: prometheus-server
+containerName:  prometheus
+containerImage: prom/prometheus:v2.2.1
+
+serviceName1: prometheus-service
+serviceName2: prom-service
+serviceNamespace: monitoring
+serviceApp: prometheus-server
+

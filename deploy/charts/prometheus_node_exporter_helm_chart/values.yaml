@@ -1,0 +1,16 @@
+# Default values for prometheus_node_exporter_helm_chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+daemonSetName: node-exporter
+daemonSetNamespace: kube-system
+k8sAppName: node-exporter
+version: v0.15.2
+replicaCount: 1
+
+container:
+  name: prometheus-node-exporter
+  image: "prom/node-exporter:latest"
+  imagePullPolicy: IfNotPresent
+
+serviceName: node-exporter
+serviceNamespace: kube-system
