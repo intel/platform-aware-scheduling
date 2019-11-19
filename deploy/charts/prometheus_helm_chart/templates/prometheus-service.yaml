@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.serviceName1 }}
+  namespace: {{ .Values.serviceNamespace }}
+spec:
+  selector: 
+    app: {{ .Values.serviceApp }}
+  type: NodePort  
+  ports:
+   -  targetPort: 9090
+      port: 8080 
+      nodePort: 30000
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.serviceName2 }}
+  namespace: {{ .Values.serviceNamespace }}
+  labels:
+    app: {{ .Values.serviceApp }}
+  
+  annotations:
+      prometheus.io/scrape: 'true'
+      prometheus.io/path:   /metrics
+      prometheus.io/port:   '9090'
+
+
+spec:
+  ports:
+  - port: 9090 
+    targetPort: 9090
+    protocol: TCP
+  selector:
+    app: {{ .Values.serviceApp }}
+

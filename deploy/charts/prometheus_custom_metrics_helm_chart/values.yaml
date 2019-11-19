@@ -1,0 +1,23 @@
+# Default values for prometheus_custom_metrics_helm_chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+clusterRoleBindingName: custom-metrics:system:auth-delegator
+clusterRoleName: system:auth-delegator
+serviceAccountName: custom-metrics-apiserver
+serviceAccountNamespace: custom-metrics
+
+configMapName: adapter-config
+configMapNamespace: custom-metrics
+
+roleBindingName: custom-metrics-auth-reader
+roleBindingNamespace: kube-system
+roleName: extension-apiserver-authentication-reader
+
+serviceName: custom-metrics-apiserver
+serviceNamespace: custom-metrics
+appName: custom-metrics-apiserver
+replicaCount: 1
+
+clusterRoleAPIResourceReader: custom-metrics-resource-reader
+clusterRoleRBAC: custom-metrics-server-resources
+clusterRoleRBACResourceReader: custom-metrics-resource-reader

@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ .Values.daemonSetName }} 
+  namespace: {{ .Values.daemonSetNamespace }}
+  labels:
+    k8s-app: {{ .Values.k8sAppName }}
+    kubernetes.io/cluster-service: "true"
+    addonmanager.kubernetes.io/mode: Reconcile
+    version: {{ .Values.version }}
+spec:
+  selector:
+    matchLabels:
+      k8s-app: {{ .Values.k8sAppName }}
+      version: {{ .Values.version }}
+  updateStrategy:
+    type: OnDelete
+  template:
+    metadata:
+      labels:
+        k8s-app: {{ .Values.k8sAppName }}
+        version: {{ .Values.version }}
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+    spec:
+      priorityClassName: system-node-critical
+      containers:
+        - name: {{ .Values.container.name }}
+          image: {{ .Values.container.image }}
+          imagePullPolicy: {{ .Values.container.imagePullPolicy }}
+          args:
+            - --path.procfs=/host/proc
+            - --path.sysfs=/host/sys
+            - --collector.textfile.directory=/host/node-metrics
+          ports:
+            - name: metrics
+              containerPort: 9100
+              hostPort: 9100
+          volumeMounts:
+            - name: proc
+              mountPath: /host/proc
+              readOnly:  true
+            - name: sys
+              mountPath: /host/sys
+              readOnly: true
+            - name: node-metrics
+              mountPath: /host/node-metrics
+              readOnly: true
+      hostNetwork: true
+      hostPID: true
+      volumes:
+        - name: proc
+          hostPath:
+            path: /proc
+        - name: sys
+          hostPath:
+            path: /sys
+        - name: node-metrics
+          hostPath:
+            path: /tmp/node-metrics
+
