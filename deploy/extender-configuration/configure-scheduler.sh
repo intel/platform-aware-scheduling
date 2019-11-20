@@ -2,7 +2,7 @@
 CONFIG_MAP=scheduler-extender-configmap.yaml
 CLUSTER_ROLE=configmap-getter.yaml
 kubectl apply -f $CONFIG_MAP
-
+kubectl apply -f $CLUSTER_ROLE
 ##Add clusterrole binding - default binding edit - to give kube-scheduler access to configmaps in kube-system.
 kubectl create clusterrolebinding scheduler-config-map --clusterrole=configmapgetter --user=system:kube-scheduler
 ## Add arguments to our kube-scheduler manifest

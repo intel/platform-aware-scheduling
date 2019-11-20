@@ -1,0 +1,1 @@
+echo 'node_health_metric ' $2 | ssh $1 -T "cat > /node-metrics/text.prom"
