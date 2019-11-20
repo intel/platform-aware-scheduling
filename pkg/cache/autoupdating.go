@@ -103,8 +103,6 @@ func (n *AutoUpdatingCache) WritePolicy(namespace string, policyName string, pol
 func (n *AutoUpdatingCache) WriteMetric(metricName string, data metrics.NodeMetricsInfo) error {
 	payload := nilPayloadCheck(data)
 	n.add(fmt.Sprintf(metricPath, metricName), payload)
-	n.mtx.Lock()
-	defer n.mtx.Unlock()
 	if payload == nil {
 		if total, ok := n.metricMap[metricName]; ok {
 			n.metricMap[metricName] = total + 1

@@ -27,7 +27,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: scheduling-policy
+                  - key: demo-policy
                     operator: NotIn
                     values:
                       - violating

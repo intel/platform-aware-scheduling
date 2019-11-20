@@ -1,8 +1,1 @@
-while true
-do
-
-../descheduler --policy-config-file /root/policy.yaml --kubeconfig /root/.kube/config --logtostderr -v 2
-
-sleep 5
-
-done
+descheduler --policy-config-file /deploy/health-metric-demo/descheduler-policy.yaml --kubeconfig <PATH_TO_KUBECONFIG> --logtostderr -v 2

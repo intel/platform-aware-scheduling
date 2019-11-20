@@ -43,7 +43,7 @@ func (m MetricsExtender) getSchedulingRule(policy telemetrypolicy.TASPolicy) (te
 //Pulls the dontschedule strategy from a telemetry policy passed to it
 func (m MetricsExtender) getDontScheduleStrategy(policy telemetrypolicy.TASPolicy) (dontschedule.Strategy, error ){
 	rawStrategy := policy.Spec.Strategies[dontschedule.StrategyType]
-	if len(rawStrategy.PolicyName) == 0 {
+	if len(rawStrategy.Rules) == 0 {
 		return dontschedule.Strategy{},  errors.New("no dontschedule strategy found")
 	}
 	strat := (dontschedule.Strategy)(rawStrategy)
@@ -54,6 +54,7 @@ func (m MetricsExtender) getDontScheduleStrategy(policy telemetrypolicy.TASPolic
 func (m MetricsExtender) prioritizeNodes(args ExtenderArgs) *HostPriorityList {
 	policy, err := m.getPolicyFromPod(&args.Pod)
 	if err != nil {
+		log.Print(err)
 		return &HostPriorityList{}
 	}
 	scheduleRule, err := m.getSchedulingRule(policy)
@@ -101,6 +102,7 @@ func (m MetricsExtender) filterNodes(args ExtenderArgs) *ExtenderFilterResult {
 	}
 	strat, err := m.getDontScheduleStrategy(policy)
 	if err != nil {
+		log.Print(err)
 		return nil
 	}
 	violatingNodes := strat.Violated(m.cache)
@@ -169,7 +171,6 @@ func (m MetricsExtender) prescheduleChecks(w http.ResponseWriter, r *http.Reques
 		w.WriteHeader(http.StatusBadRequest)
 		return ExtenderArgs{}, w, err
 	}
-
 	return extenderArgs, w, err
 }
 
@@ -227,7 +228,7 @@ func (m MetricsExtender) Prioritize(w http.ResponseWriter, r *http.Request) {
 //Filter manages all filter requests from the scheduler. It decodes the request, checks its policy and registers it.
 //It then calls the filter logic and writes a response to the scheduler.
 func (m MetricsExtender) Filter(w http.ResponseWriter, r *http.Request) {
-	log.Print("Received filter request")
+	log.Print("filter request recieved")
 	extenderArgs, w, err := m.prescheduleChecks(w, r)
 	if err != nil {
 		log.Printf("cannot filter %v", err)
@@ -235,6 +236,7 @@ func (m MetricsExtender) Filter(w http.ResponseWriter, r *http.Request) {
 	}
 	filteredNodes := m.filterNodes(extenderArgs)
 	if filteredNodes == nil {
+		log.Print("No filtered nodes returned")
 		w.WriteHeader(http.StatusNotFound)
 	}
 	m.writeFilterResponse(w, filteredNodes)
@@ -242,6 +244,7 @@ func (m MetricsExtender) Filter(w http.ResponseWriter, r *http.Request) {
 
 //error handler deals with requests sent to an invalid endpoint and returns a 404.
 func (m MetricsExtender) errorHandler(w http.ResponseWriter, r *http.Request) {
+	log.Print("unknown path")
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotFound)
 }
