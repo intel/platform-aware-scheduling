@@ -16,13 +16,13 @@ type TASPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   TASPolicySpec   `json:"spec,omitempty"`
+	Spec   TASPolicySpec   `json:"spec"`
 	Status TASPolicyStatus `json:"status,omitempty"`
 }
 
 //TASPolicyStrategy contains a set of TASPolicyRule which define the strategy.
 type TASPolicyStrategy struct {
-	PolicyName string          `json:"policyName,omitempty"`
+	PolicyName string          `json:"policyName"`
 	Rules      []TASPolicyRule `json:"rules"`
 }
 
