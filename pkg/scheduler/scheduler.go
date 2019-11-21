@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
+	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/core"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/dontschedule"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
@@ -40,11 +42,12 @@ func (m MetricsExtender) getSchedulingRule(policy telemetrypolicy.TASPolicy) (te
 	}
 	return out, errors.New("Could not find specified scheduling rule: ")
 }
+
 //Pulls the dontschedule strategy from a telemetry policy passed to it
-func (m MetricsExtender) getDontScheduleStrategy(policy telemetrypolicy.TASPolicy) (dontschedule.Strategy, error ){
+func (m MetricsExtender) getDontScheduleStrategy(policy telemetrypolicy.TASPolicy) (dontschedule.Strategy, error) {
 	rawStrategy := policy.Spec.Strategies[dontschedule.StrategyType]
 	if len(rawStrategy.Rules) == 0 {
-		return dontschedule.Strategy{},  errors.New("no dontschedule strategy found")
+		return dontschedule.Strategy{}, errors.New("no dontschedule strategy found")
 	}
 	strat := (dontschedule.Strategy)(rawStrategy)
 	return strat, nil
@@ -74,13 +77,20 @@ func (m MetricsExtender) prioritizeNodes(args ExtenderArgs) *HostPriorityList {
 //prioritizeNodesForRule returns the nodes listed in order of priority after applying the appropriate telemetry rule rule.
 //Priorities are ordinal - there is no relationship between the outputted priorities and the metrics - simply an order of preference.
 func (m MetricsExtender) prioritizeNodesForRule(rule telemetrypolicy.TASPolicyRule, nodes *v1.NodeList) (HostPriorityList, error) {
+	filteredNodeData := metrics.NodeMetricsInfo{}
 	nodeData, err := m.cache.ReadMetric(rule.Metricname)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prioritize: %v, %v ", err, rule.Metricname)
 	}
+	// Here we pull out nodes that have metrics but aren't in the filtered list
+	for _, node := range nodes.Items {
+		if v, ok := nodeData[node.Name]; ok {
+			filteredNodeData[node.Name] = v
+		}
+	}
 	outputNodes := HostPriorityList{}
 	metricsOutput := fmt.Sprintf("%v for nodes: ", rule.Metricname)
-	orderedNodes := core.OrderedList(nodeData, rule.Operator)
+	orderedNodes := core.OrderedList(filteredNodeData, rule.Operator)
 	for i, node := range orderedNodes {
 		metricsOutput = fmt.Sprint(metricsOutput, " [ ", node.NodeName, " :", node.MetricValue.AsDec(), "]")
 		outputNodes = append(outputNodes, HostPriority{node.NodeName, 10 - i})
@@ -248,6 +258,7 @@ func (m MetricsExtender) errorHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotFound)
 }
+
 //Check symlinks checks if a file is a simlink and returns an error if it is.
 func checkSymLinks(filename string) error {
 	info, err := os.Lstat(filename)
