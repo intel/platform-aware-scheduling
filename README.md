@@ -239,7 +239,7 @@ These are passed to the executable using command line flags. In the provided dep
 
 ## Communication and contribution
 
-Report a bug by [filing a new issue](https://github.com/telemetry-aware-scheduling/pmem-csi/issues).
+Report a bug by [filing a new issue](https://github.com/telemetry-aware-scheduling/issues).
 
 Contribute by [opening a pull request](https://github.com/intel/telemetry-aware-scheduling/pulls).
 
