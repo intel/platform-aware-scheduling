@@ -36,11 +36,14 @@ func NewMetricsExtender(newCache cache.Reader) MetricsExtender {
 
 //Does basic validation on the scheduling rule. returns the rule if it seems useful
 func (m MetricsExtender) getSchedulingRule(policy telemetrypolicy.TASPolicy) (telemetrypolicy.TASPolicyRule, error) {
-	out := policy.Spec.Strategies[scheduleonmetric.StrategyType].Rules[0]
-	if len(out.Metricname) > 0 {
-		return out, nil
+	_, ok := policy.Spec.Strategies[scheduleonmetric.StrategyType]
+	if ok && len(policy.Spec.Strategies[scheduleonmetric.StrategyType].Rules) > 0 {
+		out := policy.Spec.Strategies[scheduleonmetric.StrategyType].Rules[0]
+		if len(out.Metricname) > 0 {
+			return out, nil
+		}
 	}
-	return out, errors.New("Could not find specified scheduling rule: ")
+	return telemetrypolicy.TASPolicyRule{}, errors.New("no prioritize rule found for " + policy.Name)
 }
 
 //Pulls the dontschedule strategy from a telemetry policy passed to it
@@ -62,7 +65,7 @@ func (m MetricsExtender) prioritizeNodes(args ExtenderArgs) *HostPriorityList {
 	}
 	scheduleRule, err := m.getSchedulingRule(policy)
 	if err != nil {
-		log.Print("Could not find specified scheduling rule: ", err)
+		log.Print(err)
 		return &HostPriorityList{}
 	}
 	chosenNodes, err := m.prioritizeNodesForRule(scheduleRule, args.Nodes)
