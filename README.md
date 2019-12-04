@@ -81,7 +81,7 @@ data:
     }
 
 ````
-This file can be found [in the deploy folder](./deploy/scheduler-extender-configmap.yaml). This configmap can be created with ``kubectl apply -f ./deploy/scheduler-extender-configmap.yaml``
+This file can be found [in the deploy folder](./deploy/extender-configuration/scheduler-extender-configmap.yaml). This configmap can be created with ``kubectl apply -f ./deploy/scheduler-extender-configmap.yaml``
 The scheduler requires flags passed to it in order to know the location of this config map. The flags are:
 ````
     - --policy-configmap=scheduler-extender-policy
