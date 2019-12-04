@@ -23,7 +23,7 @@ It consumes new Telemetry Policies as they are created, removes them when delete
 The policy controller also monitors the current state of policies to see if they are violated. For example if it notes that a deschedule policy is violated it labels the node as a violator allowing pods relating to that policy to be descheduled.
 
 ## Usage
-A worked example for TAS is available [here](docs/health-metrics-example.md)
+A worked example for TAS is available [here](docs/health-metric-example.md)
 ### Strategies
 There are three strategies that TAS acts on. 
  
@@ -81,7 +81,7 @@ data:
     }
 
 ````
-This file can be found [in the deploy folder](./deploy/scheduler-extender-configmap.yaml). This configmap can be created with ``kubectl apply -f ./deploy/scheduler-extender-configmap.yaml``
+This file can be found [in the deploy folder](./deploy/extender-configuration/scheduler-extender-configmap.yaml). This configmap can be created with ``kubectl apply -f ./deploy/scheduler-extender-configmap.yaml``
 The scheduler requires flags passed to it in order to know the location of this config map. The flags are:
 ````
     - --policy-configmap=scheduler-extender-policy
