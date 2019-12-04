@@ -23,7 +23,7 @@ It consumes new Telemetry Policies as they are created, removes them when delete
 The policy controller also monitors the current state of policies to see if they are violated. For example if it notes that a deschedule policy is violated it labels the node as a violator allowing pods relating to that policy to be descheduled.
 
 ## Usage
-A worked example for TAS is available [here](docs/health-metrics-example.md)
+A worked example for TAS is available [here](docs/health-metric-example.md)
 ### Strategies
 There are three strategies that TAS acts on. 
  
