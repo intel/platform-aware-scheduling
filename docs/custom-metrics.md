@@ -34,6 +34,11 @@ The Prometheus adapter may take some time to come online - but once it does runn
 ``kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1 | grep nodes | jq .``
 should return a number of metrics that are being collected by prometheus node exporter, scraped by prometheus and passed to the Kubernetes Metrics API by the Prometheus Adapter.
 
+In order to be certain the raw metrics are available look at a specific endpoint output from the above command e.g.
+``kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1/nodes/*/health_metric | jq .``
+
+Where "health_metric" is the specific metric looked at. The output should be a json object with names an metrics info for each node in the cluster.
+
 ## Configuration guide 
 What follows is a description of the configurations for each component required to deliver metrics to TAS. 
 If you have used the above helm charts to deploy this configuration is already applied. 
