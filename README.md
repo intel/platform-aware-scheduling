@@ -54,7 +54,7 @@ TAS Scheduler Extender needs to be registered with the Kubernetes Scheduler. In 
 apiVersion: v1alpha1
 kind: ConfigMap
 metadata:
-  name: scheduler-policy
+  name: scheduler-extender-policy
   namespace: kube-system
 data:
   policy.cfg: |
