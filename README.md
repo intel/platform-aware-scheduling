@@ -128,7 +128,7 @@ strategies:
 ````
 This file is available [here](deploy/health-metric-demo/descheduler-policy.yaml)
 
-### Policy definition {: #policy-definition}
+### Policy definition
 A Telemetry Policy can be created in Kubernetes using ``kubectl apply -f`` on a valid policy file. 
 The structure of a policy file is : 
 
