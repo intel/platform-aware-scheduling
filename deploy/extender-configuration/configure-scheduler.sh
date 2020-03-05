@@ -24,5 +24,5 @@ sed -i '/^  dnsPolicy: ClusterFirstWithHostNet/d' $MANIFEST_FILE
 sed -e "/    - kube-scheduler/a\\
     - --policy-configmap=scheduler-extender-policy\n    - --policy-configmap-namespace=kube-system" $MANIFEST_FILE -i
 sed -e "/spec/a\\
-  dnsPolicy: ClusterFirstWithHostNet" $MANIFEST_FILE
+  dnsPolicy: ClusterFirstWithHostNet" $MANIFEST_FILE -i
 
