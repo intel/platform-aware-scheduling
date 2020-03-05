@@ -46,8 +46,6 @@ TAS relies on metrics from the custom metrics pipeline. A guide on setting up th
 If this pipeline isn't set up, and node level metrics aren't exposed through it, TAS will have no metrics on which to make decisions.
 
 #### Extender configuration
-Note: a shell script that shows these steps can be found [here](deploy/extender-configuration). This script should be seen as a guide only, and will not work on most Kubernetes installations.
-
 The extender configuration files can be found under deploy/extender-configuration.
 TAS Scheduler Extender needs to be registered with the Kubernetes Scheduler. In order to do this a configmap should be created like the below:
 ````
@@ -63,36 +61,20 @@ data:
         "apiVersion" : "v1",
         "extenders" : [
             {
-              "urlPrefix": "https://tas-service.default.svc.cluster.local:9001",
+              "urlPrefix": "https://localhost:9001",
               "apiVersion": "v1",
               "prioritizeVerb": "scheduler/prioritize",
               "filterVerb": "scheduler/filter",
               "weight": 1,
               "enableHttps": true,
-              "managedResources": [
-                   {
-                     "name": "telemetry/scheduling",
-                     "ignoredByScheduler": true
-                   }
-              ],
-              "ignorable": true
+              "ignorable": false
           }
          ]
     }
 
 ````
 This file can be found [in the deploy folder](./deploy/extender-configuration/scheduler-extender-configmap.yaml). This configmap can be created with ``kubectl apply -f ./deploy/scheduler-extender-configmap.yaml``
-The scheduler requires flags passed to it in order to know the location of this config map. The flags are:
-````
-    - --policy-configmap=scheduler-extender-policy
-    - --policy-configmap-namespace=kube-system
-````
-
-If scheduler is running as a service these can be added as flags to the binary. If scheduler is running as a container - as in kubeadm - these args can be passed in the deployment file.
-Note: For Kubeadm set ups some additional steps may be needed.
-1) Add the ability to get configmaps to the kubeadm scheduler config map. (A cluster role binding for this is at deploy/extender-configuration/configmap-getter.yaml)
-2) Add the ``dnsPolicy: ClusterFirstWithHostNet`` in order to access the scheduler extender by service name.
-
+We just use hyperkube to create a new kube-scheduler and add above configmap as configuration.
 After these steps the scheduler extender should be registered with the Kubernetes Scheduler.
 
 #### Deploy TAS
@@ -205,13 +187,11 @@ spec:
         app: demo
         telemetry-policy: scheduling-policy
     spec:
+      schedulerName: tas-scheduler
       containers:
       - name: nginx
         image: nginx:latest
         imagePullPolicy: IfNotPresent
-        resources:
-          limits:
-            telemetry/scheduling: 1
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -226,7 +206,7 @@ spec:
 Here the policy scheduling-policy will apply to all pods created by this deployment.
 There are three changes to the demo policy here:
 - A label ``telemetry-policy=<POLICYNAME>`` under the pod template which is used by the scheduler to identify the policy.
-- A resources/limits entry requesting the resource telemetry/scheduling. This is used to restrict the use of TAS to only selected pods. If this is not in a pod spec the pod will not be scheduled by TAS.
+- A schedulerName is provided. This is used to restrict the use of TAS to only selected pods. If this is not in a pod spec the pod will not be scheduled by TAS.
 - Affinity rules which add a requiredDuringSchedulingIgnoredDuringExecution affinity to nodes which are labelled ``<POLICYNAME>=violating`` This is used by the descheduler to identify pods on nodes which break their TAS telemetry policies.
 
 ### Security

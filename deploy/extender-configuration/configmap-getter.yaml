@@ -1,9 +1,0 @@
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: configmapgetter
-  namespace: kube-system 
-rules:
-- apiGroups: [""]
-  resources: ["configmaps"]
-  verbs: ["get"]

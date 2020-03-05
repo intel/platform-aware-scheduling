@@ -101,13 +101,11 @@ spec:
         app: demo
         telemetry-policy: demo-policy
     spec:
+      schedulerName: tas-scheduler
       containers:
       - name: nginx
         image: nginx:latest
         imagePullPolicy: IfNotPresent
-        resources:
-          limits:
-            telemetry/scheduling: 1
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -118,7 +116,7 @@ spec:
                     values:
                       - violating
 ```
-The line ``telemetry-policy: demo-policy`` links each pod created by the above declared deployment policy to the policy declared above. Note that a pod and policy must be in the same namespaces to interact with each other. The deployment also contains a resource limit request for telemetry/scheduling. This is what causes it to be sent to TAS by the current scheduler. The nodeAffinity section is what signals to descheduler to remove the pod from a node. 
+The line ``telemetry-policy: demo-policy`` links each pod created by the above declared deployment policy to the policy declared above. Note that a pod and policy must be in the same namespaces to interact with each other. The deployment also contains a schedulerName for telemetry/scheduling. This is what causes it to be sent to TAS by the current scheduler.The nodeAffinity section is what signals to descheduler to remove the pod from a node. 
 
 On executing this declaration the scheduler extender should produce logs like :
 ```

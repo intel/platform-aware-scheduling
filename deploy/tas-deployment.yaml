@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: telemetry-aware-scheduling
-  namespace: default 
+  namespace: kube-system
   labels:
     app: tas
 spec:
@@ -17,6 +17,16 @@ spec:
     spec:
       serviceAccountName: telemetry-aware-scheduling-service-account
       containers:
+      - name: tas-scheduler
+        image: gcr.io/google_containers/hyperkube:v1.16.3
+        imagePullPolicy: IfNotPresent
+        args:
+        - kube-scheduler
+        - --config=/tas-scheduler/config.yaml
+        - -v=4
+        volumeMounts:
+        - name: tas-scheduler-config
+          mountPath: /tas-scheduler
       - name: tascont
         command:
         - /controller
@@ -26,6 +36,7 @@ spec:
       - name: tasext
         command:
         - /extender
+        - --cacheEndpoint=http://127.0.0.1:8111/cache/
         - --cert=/tas/cert/tls.crt
         - --key=/tas/cert/tls.key
         image: tas-extender
@@ -37,6 +48,9 @@ spec:
       - name: certs
         secret:
           secretName: extender-secret
+      - name: tas-scheduler-config
+        configMap:
+          name: scheduler-extender-config
       tolerations:
       - key: node-role.kubernetes.io/master
         operator: Exists

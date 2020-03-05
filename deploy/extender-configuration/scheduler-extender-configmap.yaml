@@ -1,6 +1,26 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  name: scheduler-extender-config
+  namespace: kube-system
+data:
+  config.yaml: |
+    apiVersion: kubescheduler.config.k8s.io/v1alpha1
+    kind: KubeSchedulerConfiguration
+    schedulerName: tas-scheduler
+    algorithmSource:
+      policy:
+        configMap:
+          namespace: kube-system
+          name: scheduler-extender-policy
+    leaderElection:
+      leaderElect: true
+      lockObjectName: tas-scheduler
+      lockObjectNamespace: kube-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
   name: scheduler-extender-policy
   namespace: kube-system
 data:
@@ -10,19 +30,13 @@ data:
         "apiVersion" : "v1",
         "extenders" : [
             {
-              "urlPrefix": "https://tas-service.default.svc.cluster.local:9001",
+              "urlPrefix": "https://localhost:9001",
               "apiVersion": "v1",
               "prioritizeVerb": "scheduler/prioritize",
               "filterVerb": "scheduler/filter",
               "weight": 1,
               "enableHttps": true,
-              "managedResources": [
-                   {
-                     "name": "telemetry/scheduling",
-                     "ignoredByScheduler": true
-                   }
-              ],
-              "ignorable": true
+              "ignorable": false
           }
          ]
     }

@@ -15,13 +15,11 @@ spec:
         app: demo
         telemetry-policy: demo-policy
     spec:
+      schedulerName: tas-scheduler
       containers:
       - name: nginx
         image: nginx:latest
         imagePullPolicy: IfNotPresent
-        resources:
-          limits:
-            telemetry/scheduling: 1
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
