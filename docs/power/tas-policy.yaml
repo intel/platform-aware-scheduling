@@ -1,0 +1,16 @@
+apiVersion: telemetry.intel.com/v1alpha1
+kind: TASPolicy
+metadata:
+  name: power-sensitive-scheduling-policy
+  namespace: default
+spec:
+  strategies:
+    dontschedule:
+      rules:
+      - metricname: package_power_avg 
+        operator: GreaterThan
+        target: 60
+    scheduleonmetric:
+      rules:
+      - metricname: package_power_avg 
+        operator: LessThan

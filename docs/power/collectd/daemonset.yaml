@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app.kubernetes.io/name: collectd 
+    app.kubernetes.io/version: v5.11 
+  name: collectd
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: collectd 
+      app.kubernetes.io/version: v5.11 
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: collectd
+        app.kubernetes.io/version: v5.11 
+    spec:
+      containers:
+      - image: localhost:5000/collectdpower
+        imagePullPolicy: Always
+        name: collectd
+        command: [ "/bin/sh", "-c", "collectd; while :; do sleep 300; done" ]
+        resources:
+          limits:
+            cpu: 150m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 50Mi
+        volumeMounts:
+        - name: config
+          mountPath: /opt/collectd/etc/collectd.conf
+          subPath: collectd.conf
+        - mountPath: /host/sys/
+          name: sys
+          readOnly: true 
+        ports:
+        - containerPort: 9103
+          hostPort: 9103
+          name: http
+      hostNetwork: true
+      hostPID: true
+      volumes:
+      - name: config
+        configMap:
+          name: collectd-config
+      - hostPath:
+          path: /sys
+        name: sys

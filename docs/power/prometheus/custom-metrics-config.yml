@@ -1,0 +1,116 @@
+apiVersion: v1
+data:
+  config.yaml: |
+    rules:
+    - metricsQuery: sum(rate(<<.Series>>{<<.LabelMatchers>>,container_name!="POD"}[1m]))
+        by (<<.GroupBy>>)
+      name:
+        as: ""
+        matches: ^container_(.*)_seconds_total$
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod_name:
+            resource: pod
+      seriesFilters: []
+      seriesQuery: '{__name__=~"^container_.*",container_name!="POD",namespace!="",pod_name!=""}'
+    - metricsQuery: sum(rate(<<.Series>>{<<.LabelMatchers>>,container_name!="POD"}[1m]))
+        by (<<.GroupBy>>)
+      name:
+        as: ""
+        matches: ^container_(.*)_total$
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod_name:
+            resource: pod
+      seriesFilters:
+      - isNot: ^container_.*_seconds_total$
+      seriesQuery: '{__name__=~"^container_.*",container_name!="POD",namespace!="",pod_name!=""}'
+    - metricsQuery: sum(<<.Series>>{<<.LabelMatchers>>,container_name!="POD"}) by (<<.GroupBy>>)
+      name:
+        as: ""
+        matches: ^container_(.*)$
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod_name:
+            resource: pod
+      seriesFilters:
+      - isNot: ^container_.*_total$
+      seriesQuery: '{__name__=~"^container_.*",container_name!="POD",namespace!="",pod_name!=""}'
+    - metricsQuery: sum(<<.Series>>{<<.LabelMatchers>>}) by (<<.GroupBy>>)
+      name:
+        as: ""
+        matches: ""
+      resources:
+        template: <<.Resource>>
+      seriesFilters:
+      - isNot: .*_total$
+      seriesQuery: '{namespace!="",__name__!~"^container_.*"}'
+    - metricsQuery: sum(rate(<<.Series>>{<<.LabelMatchers>>}[1m])) by (<<.GroupBy>>)
+      name:
+        as: ""
+        matches: ^(.*)_total$
+      resources:
+        template: <<.Resource>>
+      seriesFilters:
+      - isNot: .*_seconds_total
+      seriesQuery: '{namespace!="",__name__!~"^container_.*"}'
+    - metricsQuery: sum(<<.Series>>{<<.LabelMatchers>>}[1m]) by (<<.GroupBy>>)
+      name:
+        as: ""
+        matches: ^(.*)_seconds_total$
+      resources:
+        template: <<.Resource>>
+      seriesFilters: []
+      seriesQuery: '{namespace!="",__name__!~"^container_.*"}'
+    - metricsQuery: <<.Series>>
+      name:
+        matches: ^node_(.*)
+      resources:
+        overrides:
+          instance:
+            resource: node
+      seriesQuery: '{__name__=~"^node_.*"}'
+    - metricsQuery: <<.Series>>
+      name:
+        matches: ^node_(.*)
+      resources:
+        overrides:
+          pod_name:
+            resource: pod
+      seriesQuery: '{__name__=~"^node_.*",pod!=""}'
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2020-05-19T15:49:57Z"
+  labels:
+    app: prometheus-adapter
+    chart: prometheus-adapter-2.3.1
+    heritage: Helm
+    release: custom-metrics
+  managedFields:
+  - apiVersion: v1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:data:
+        .: {}
+        f:config.yaml: {}
+      f:metadata:
+        f:labels:
+          .: {}
+          f:app: {}
+          f:chart: {}
+          f:heritage: {}
+          f:release: {}
+    manager: Go-http-client
+    operation: Update
+    time: "2020-05-19T15:49:57Z"
+  name: custom-metrics-prometheus-adapter
+  namespace: custom-metrics
+  resourceVersion: "3227"
+  selfLink: /api/v1/namespaces/custom-metrics/configmaps/custom-metrics-prometheus-adapter
+  uid: a3c254df-6bf7-4e28-8904-29d44854878d
