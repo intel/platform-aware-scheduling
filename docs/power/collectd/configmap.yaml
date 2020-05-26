@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: collectd-config
+  namespace: monitoring
+data:
+  collectd.conf: |
+    
+    LoadPlugin python
+    LoadPlugin write_prometheus
+
+    <Plugin python>
+        ModulePath "/opt/collectd/etc/python-scripts"
+        Import "pkgpower"
+        <Module pkgpower>
+        </Module>
+    </Plugin>
+
+    <Plugin write_prometheus>
+      Port "9103"
+    </Plugin>
+

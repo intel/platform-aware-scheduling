@@ -1,0 +1,21 @@
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: power-autoscaler
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: power-hungry-application
+  minReplicas: 1
+  maxReplicas: 3 
+  metrics:
+  - type: Pods
+    pods:
+      target:
+        type: Value
+        averageValue: 50
+      metric:
+        name: node_package_power_per_pod
+
