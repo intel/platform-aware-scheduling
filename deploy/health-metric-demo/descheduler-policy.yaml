@@ -1,4 +1,4 @@
-Version: "descheduler/v1alpha1"
+apiVersion: "descheduler/v1alpha1"
 kind: "DeschedulerPolicy"
 strategies:
   "RemovePodsViolatingNodeAffinity":

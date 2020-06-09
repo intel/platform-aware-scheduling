@@ -99,7 +99,7 @@ After these steps the scheduler extender should be registered with the Kubernete
 Telemetry Aware Scheduling uses go modules. It requires Go 1.13+ with modules enabled in order to build. TAS has been tested with Kubernetes 1.14+. TAS was tested on Intel® Server Board S2600WF-Based Systems (Wolf Pass).
 A yaml file for TAS is contained in the deploy folder along with its service and RBAC roles and permissions.
 
-**Note:** If run without the unsafe flag a secret called extender-secret will need to be created with the cert and key for the TLS endpoint.
+**Note:** If run without the unsafe flag ([described in the table below](#tas-scheduler-extender)) a secret called extender-secret will need to be created with the cert and key for the TLS endpoint.
 TAS will not deploy if there is no secret available with the given deployment file.
 
 A secret can be created with:
@@ -178,7 +178,7 @@ name |type | description| usage | default|
 -----|------|-----|-------|-----|
 |syncPeriod|duration string| interval between refresh of telemetry data|-syncPeriod 1m| 1s
 |port| int | port number on which the scheduler extender will listen| -port 32000 | 9001
-|cert| string | location of the cert file for the TLS endpoint | --cert=/root/cert.txt| /etc/kubernetes/pki/ca.key
+|cert| string | location of the cert file for the TLS endpoint | --cert=/root/cert.txt| /etc/kubernetes/pki/ca.crt
 |key| string | location of the key file for the TLS endpoint| --key=/root/key.txt | /etc/kubernetes/pki/ca.key
 |unsafe| bool | whether or not to listen on a TLS endpoint with the scheduler extender | --unsafe=true| false
 
@@ -188,7 +188,7 @@ This also needs to be done inside higher level workload types i.e. deployments.
 
 For example,  in a deployment file: 
 ```
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1 
 kind: Deployment
 metadata:
   name: demo-app
