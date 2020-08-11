@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Pod 
+metadata:
+  name: dpdkcollectdl3fwd
+  labels:
+    app.kubernetes.io/name: dpdkcollectdl3fwd
+    app.kubernetes.io/version: v5.11 
+  annotations:
+    k8s.v1.cni.cncf.io/networks: '[
+      {
+        "name": "sriov-dpdk-net2000",
+        "mac": "ca:fe:c0:ff:ee:02"
+      },
+      {
+        "name": "sriov-dpdk-net2000",
+        "mac": "ca:fe:c0:ff:ee:04"
+      }
+    ]'
+spec:
+  containers:
+  - image: dpdkcollectdl3fwd
+    imagePullPolicy: Never       
+    name: collectd
+    securityContext:
+      capabilities:
+        add:
+        - IPC_LOCK
+    command: [ "/bin/sh", "-c", "collectd; while :; do sleep 300; done" ]
+    resources:
+      requests:
+        hugepages-1Gi: 2Gi
+        memory: 2Gi
+        cpu: 4
+        intel.com/intel_sriov_dpdk: 2
+      limits:
+        hugepages-1Gi: 2Gi
+        memory: 2Gi
+        cpu: 4
+        intel.com/intel_sriov_dpdk: 2
+    volumeMounts:
+    - name: hugepages
+      mountPath: /hugepages
+    - name: config
+      mountPath: /opt/collectd/etc/collectd.conf
+      subPath: collectd.conf
+    - mountPath: /host/sys/
+      name: sys
+      readOnly: true 
+    ports:
+    - containerPort: 9103
+      name: http
+  volumes:
+  - name: hugepages
+    emptyDir:
+      medium: HugePages
+  - name: config
+    configMap:
+      name: collectd-config
+  - hostPath:
+     path: /sys
+    name: sys
