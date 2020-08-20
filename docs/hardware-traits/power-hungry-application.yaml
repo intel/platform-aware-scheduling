@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: power-hungry-application 
+  labels:
+    app: power-hungry-application 
+    telemetry-policy: power-sensitive-scheduling-policy
+spec:
+  replicas: 1 
+  selector:
+    matchLabels:
+      app: power-hungry-application
+  template:
+    metadata:
+      labels:
+        telemetry-policy: power-sensitive-scheduling-policy
+        app: power-hungry-application 
+    spec:
+      containers:
+      - name: stressng
+        image: localhost:5000/stressng 
+        command: [ "/bin/bash", "-c", "--" ]
+        args: [ "sleep 30; stress-ng --cpu 12 --timeout 300s" ]
+        resources:
+          limits:
+            telemetry/scheduling: 1
+
