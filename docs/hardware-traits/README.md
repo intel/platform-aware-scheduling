@@ -39,7 +39,7 @@ Telemetry Aware Scheduling and Prometheus should be up and running and working o
 A number of data sources need to be deployed in order to fulfill our hardware trait.
 
 * [collectd with platform power](/docs/power) is needed to expose platform power metrics. A guide to setting up this exporter, with the associated Prometheus configs, is available [on this repo.](/docs/power) 
-* [SR-IOV Network Metrics Exporter] is required for both up to date telemetry from Intel X710 NICs and NUMA topology information which is used to guarantee performance. This exporter is also used to gather basic information on CPU usage by workloads. 
+* [SR-IOV Network Metrics Exporter](https://github.com/intel/sriov-network-metrics-exporter) is required for both up to date telemetry from Intel X710 NICs and NUMA topology information which is used to guarantee performance. This exporter is also used to gather basic information on CPU usage by workloads. 
 * [Prometheus Node Exporter](https://github.com/prometheus/node_exporter) is used to gather information on memory availability for the workload. 
 
 ## Creating a hardware trait
