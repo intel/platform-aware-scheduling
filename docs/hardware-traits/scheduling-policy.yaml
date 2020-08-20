@@ -1,0 +1,12 @@
+apiVersion: telemetry.intel.com/v1alpha1
+kind: TASPolicy
+metadata:
+  name: hardware-traits
+  namespace: default
+spec:
+  strategies:
+    dontschedule:
+      rules:
+      - metricname: 10GB1Mpps
+        operator: Equals
+        target: -1
