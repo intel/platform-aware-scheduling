@@ -163,44 +163,10 @@ data:
         - source_labels: [__meta_kubernetes_pod_container_port_number]
           regex:
           action: drop
-  rules: |
-    {}
 kind: ConfigMap
 metadata:
-  creationTimestamp: "2020-05-19T15:49:52Z"
   labels:
     app: prometheus
-    chart: prometheus-11.3.0
     component: server
-    heritage: Helm
-    release: health-metrics
-  managedFields:
-  - apiVersion: v1
-    fieldsType: FieldsV1
-    fieldsV1:
-      f:data:
-        .: {}
-        f:alerting_rules.yml: {}
-        f:alerts: {}
-        f:recording_rules.yml: {}
-        f:rules: {}
-      f:metadata:
-        f:labels:
-          .: {}
-          f:app: {}
-          f:chart: {}
-          f:component: {}
-          f:heritage: {}
-          f:release: {}
-    manager: Go-http-client
-    operation: Update
-    time: "2020-05-19T15:49:52Z"
-  - apiVersion: v1
-    fieldsType: FieldsV1
-    fieldsV1:
-      f:data:
-        f:prometheus.yml: {}
-    manager: kubectl
-    operation: Update
   name: health-metrics-prometheus-server
   namespace: monitoring
