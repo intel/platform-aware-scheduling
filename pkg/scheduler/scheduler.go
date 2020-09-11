@@ -268,8 +268,8 @@ func checkSymLinks(filename string) error {
 	if err != nil {
 		return err
 	}
-	if info.Mode() == os.ModeSymlink {
-		return err
+	if info.Mode() & os.ModeSymlink == os.ModeSymlink {
+		return fmt.Errorf("file %s is a symlink", filename)
 	}
 	return nil
 }
