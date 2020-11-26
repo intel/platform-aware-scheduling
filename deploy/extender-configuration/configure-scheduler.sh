@@ -1,3 +1,4 @@
+#!/bin/sh
 ## Set the location of the kube-scheduler manifest file. This is the location of the file under an ordinary Kubeadm set up.
 ## Note this step will only work if the scheduler is running in the cluster. If it's running as a service/binary/ex-K8s container the flags will need to be applied separately.
 
