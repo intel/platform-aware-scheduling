@@ -40,9 +40,8 @@ func TestNodeMetricsCache_PeriodicUpdate(t *testing.T) {
 			if err != nil {
 				if tt.wantErr {
 					return
-				} else {
-					t.Error(err)
 				}
+				t.Error(err)
 			}
 			atStart, _ := n.ReadMetric(tt.queriedName)
 			metrics.InstanceOfMockMetricClientMap[tt.queriedName] = tt.updatedMetric
@@ -51,9 +50,8 @@ func TestNodeMetricsCache_PeriodicUpdate(t *testing.T) {
 			if err != nil {
 				if tt.wantErr {
 					return
-				} else {
-					t.Error(err)
 				}
+				t.Error(err)
 			}
 			if atStart[tt.queriedNode].Value == atEnd[tt.queriedNode].Value {
 				log.Print(atStart[tt.queriedNode].Value, atEnd[tt.queriedNode].Value)
@@ -84,13 +82,11 @@ func TestNodeMetricsCache_ReadMetric(t *testing.T) {
 				if !tt.wantErr {
 					t.Errorf("AutoUpdatingCache.ReadMetric() error = %v", err)
 					return
-				} else {
-					return
 				}
-			} else {
-				if !reflect.DeepEqual(got, tt.want) {
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
 					t.Errorf("AutoUpdatingCache.ReadMetric() = %v, deleted %v", got, tt.want)
-				}
 			}
 		})
 	}
@@ -117,13 +113,11 @@ func TestNodeMetricsCache_ReadPolicy(t *testing.T) {
 				if !tt.wantErr {
 					t.Errorf("AutoUpdatingCache.ReadPolicy() error = %v / %v", err1, err2)
 					return
-				} else {
-					return
 				}
-			} else {
-				if !reflect.DeepEqual(got, tt.want) {
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
 					t.Errorf("AutoUpdatingCache.ReadPolicy() = %v, deleted %v", got, tt.want)
-				}
 			}
 			if tt.wantErr {
 				t.Errorf("no error fired")
@@ -155,9 +149,8 @@ func TestNodeMetricsCache_DeletePolicy(t *testing.T) {
 				if !tt.wantErr {
 					t.Errorf("AutoUpdatingCache.DeletePolicy() error = %v", err2)
 					return
-				} else {
-					return
 				}
+				return
 			}
 			if tt.wantErr {
 				t.Errorf("no error fired")
