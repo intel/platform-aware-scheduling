@@ -1,4 +1,4 @@
-//Provides instruments to read and cache Node Metrics from the custom metrics API.
+//Package metrics instruments to read and cache Node Metrics from the custom metrics API.
 package metrics
 
 import (
@@ -31,24 +31,24 @@ type NodeMetric struct {
 //NodeMetricsInfo holds a map of metric information related to a single named metric. The key for the map is the name of the node.
 type NodeMetricsInfo map[string]NodeMetric
 
-//customMetrics client embeds a client for the custom Metrics API
-type customMetricsClient struct {
+//CustomMetricsClient embeds a client for the custom Metrics API
+type CustomMetricsClient struct {
 	customclient.CustomMetricsClient
 }
 
 //NewClient creates a new Metrics Client including discovering and mapping the available APIs, and pulling the API version.
-func NewClient(config *restclient.Config) customMetricsClient {
+func NewClient(config *restclient.Config) CustomMetricsClient {
 	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(config)
 	cachedDiscoveryClient := cacheddiscovery.NewMemCacheClient(discoveryClient)
 	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(cachedDiscoveryClient)
 	restMapper.Reset()
 	apiVersionsGetter := customclient.NewAvailableAPIsGetter(discoveryClient)
-	metricsClient := customMetricsClient{customclient.NewForConfig(config, restMapper, apiVersionsGetter)}
+	metricsClient := CustomMetricsClient{customclient.NewForConfig(config, restMapper, apiVersionsGetter)}
 	return metricsClient
 }
 
 //GetNodeMetric gets the given metric, time Window for Metric and timestamp for each node in the cluster.
-func (c customMetricsClient) GetNodeMetric(metricName string) (NodeMetricsInfo, error) {
+func (c CustomMetricsClient) GetNodeMetric(metricName string) (NodeMetricsInfo, error) {
 	metrics, err := c.RootScopedMetrics().GetForObjects(schema.GroupKind{Kind: "Node"}, labels.NewSelector(), metricName, labels.NewSelector())
 	if err != nil {
 		return nil, errors.New("unable to fetch metrics from custom metrics API: " + err.Error())
