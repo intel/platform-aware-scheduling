@@ -23,12 +23,12 @@ func EvaluateRule(value resource.Quantity, rule telempol.TASPolicyRule) bool {
 	}
 	return operators[rule.Operator](value, rule.Target)
 }
-
+//OrderedList will return a list of nodes ordered by their linked metric and operator
 //TODO: Make this method more generic so it can use objects other than nodes.
-func OrderedList(metricsInfo metrics.NodeMetricsInfo, operator string) []nodeSortableMetric {
-	mtrcs := []nodeSortableMetric{}
+func OrderedList(metricsInfo metrics.NodeMetricsInfo, operator string) []NodeSortableMetric {
+	mtrcs := []NodeSortableMetric{}
 	for name, info := range metricsInfo {
-		mtrcs = append(mtrcs, nodeSortableMetric{name, info.Value})
+		mtrcs = append(mtrcs, NodeSortableMetric{name, info.Value})
 	}
 	switch operator {
 	case "GreaterThan":
@@ -39,9 +39,9 @@ func OrderedList(metricsInfo metrics.NodeMetricsInfo, operator string) []nodeSor
 	return mtrcs
 }
 
-//This type is necessary in order to call the sort.Slice method.
+//NodeSortableMetric type is necessary in order to call the sort.Slice method.
 //Note lack of usage of time windows or stamps.
-type nodeSortableMetric struct {
+type NodeSortableMetric struct {
 	NodeName    string
 	MetricValue resource.Quantity
 }
