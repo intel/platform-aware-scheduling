@@ -1,4 +1,4 @@
-//The deschedule strategy, violations conditions and enforcement behavior are defined in this package.
+//Package deschedule provides the deschedule strategy. Violation conditions and enforcement behavior are defined here.
 //When a node is violating the deschedule strategy, the enforcer labels it as violating.
 //This label can then be used externally to act on the strategy violation.
 package deschedule
@@ -11,11 +11,12 @@ import (
 	"log"
 )
 
+//StrategyType is set to de-schedule.
 const (
 	StrategyType = "deschedule"
 )
 
-//Interface type for descheduling from a single policy.
+//Strategy type for de-scheduling from a single policy.
 type Strategy telempol.TASPolicyStrategy
 
 //StrategyType returns the name of the strategy type. This is used to place it in the registry.

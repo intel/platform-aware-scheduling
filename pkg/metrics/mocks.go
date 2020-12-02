@@ -11,7 +11,8 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"time"
 )
-//Mocks used for testing in the metrics and other packages
+
+//DummyRestClientConfig  Mocks used for testing in the metrics and other packages
 func DummyRestClientConfig() *restclient.Config {
 	tmpFile, err := ioutil.TempFile("", "cmdtests_temp")
 	if err != nil {
@@ -28,22 +29,26 @@ func DummyRestClientConfig() *restclient.Config {
 	return restConfig
 }
 
+//DummyMetricsClient structured with a map of NodeMetricsInfo
 type DummyMetricsClient struct {
 	store *map[string]NodeMetricsInfo
 }
 
+//InstanceOfMockMetricClientMap refers to the metrics from Nodes
 var InstanceOfMockMetricClientMap = map[string]NodeMetricsInfo{
 	"dummyMetric1": TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{50, 30}),
 	"dummyMetric2": TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{50, 30}),
 	"dummyMetric3": TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{50, 30}),
 }
 
+//NewDummyMetricsClient receives the Node metrics and return the map values of client
 func NewDummyMetricsClient(cache map[string]NodeMetricsInfo) Client {
 	return DummyMetricsClient{
 		&cache,
 	}
 }
 
+//GetNodeMetric returns the NodeMetricsInfo of a metric when it exists.
 func (d DummyMetricsClient) GetNodeMetric(metricName string) (NodeMetricsInfo, error) {
 	s := *d.store
 	if v, ok := s[metricName]; ok {
@@ -52,6 +57,7 @@ func (d DummyMetricsClient) GetNodeMetric(metricName string) (NodeMetricsInfo, e
 	return nil, errors.New("metric not found")
 }
 
+//TestNodeMetricCustomInfo returns slice with NodeMetrics from a arrays of nodesNames and numbers.
 func TestNodeMetricCustomInfo(nodeNames []string, numbers []int64) NodeMetricsInfo {
 	n := NodeMetricsInfo{}
 	for i, name := range nodeNames {

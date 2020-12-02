@@ -1,4 +1,4 @@
-//Package telemetrypolicy/api/client provides an interface to interact with Policy CRD through a custom Client.
+//Package client telemetrypolicy/api/client provides an interface to interact with Policy CRD through a custom Client.
 package client
 
 import (

@@ -1,17 +1,18 @@
-//Describes the structure of the Telemetry Policy CRD.
+//Package v1alpha1 describes the structure of the Telemetry Policy CRD.
 package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+//Defines key values for policy CRD
 const (
 	Plural  = "taspolicies"
 	Group   = "telemetry.intel.com"
 	Version = "v1alpha1"
 )
 
-// TASpolicy is the Schema for the taspolicies API
+// TASPolicy is the Schema for the taspolicies API
 type TASPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -33,7 +34,7 @@ type TASPolicyRule struct {
 	Target     int64  `json:"target"`
 }
 
-//Spec for a TAS policy is a map of strategies indexed by their strategy type name i.e. scheduleonmetric, dontschedule.
+//TASPolicySpec is a map of strategies indexed by their strategy type name i.e. scheduleonmetric, dontschedule.
 type TASPolicySpec struct {
 	Strategies map[string]TASPolicyStrategy `json:"strategies"`
 }

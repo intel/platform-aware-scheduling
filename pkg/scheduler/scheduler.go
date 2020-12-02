@@ -1,4 +1,4 @@
-//Logic for the scheduler extender - including the server it starts and prioritize + filter methods - is implemented in this package.
+//Package scheduler extender logic contains code to respond call from the http endpoint.
 package scheduler
 
 import (
@@ -22,12 +22,12 @@ import (
 	"time"
 )
 
-//Metrics Extender holds information on the cache holding scheduling strategies and metrics.
+//MetricsExtender holds information on the cache holding scheduling strategies and metrics.
 type MetricsExtender struct {
 	cache cache.Reader
 }
 
-//Returns a new metric Extender with the cache passed to it.
+//NewMetricsExtender returns a new metric Extender with the cache passed to it.
 func NewMetricsExtender(newCache cache.Reader) MetricsExtender {
 	return MetricsExtender{
 		cache: newCache,
@@ -274,7 +274,7 @@ func checkSymLinks(filename string) error {
 	return nil
 }
 
-// startHttpServer starts the HTTP server needed for scheduler.
+// StartServer starts the HTTP server needed for scheduler.
 // It registers the handlers and checks for existing telemetry policies.
 func (m MetricsExtender) StartServer(port string, certFile string, keyFile string, unsafe bool) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { m.errorHandler(w, r) })

@@ -54,7 +54,7 @@ func (client *Client) Create(obj *telemetrypolicy.TASPolicy) (*telemetrypolicy.T
 	return &result, err
 }
 
-//updateWithData changes the information contained in a given Telemetry Policy
+//Update changes the information contained in a given Telemetry Policy
 func (client *Client) Update(obj *telemetrypolicy.TASPolicy) (*telemetrypolicy.TASPolicy, error) {
 	var result telemetrypolicy.TASPolicy
 	err := client.rest.Put().Namespace(obj.Namespace).Resource(client.plural).Body(obj).Name(obj.Name).Do().Into(&result)
@@ -68,7 +68,7 @@ func (client *Client) Get(name string, namespace string) (*telemetrypolicy.TASPo
 	return &result, err
 }
 
-//delete removes a telemetry policy of the given name, with the passed options, from Kubernetes.
+//Delete removes a telemetry policy of the given name, with the passed options, from Kubernetes.
 func (client *Client) Delete(name string, options *metav1.DeleteOptions) error {
 	return client.rest.Delete().Namespace(client.namespace).Resource(client.plural).Name(name).Body(options).Do().Error()
 }

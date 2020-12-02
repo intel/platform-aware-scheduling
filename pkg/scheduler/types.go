@@ -5,8 +5,8 @@ import (
 	"net/http"
 )
 
-//A scheduler extender has the capabilities needed to prioritize and filter nodes based on http requests.
-type SchedulerExtender interface {
+//ExtenderScheduler has the capabilities needed to prioritize and filter nodes based on http requests.
+type ExtenderScheduler interface {
 	Prioritize(w http.ResponseWriter, r *http.Request)
 	Filter(w http.ResponseWriter, r *http.Request)
 }
