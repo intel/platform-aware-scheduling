@@ -17,7 +17,7 @@ func TestNewEnforcer(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want MetricEnforcer
+		want *MetricEnforcer
 	}{
 		// TODO: add test cases.
 	}
@@ -288,3 +288,4 @@ func TestMetricEnforcer_RemoveStrategy(t *testing.T) {
 		})
 	}
 }
+
