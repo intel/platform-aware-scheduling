@@ -1,4 +1,4 @@
-//Logic for the scheduler extender - including the server it starts and priorize + filter methods - is implemented in this package.
+//Logic for the scheduler extender - including the server it starts and prioritize + filter methods - is implemented in this package.
 package scheduler
 
 import (
@@ -22,19 +22,19 @@ import (
 
 var prioritizerArgs1 = ExtenderArgs{
 	Pod:       v1.Pod{TypeMeta: metav1.TypeMeta{}, ObjectMeta: metav1.ObjectMeta{Name: "big pod", Labels: map[string]string{"telemetry-policy": "test-policy"}, Namespace: "default"}},
-	Nodes:     &v1.NodeList{Items: []v1.Node{{metav1.TypeMeta{}, metav1.ObjectMeta{Name: "node A"}, v1.NodeSpec{}, v1.NodeStatus{}}}},
+	Nodes:     &v1.NodeList{Items: []v1.Node{{TypeMeta: metav1.TypeMeta{}, ObjectMeta: metav1.ObjectMeta{Name: "node A"}, Spec: v1.NodeSpec{}, Status: v1.NodeStatus{}}}},
 	NodeNames: &[]string{"node A", "node B"},
 }
 
 var twoNodeArgument = ExtenderArgs{
 	Pod:       v1.Pod{TypeMeta: metav1.TypeMeta{}, ObjectMeta: metav1.ObjectMeta{Name: "big pod", Labels: map[string]string{"telemetry-policy": "test-policy"}, Namespace: "default"}},
-	Nodes:     &v1.NodeList{Items: []v1.Node{{metav1.TypeMeta{}, metav1.ObjectMeta{Name: "node A"}, v1.NodeSpec{}, v1.NodeStatus{}}, {metav1.TypeMeta{}, metav1.ObjectMeta{Name: "node B"}, v1.NodeSpec{}, v1.NodeStatus{}}}},
+	Nodes:     &v1.NodeList{Items: []v1.Node{{TypeMeta: metav1.TypeMeta{}, ObjectMeta: metav1.ObjectMeta{Name: "node A"}, Spec: v1.NodeSpec{}, Status: v1.NodeStatus{}}, {TypeMeta: metav1.TypeMeta{}, ObjectMeta: metav1.ObjectMeta{Name: "node B"}, Spec: v1.NodeSpec{}, Status: v1.NodeStatus{}}}},
 	NodeNames: &[]string{"node A", "node B"},
 }
 
 var noPolicyPod = ExtenderArgs{
 	Pod:       v1.Pod{TypeMeta: metav1.TypeMeta{}, ObjectMeta: metav1.ObjectMeta{Name: "big pod", Labels: map[string]string{"useless-label": "test-policy"}, Namespace: "default"}},
-	Nodes:     &v1.NodeList{Items: []v1.Node{{metav1.TypeMeta{}, metav1.ObjectMeta{Name: "node A"}, v1.NodeSpec{}, v1.NodeStatus{}}}},
+	Nodes:     &v1.NodeList{Items: []v1.Node{{TypeMeta: metav1.TypeMeta{}, ObjectMeta: metav1.ObjectMeta{Name: "node A"}, Spec: v1.NodeSpec{}, Status: v1.NodeStatus{}}}},
 	NodeNames: &[]string{"node A", "node B"},
 }
 var testPolicy1 = telpolv1.TASPolicy{
@@ -45,12 +45,12 @@ var testPolicy1 = telpolv1.TASPolicy{
 			"scheduleonmetric": {
 				PolicyName: "test-policy",
 				Rules: []telpolv1.TASPolicyRule{
-					{"dummyMetric1", "GreaterThan", 0}},
+					{Metricname: "dummyMetric1", Operator: "GreaterThan", Target: 0}},
 			},
 			"dontschedule": {
 				PolicyName: "test-policy",
 				Rules: []telpolv1.TASPolicyRule{
-					{"dummyMetric1", "GreaterThan", 40},
+					{Metricname: "dummyMetric1", Operator: "GreaterThan", Target: 40},
 				},
 			},
 		},
@@ -65,12 +65,12 @@ var testPolicy2 = telpolv1.TASPolicy{
 			"scheduleonmetric": {
 				PolicyName: "test-policy",
 				Rules: []telpolv1.TASPolicyRule{
-					{"dummyMetric1", "GreaterThan", 0}},
+					{Metricname: "dummyMetric1", Operator: "GreaterThan", Target: 0}},
 			},
 			"dontschedule": {
 				PolicyName: "test-policy",
 				Rules: []telpolv1.TASPolicyRule{
-					{"dummyMetric1", "GreaterThan", 40},
+					{Metricname:"dummyMetric1", Operator: "GreaterThan", Target: 40},
 				},
 			},
 		},
@@ -315,3 +315,4 @@ func TestMetricsExtender_Filter(t *testing.T) {
 		})
 	}
 }
+
