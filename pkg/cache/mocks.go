@@ -8,12 +8,14 @@ import (
 	"time"
 )
 
+//MockEmptySelfUpdatingCache returns auto updating cache
 func MockEmptySelfUpdatingCache() ReaderWriter {
 	n := NewAutoUpdatingCache()
 	go n.PeriodicUpdate(*time.NewTicker(time.Second), metrics.NewDummyMetricsClient(map[string]metrics.NodeMetricsInfo{}), map[string]interface{}{})
 	return n
 }
 
+//MockSelfUpdatingCache returns auto updating cache
 func MockSelfUpdatingCache() *AutoUpdatingCache {
 	n := MockEmptySelfUpdatingCache()
 	_ = n.WriteMetric("dummyMetric1", TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{50, 30}))
@@ -21,6 +23,8 @@ func MockSelfUpdatingCache() *AutoUpdatingCache {
 	_ = n.WriteMetric("dummyMetric3", TestNodeMetricCustomInfo([]string{"node Z", "node Y"}, []int64{8, 40000000}))
 	return n.(*AutoUpdatingCache)
 }
+
+//TestNodeMetricCustomInfo returns the node metrics information
 func TestNodeMetricCustomInfo(nodeNames []string, numbers []int64) metrics.NodeMetricsInfo {
 	n := metrics.NodeMetricsInfo{}
 	for i, name := range nodeNames {

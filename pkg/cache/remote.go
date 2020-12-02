@@ -8,12 +8,13 @@ import (
 	"net/http"
 )
 
+//RemoteClient can send http requests to a single endpoint
 type RemoteClient struct {
 	endpoint string
 	http.Client
 }
 
-//Register endpoint adds an endpoint for the metrics getter to read from
+//RegisterEndpoint adds an endpoint for the metrics getter to read from
 func (r *RemoteClient) RegisterEndpoint(endpoint string) {
 	r.endpoint = endpoint
 }

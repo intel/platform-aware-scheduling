@@ -26,7 +26,7 @@ type ReaderWriter interface {
 	Writer
 }
 
-//TasCache describes functionality to periodically update all metrics in the metric cache.
+//SelfUpdating describes functionality to periodically update all metrics in the metric cache.
 type SelfUpdating interface {
 	PeriodicUpdate(time.Ticker, metrics.Client, map[string]interface{})
 }

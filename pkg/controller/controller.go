@@ -1,4 +1,4 @@
-//Provides a controller that can be used to watch policies in the Kuebrnetes API.
+//Package controller provides a controller that can be used to watch policies in the Kubernetes API.
 //It registers strategies from those policies to an enforcer.
 package controller
 

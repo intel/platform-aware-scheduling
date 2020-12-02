@@ -8,8 +8,10 @@ import (
 	telemetryPolicyV1 "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 )
 
+//Strategy represents the TAS policy strategies
 type Strategy telemetryPolicyV1.TASPolicyStrategy
 
+//StrategyType is set to schedule.
 const (
 	StrategyType = "scheduleonmetric"
 )
@@ -19,10 +21,12 @@ func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
 	violatingNodes := map[string]interface{}{}
 	return violatingNodes
 }
+
 //Enforce is unimplemented
 func (d *Strategy) Enforce(enforcer *core.MetricEnforcer, cache cache.Reader) (int, error) {
 	return 0, nil
 }
+
 //StrategyType returns the constant name of the strategy used to index it for other objects.
 func (d *Strategy) StrategyType() string {
 	return StrategyType
@@ -51,11 +55,12 @@ func (d *Strategy) Equals(other core.Interface) bool {
 
 }
 
-//Returns the policy name associated with this strategys.
+//GetPolicyName returns the policy name associated with this strategy.
 func (d *Strategy) GetPolicyName() string {
 	return d.PolicyName
 }
-//Sets the policy name for this strategy
+
+//SetPolicyName sets the policy name for this strategy.
 func (d *Strategy) SetPolicyName(policyName string) {
 	d.PolicyName = policyName
 }

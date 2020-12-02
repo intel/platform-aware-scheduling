@@ -30,6 +30,7 @@ func (e *MetricEnforcer) RegisterStrategyType(str Interface) {
 	e.RegisteredStrategies[str.StrategyType()] = map[Interface]interface{}{}
 }
 
+//IsRegistered checks to see if a passed strategy is already being enforced
 func (e *MetricEnforcer) IsRegistered(str string) bool {
 	e.Lock()
 	defer e.Unlock()
@@ -57,6 +58,7 @@ func (e *MetricEnforcer) RegisteredStrategyTypes() []string {
 	return output
 }
 
+//RemoveStrategy will take a strategy out of the enforcer if it's currently registered
 func (e *MetricEnforcer) RemoveStrategy(str Interface, strategyType string) {
 	e.Lock()
 	defer e.Unlock()

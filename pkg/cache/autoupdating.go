@@ -113,7 +113,7 @@ func (n *AutoUpdatingCache) WriteMetric(metricName string, data metrics.NodeMetr
 	return nil
 }
 
-//Delete policy removes the policy removes the policy object at the given namespace/name string from the cache
+//DeletePolicy removes the policy removes the policy object at the given namespace/name string from the cache
 func (n *AutoUpdatingCache) DeletePolicy(namespace string, policyName string) error {
 	log.Print("deleting", fmt.Sprintf(policyPath, namespace, policyName))
 	n.delete(fmt.Sprintf(policyPath, namespace, policyName))

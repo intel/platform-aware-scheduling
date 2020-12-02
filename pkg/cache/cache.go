@@ -2,12 +2,14 @@ package cache
 
 type requestType uint
 
+//const for requestType value
 const (
 	READ requestType = iota
 	WRITE
 	DELETE
 )
 
+//Interface contains the baseline behaviour for a cache
 type Interface interface {
 	add(string, interface{})
 	delete(string)

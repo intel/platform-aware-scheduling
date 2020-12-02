@@ -10,11 +10,14 @@ import (
 	"log"
 )
 
+//Strategy represents the TAS policy strategies.
 type Strategy telemetryPolicyV1.TASPolicyStrategy
 
+//StrategyType is set to not schedule
 const (
 	StrategyType = "dontschedule"
 )
+
 //Violated compares the list of rules against the metric values pulled from the cache.
 //If any single rule is violated the method returns a set of nodes that are currently in violation.
 func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
@@ -35,15 +38,18 @@ func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
 	}
 	return violatingNodes
 }
-//Unimplemented for dontschedule
+
+//Enforce unimplemented for dontschedule.
 func (d *Strategy) Enforce(enforcer *core.MetricEnforcer, cache cache.Reader) (int, error) {
 	return 0, nil
 }
-//Returns the strategy type constant
+
+//StrategyType returns the strategy type constant
 func (d *Strategy) StrategyType() string {
 	return StrategyType
 }
-//Naive equals implementation which checks to see if all rules and the policy name are equal for this strategy and another.
+
+//Equals implementation which checks to see if all rules and the policy name are equal for this strategy and another.
 //Used to avoid duplications and to find the correct strategy for deletions in the index.
 func (d *Strategy) Equals( other core.Interface) bool {
 	OtherDontScheduleStrategy, ok := other.(*Strategy)
@@ -65,11 +71,13 @@ func (d *Strategy) Equals( other core.Interface) bool {
 	return false
 
 }
-//Sets a connected policy name for this strategy.
+
+//SetPolicyName sets a connected policy name for this strategy.
 func (d *Strategy) SetPolicyName(policyName string) {
 	d.PolicyName = policyName
 }
-//Returns the set policy name for this strategy.
+
+//GetPolicyName returns the set policy name for this strategy.
 func (d *Strategy) GetPolicyName() string {
 	return d.PolicyName
 }
