@@ -111,7 +111,7 @@ func TestMetricsExtender_prescheduleChecks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := NewMetricsExtender(tt.fields.cache)
 			err := tt.fields.cache.WritePolicy(tt.fields.policy.Namespace, tt.fields.policy.Name, tt.fields.policy)
-			argsAsJson, err := json.Marshal(tt.prioritizeArgs)
+			argsAsJSON, err := json.Marshal(tt.prioritizeArgs)
 			if err != nil && tt.wantErr {
 				log.Print(err)
 				return
@@ -121,7 +121,7 @@ func TestMetricsExtender_prescheduleChecks(t *testing.T) {
 				return
 			}
 			tt.args.r.Header.Add("Content-Type", "application/json")
-			tt.args.r.Body = ioutil.NopCloser(bytes.NewReader(argsAsJson))
+			tt.args.r.Body = ioutil.NopCloser(bytes.NewReader(argsAsJSON))
 			w := httptest.NewRecorder()
 			m.Prioritize(w, tt.args.r)
 			result := HostPriorityList{}
@@ -194,7 +194,7 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := NewMetricsExtender(tt.fields.cache)
 			err := tt.fields.cache.WritePolicy(tt.fields.policy.Namespace, tt.fields.policy.Name, tt.fields.policy)
-			argsAsJson, err := json.Marshal(tt.prioritizeArgs)
+			argsAsJSON, err := json.Marshal(tt.prioritizeArgs)
 			if err != nil && tt.wantErr {
 				log.Print(err)
 				return
@@ -205,7 +205,7 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 				return
 			}
 			tt.args.r.Header.Add("Content-Type", "application/json")
-			tt.args.r.Body = ioutil.NopCloser(bytes.NewReader(argsAsJson))
+			tt.args.r.Body = ioutil.NopCloser(bytes.NewReader(argsAsJSON))
 			w := httptest.NewRecorder()
 			m.Prioritize(w, tt.args.r)
 			result := HostPriorityList{}
@@ -284,11 +284,11 @@ func TestMetricsExtender_Filter(t *testing.T) {
 			}
 			err := tt.fields.cache.WritePolicy(tt.fields.policy.Namespace, tt.fields.policy.Name, tt.fields.policy)
 			err = tt.fields.cache.WriteMetric(tt.fields.policy.Spec.Strategies["dontschedule"].Rules[0].Metricname, tt.args.metric)
-			argsAsJson, err := json.Marshal(twoNodeArgument)
+			argsAsJSON, err := json.Marshal(twoNodeArgument)
 			if err != nil {
 				log.Print(err)
 			}
-			tt.args.r.Body = ioutil.NopCloser(bytes.NewReader(argsAsJson))
+			tt.args.r.Body = ioutil.NopCloser(bytes.NewReader(argsAsJSON))
 			tt.args.r.Header.Add("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 			m.Filter(w, tt.args.r)
