@@ -64,13 +64,13 @@ func TestDescheduleStrategy_Equals(t *testing.T) {
 		args args
 		want bool
 	}{
-		{name: "Equal empty strategies", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{}}, args: args{&Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}},
-		{name: "Equal one rule per strategy", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{"memory", "GreaterThan", 50}}}, args: args{&Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}, want: true},
-		{name: "different number rules same order", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{"cpu", "Equals", 1}, {Metricname: "memory", Operator: "GreaterThan", Target: 50}}}, args: args{&Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}},
-		{name: "Not equal different number rules different order", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{"memory", "GreaterThan", 50}, {Metricname: "cpu", Operator: "Equals", Target: 1}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{"memory", "GreaterThan", 50}}}}},
-		{name: "Not equal different rule names", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{"cpu", "GreaterThan", 50}}}, args: args{&Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}},
-		{name: "Not equal different operator", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{"memory", "LessThan", 50}}}, args: args{&Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}},
-		{name: "Not equal different target", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{"memory", "GreaterThan", 10}}}, args: args{&Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}},
+		{name: "Equal empty strategies", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}},
+		{name: "Equal one rule per strategy", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}, want: true},
+		{name: "different number rules same order", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "cpu", Operator: "Equals", Target: 1}, {Metricname: "memory", Operator: "GreaterThan", Target: 50}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}},
+		{name: "Not equal different number rules different order", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}, {Metricname: "cpu", Operator: "Equals", Target: 1}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}},
+		{name: "Not equal different rule names", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "cpu", Operator: "GreaterThan", Target: 50}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}},
+		{name: "Not equal different operator", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "LessThan", Target: 50}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}},
+		{name: "Not equal different target", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 10}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -99,7 +99,7 @@ func TestDescheduleStrategy_Violated(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {time.Now(), 1, *resource.NewQuantity(10, resource.DecimalSI)}})
+			err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1, Value: *resource.NewQuantity(10, resource.DecimalSI)}})
 			if err != nil {
 				log.Print(err)
 			}

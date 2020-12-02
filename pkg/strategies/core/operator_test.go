@@ -28,12 +28,12 @@ func TestOperator(t *testing.T) {
 		args args
 		want bool
 	}{
-		{"LessThan true", args{100, telemetrypolicy.TASPolicyRule{"memory", "LessThan", 1000}}, true},
-		{"GreaterThan true", args{100000, telemetrypolicy.TASPolicyRule{"memory", "GreaterThan", 1}}, true},
-		{"Equals true", args{1, telemetrypolicy.TASPolicyRule{"memory", "Equals", 1}}, true},
-		{"LessThan false", args{10000, telemetrypolicy.TASPolicyRule{"memory", "LessThan", 10}}, false},
-		{"GreaterThan false", args{1, telemetrypolicy.TASPolicyRule{"memory", "GreaterThan", 10000}}, false},
-		{"Equals false", args{1, telemetrypolicy.TASPolicyRule{"memory", "Equals", 100}}, false},
+		{name: "LessThan true", args: args{value: 100, rule: telemetrypolicy.TASPolicyRule{Metricname: "memory", Operator: "LessThan", Target: 1000}}, want: true},
+		{name: "GreaterThan true", args: args{value: 100000, rule: telemetrypolicy.TASPolicyRule{Metricname: "memory", Operator: "GreaterThan", Target: 1}}, want: true},
+		{name: "Equals true", args: args{value: 1, rule: telemetrypolicy.TASPolicyRule{Metricname: "memory", Operator: "Equals", Target: 1}}, want: true},
+		{name: "LessThan false", args: args{value: 10000, rule: telemetrypolicy.TASPolicyRule{Metricname: "memory", Operator: "LessThan", Target: 10}}},
+		{name: "GreaterThan false", args: args{value: 1, rule: telemetrypolicy.TASPolicyRule{Metricname: "memory", Operator: "GreaterThan", Target: 10000}}},
+		{name: "Equals false", args: args{value: 1, rule: telemetrypolicy.TASPolicyRule{Metricname: "memory", Operator: "Equals", Target: 100}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

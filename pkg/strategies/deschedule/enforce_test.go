@@ -31,23 +31,21 @@ func TestDescheduleStrategy_Enforce(t *testing.T) {
 		wantErr bool
 		want    expected
 	}{
-		{"node label test",
-			&Strategy{PolicyName: "deschedule-test", Rules: []telpol.TASPolicyRule{{"memory", "GreaterThan", 1}, {"cpu", "LessThan", 10}}},
-			&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-1", Labels: map[string]string{"deschedule-test": ""}}},
-			args{strategy.NewEnforcer(testclient.NewSimpleClientset()),
-				cache.MockEmptySelfUpdatingCache()},
-			false,
-			expected{[]string{"node-1"}}},
-		{"node unlabel test",
-			&Strategy{PolicyName: "deschedule-test", Rules: []telpol.TASPolicyRule{{"memory", "GreaterThan", 1000}, {"cpu", "LessThan", 10}}},
-			&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-1", Labels: map[string]string{"deschedule-test": "violating"}}},
-			args{strategy.NewEnforcer(testclient.NewSimpleClientset()),
-				cache.MockEmptySelfUpdatingCache()},
-			false,
-			expected{[]string{}}},
+		{name: "node label test",
+			d:    &Strategy{PolicyName: "deschedule-test", Rules: []telpol.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 1}, {Metricname: "cpu", Operator: "LessThan", Target: 10}}},
+			node: &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-1", Labels: map[string]string{"deschedule-test": ""}}},
+			args: args{enforcer: strategy.NewEnforcer(testclient.NewSimpleClientset()),
+				cache: cache.MockEmptySelfUpdatingCache()},
+			want: expected{nodeNames: []string{"node-1"}}},
+		{name: "node unlabel test",
+			d:    &Strategy{PolicyName: "deschedule-test", Rules: []telpol.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 1000}, {Metricname: "cpu", Operator: "LessThan", Target: 10}}},
+			node: &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-1", Labels: map[string]string{"deschedule-test": "violating"}}},
+			args: args{enforcer: strategy.NewEnforcer(testclient.NewSimpleClientset()),
+				cache: cache.MockEmptySelfUpdatingCache()},
+			want: expected{nodeNames: []string{}}},
 	}
 	for _, tt := range tests {
-		err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {time.Now(), 1, *resource.NewQuantity(100, resource.DecimalSI)}})
+		err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1, Value: *resource.NewQuantity(100, resource.DecimalSI)}})
 		_, err = tt.args.enforcer.KubeClient.CoreV1().Nodes().Create(tt.node)
 		tt.args.enforcer.RegisterStrategyType(tt.d)
 		tt.args.enforcer.AddStrategy(tt.d, tt.d.StrategyType())
@@ -75,3 +73,4 @@ func TestDescheduleStrategy_Enforce(t *testing.T) {
 		})
 	}
 }
+

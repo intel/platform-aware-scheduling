@@ -21,13 +21,13 @@ func TestDontScheduleStrategy_Violated(t *testing.T) {
 		args args
 		want map[string]interface{}
 	}{
-		{"One node violating", Strategy{"test name", []v1.TASPolicyRule{{"memory", "GreaterThan", 9}}}, args{cache.MockEmptySelfUpdatingCache()}, map[string]interface{}{"node-1": nil}},
-		{"No nodes violating", Strategy{"test name", []v1.TASPolicyRule{{"memory", "GreaterThan", 11}}}, args{cache.MockEmptySelfUpdatingCache()}, map[string]interface{}{}},
-		{"No metric found", Strategy{"test name", []v1.TASPolicyRule{{"mem", "GreaterThan", 9}}}, args{cache.MockEmptySelfUpdatingCache()}, map[string]interface{}{}},
+		{name: "One node violating", d: Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 9}}}, args: args{cache: cache.MockEmptySelfUpdatingCache()}, want: map[string]interface{}{"node-1": nil}},
+		{name: "No nodes violating", d: Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 11}}}, args: args{cache: cache.MockEmptySelfUpdatingCache()}, want: map[string]interface{}{}},
+		{name: "No metric found", d: Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "mem", Operator: "GreaterThan", Target: 9}}}, args: args{cache: cache.MockEmptySelfUpdatingCache()}, want: map[string]interface{}{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {time.Now(), 1, *resource.NewQuantity(10, resource.DecimalSI)}})
+			err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1, Value: *resource.NewQuantity(10, resource.DecimalSI)}})
 			if err != nil {
 				panic(err)
 			}
@@ -125,3 +125,4 @@ func TestDontScheduleStrategy_Enforce(t *testing.T) {
 		})
 	}
 }
+
