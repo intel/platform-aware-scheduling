@@ -37,6 +37,9 @@ func main() {
 		panic(err)
 	}
 	syncDuration, err := time.ParseDuration(syncPeriod)
+	if err != nil {
+		log.Fatalf("duration %v cannot be parsed: %v", syncPeriod, err)
+	}
 	metricsClient := metrics.NewClient(clientConfig)
 	telpolicyClient, _, err := telemetrypolicyclient.NewRest(*clientConfig)
 	if err != nil {
