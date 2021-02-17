@@ -28,7 +28,6 @@ func (d *Strategy) StrategyType() string {
 //Returns a map of nodeNames as key with an empty value associated with each.
 func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
 	violatingNodes := map[string]interface{}{}
-	output := []string{}
 	for _, rule := range d.Rules {
 		nodeMetrics, err := cache.ReadMetric(rule.Metricname)
 		if err != nil {
@@ -42,9 +41,6 @@ func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
 				violatingNodes[nodeName] = nil
 			}
 		}
-	}
-	for k := range violatingNodes {
-		output = append(output, k)
 	}
 	return violatingNodes
 }
