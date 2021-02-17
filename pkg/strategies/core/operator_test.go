@@ -53,10 +53,10 @@ func TestOrderedList(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want []nodeSortableMetric
+		want []NodeSortableMetric
 	}{
-		{"less than test", args{testNodeMetricCustomInfo([]string{"node A", "node B", "node C"}, []int64{100, 200, 10}), "LessThan"}, []nodeSortableMetric{{"node C", *resource.NewQuantity(10, resource.DecimalSI)}, {"node A", *resource.NewQuantity(100, resource.DecimalSI)}, {"node B", *resource.NewQuantity(200, resource.DecimalSI)}}},
-		{"greater than test", args{testNodeMetricCustomInfo([]string{"node A", "node B", "node C"}, []int64{100, 200, 10}), "GreaterThan"}, []nodeSortableMetric{{"node B", *resource.NewQuantity(200, resource.DecimalSI)}, {"node A", *resource.NewQuantity(100, resource.DecimalSI)}, {"node C", *resource.NewQuantity(10, resource.DecimalSI)}}},
+		{"less than test", args{testNodeMetricCustomInfo([]string{"node A", "node B", "node C"}, []int64{100, 200, 10}), "LessThan"}, []NodeSortableMetric{{"node C", *resource.NewQuantity(10, resource.DecimalSI)}, {"node A", *resource.NewQuantity(100, resource.DecimalSI)}, {"node B", *resource.NewQuantity(200, resource.DecimalSI)}}},
+		{"greater than test", args{testNodeMetricCustomInfo([]string{"node A", "node B", "node C"}, []int64{100, 200, 10}), "GreaterThan"}, []NodeSortableMetric{{"node B", *resource.NewQuantity(200, resource.DecimalSI)}, {"node A", *resource.NewQuantity(100, resource.DecimalSI)}, {"node C", *resource.NewQuantity(10, resource.DecimalSI)}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -39,7 +39,7 @@ func dummyRestClientConfig() *restclient.Config {
 	fallbackReader := bytes.NewBuffer([]byte{})
 	clientConfig := clientcmd.NewInteractiveDeferredLoadingClientConfig(loadingRules, overrides, fallbackReader)
 	restConfig, err := clientConfig.ClientConfig()
-	if err == nil {
+	if err != nil {
 		log.Fatalf("Can't create dummy rest client config %v ", err)
 	}
 	return restConfig
@@ -98,7 +98,7 @@ func Test_customMetricsClient_GetNodeMetric(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := customMetricsClient{
+			c := CustomMetricsClient{
 				tt.fields.client,
 			}
 			got, err := c.GetNodeMetric(tt.args.metricName)
@@ -134,6 +134,7 @@ func TestNewClient(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewClient(tt.args.config)
 			if reflect.TypeOf(got) != reflect.TypeOf(dummyRestClientConfig()) {
+				log.Print("No real test implemented here")
 				//TODO:add some better verification constructor has worked here.
 			}
 		})
