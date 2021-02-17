@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"k8s.io/client-go/tools/clientcmd"
+	"log"
 	"reflect"
 	"testing"
 	"time"
@@ -38,6 +39,9 @@ func dummyRestClientConfig() *restclient.Config {
 	fallbackReader := bytes.NewBuffer([]byte{})
 	clientConfig := clientcmd.NewInteractiveDeferredLoadingClientConfig(loadingRules, overrides, fallbackReader)
 	restConfig, err := clientConfig.ClientConfig()
+	if err == nil {
+		log.Fatalf("Can't create dummy rest client config %v ", err)
+	}
 	return restConfig
 }
 

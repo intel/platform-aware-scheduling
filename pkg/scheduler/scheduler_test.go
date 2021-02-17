@@ -111,6 +111,10 @@ func TestMetricsExtender_prescheduleChecks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := NewMetricsExtender(tt.fields.cache)
 			err := tt.fields.cache.WritePolicy(tt.fields.policy.Namespace, tt.fields.policy.Name, tt.fields.policy)
+			if err != nil && tt.wantErr {
+				log.Print(err)
+				return
+			}
 			argsAsJSON, err := json.Marshal(tt.prioritizeArgs)
 			if err != nil && tt.wantErr {
 				log.Print(err)
@@ -194,6 +198,10 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := NewMetricsExtender(tt.fields.cache)
 			err := tt.fields.cache.WritePolicy(tt.fields.policy.Namespace, tt.fields.policy.Name, tt.fields.policy)
+			if err != nil && tt.wantErr {
+				log.Print(err)
+				return
+			}
 			argsAsJSON, err := json.Marshal(tt.prioritizeArgs)
 			if err != nil && tt.wantErr {
 				log.Print(err)
@@ -283,7 +291,15 @@ func TestMetricsExtender_Filter(t *testing.T) {
 				cache: tt.fields.cache,
 			}
 			err := tt.fields.cache.WritePolicy(tt.fields.policy.Namespace, tt.fields.policy.Name, tt.fields.policy)
+			if err != nil && tt.wantErr {
+				log.Print(err)
+				return
+			}
 			err = tt.fields.cache.WriteMetric(tt.fields.policy.Spec.Strategies["dontschedule"].Rules[0].Metricname, tt.args.metric)
+			if err != nil && tt.wantErr {
+				log.Print(err)
+				return
+			}
 			argsAsJSON, err := json.Marshal(twoNodeArgument)
 			if err != nil {
 				log.Print(err)
