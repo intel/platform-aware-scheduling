@@ -177,6 +177,9 @@ func TestNodeMetricsCache_WriteMetric(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.n.WriteMetric(tt.args.metricName, nil)
+			if err == nil && tt.errorExpected {
+				t.Fail()
+			}
 			_, err = tt.n.ReadMetric(tt.queriedMetric)
 			if err == nil && tt.errorExpected {
 				t.Fail()
