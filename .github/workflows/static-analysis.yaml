@@ -1,0 +1,43 @@
+name: Static Analysis
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  shellcheck:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run ShellCheck
+      uses: ludeeus/action-shellcheck@master
+  hadolint:
+    runs-on: ubuntu-latest
+    name: Hadolint
+    steps:
+    - uses: actions/checkout@v2
+#     Each dockerfile needs to be pointed to individually with this setup
+    - uses: brpaz/hadolint-action@v1.2.1
+      with:
+       dockerfile: deploy/images/Dockerfile_controller
+    - uses: brpaz/hadolint-action@v1.2.1
+      with:
+        dockerfile: deploy/images/Dockerfile_extender
+  golangci:
+    strategy:
+      matrix:
+        go-version: [1.15.x]
+        os: [ubuntu-latest]
+    name: lint
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v2
+        with:
+          version: v1.29
+        # Additional linting tools can be added here
+          args: --enable=golint
