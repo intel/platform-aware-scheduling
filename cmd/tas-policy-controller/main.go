@@ -47,7 +47,7 @@ func main() {
 	initialData := map[string]interface{}{}
 	go cache.PeriodicUpdate(*metricTicker, metricsClient, initialData)
 	go cache.Serve(cachePort)
-
+	log.Print("This is definitely the now")
 	enforcerTicker := time.NewTicker(syncDuration)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
