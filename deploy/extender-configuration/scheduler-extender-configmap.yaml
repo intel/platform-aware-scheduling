@@ -10,7 +10,7 @@ data:
         "apiVersion" : "v1",
         "extenders" : [
             {
-              "urlPrefix": "https://tas-service.default.svc.cluster.local:9001",
+              "urlPrefix": "https://tas-service.default.svc.cluster.local:9001",             
               "apiVersion": "v1",
               "prioritizeVerb": "scheduler/prioritize",
               "filterVerb": "scheduler/filter",
@@ -22,7 +22,12 @@ data:
                      "ignoredByScheduler": true
                    }
               ],
-              "ignorable": true
-          }
-         ]
+              "ignorable": true,
+              "tlsConfig": {
+                     "insecure": false,
+                     "certFile": "/host/certs/client.crt",
+                     "keyFile" : "/host/certs/client.key"
+              }
+            }
+           ]
     }

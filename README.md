@@ -51,7 +51,7 @@ Note: a shell script that shows these steps can be found [here](deploy/extender-
 The extender configuration files can be found under deploy/extender-configuration.
 TAS Scheduler Extender needs to be registered with the Kubernetes Scheduler. In order to do this a configmap should be created like the below:
 ````
-apiVersion: v1alpha1
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: scheduler-extender-policy
@@ -63,7 +63,7 @@ data:
         "apiVersion" : "v1",
         "extenders" : [
             {
-              "urlPrefix": "https://tas-service.default.svc.cluster.local:9001",
+              "urlPrefix": "https://tas-service.default.svc.cluster.local:9001",             
               "apiVersion": "v1",
               "prioritizeVerb": "scheduler/prioritize",
               "filterVerb": "scheduler/filter",
@@ -75,9 +75,14 @@ data:
                      "ignoredByScheduler": true
                    }
               ],
-              "ignorable": true
-          }
-         ]
+              "ignorable": true,
+              "tlsConfig": {
+                     "insecure": false,
+                     "certFile": "/host/certs/client.crt",
+                     "keyFile" : "/host/certs/client.key"
+              }
+            }
+           ]
     }
 
 ````

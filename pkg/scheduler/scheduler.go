@@ -3,9 +3,11 @@ package scheduler
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 
 	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
@@ -276,7 +278,7 @@ func checkSymLinks(filename string) error {
 
 // StartServer starts the HTTP server needed for scheduler.
 // It registers the handlers and checks for existing telemetry policies.
-func (m MetricsExtender) StartServer(port string, certFile string, keyFile string, unsafe bool) {
+func (m MetricsExtender) StartServer(port string, certFile string, keyFile string, caFile string, unsafe bool) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { m.errorHandler(w, r) })
 	http.HandleFunc("/scheduler/prioritize", func(w http.ResponseWriter, r *http.Request) { m.Prioritize(w, r) })
 	http.HandleFunc("/scheduler/filter", func(w http.ResponseWriter, r *http.Request) { m.Filter(w, r) })
@@ -293,23 +295,41 @@ func (m MetricsExtender) StartServer(port string, certFile string, keyFile strin
 		if err != nil {
 			panic(err)
 		}
+		err = checkSymLinks(caFile)
+		if err != nil {
+			panic(err)
+		}
 		log.Printf("Extender Now Listening on HTTPS  %v", port)
-		srv := configureSecureServer(port)
+		srv := configureSecureServer(port, caFile)
 		log.Fatal(srv.ListenAndServeTLS(certFile, keyFile))
 	}
 	log.Printf("Scheduler extender failed %v ", err)
 }
 
 //Configuration values including algorithms etc for the TAS scheduling endpoint.
-func configureSecureServer(port string) *http.Server {
+func configureSecureServer(port string, caFile string) *http.Server {
+	caCert, err := ioutil.ReadFile(caFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
 	cfg := &tls.Config{
-		MinVersion:               tls.VersionTLS12,
-		CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
-		PreferServerCipherSuites: true,
-		CipherSuites: []uint16{
+		MinVersion:			tls.VersionTLS12,
+		CurvePreferences:		[]tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+		ClientCAs:			caCertPool,
+		ClientAuth:			tls.RequireAndVerifyClientCert,
+		PreferServerCipherSuites: 	true,
+		InsecureSkipVerify:       	false,
+		CipherSuites:			[]uint16{
+			// tls 1.2
 			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			// tls 1.3 configuration not supported
 		},
 	}
+
 	srv := &http.Server{
 		Addr:              ":" + port,
 		Handler:           nil,
