@@ -163,19 +163,6 @@ func (m MetricsExtender) getPolicyFromPod(pod *v1.Pod) (telemetrypolicy.TASPolic
 //prescheduleChecks performs checks to ensure a pod is suitable for the extender.
 //this method will return pods as supplied if they have no declared policy
 func (m MetricsExtender) prescheduleChecks(w http.ResponseWriter, r *http.Request) (ExtenderArgs, http.ResponseWriter, error) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return ExtenderArgs{}, w, errors.New("method Type not POST")
-	}
-	if r.ContentLength > 1*1000*1000*1000 {
-		w.WriteHeader(http.StatusInternalServerError)
-		return ExtenderArgs{}, w, errors.New("request size too large")
-	}
-	requestContentType := r.Header.Get("Content-Type")
-	if requestContentType != "application/json" {
-		w.WriteHeader(http.StatusNotFound)
-		return ExtenderArgs{}, w, errors.New("request content type not application/json")
-	}
 	extenderArgs, err := m.decodeExtenderRequest(r)
 	if err != nil {
 		log.Printf("cannot decode request %v", err)
@@ -256,9 +243,52 @@ func (m MetricsExtender) Filter(w http.ResponseWriter, r *http.Request) {
 	}
 	m.writeFilterResponse(w, filteredNodes)
 }
+//postOnly check if the method type is POST
+func postOnly(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			log.Print("method Type not POST")
+			return
+		}
+		next.ServeHTTP(w, r)
+	}
+}
+
+//contentLength check the if the request size is adequate
+func contentLength(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.ContentLength > 1*1000*1000*1000 {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.Print("request size too large")
+			return
+		}
+		next.ServeHTTP(w, r)
+	}
+}
+
+//requestContentType verify the content type of the request
+func requestContentType(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		requestContentType := r.Header.Get("Content-Type")
+		if requestContentType != "application/json" {
+			w.WriteHeader(http.StatusNotFound)
+			log.Print("request size too large")
+			return
+		}
+		next.ServeHTTP(w, r)
+	}
+}
+
+//handlerWithMiddleware is handler wrapped with middleware to serve the prechecks at endpoint
+func handlerWithMiddleware(handle http.HandlerFunc) http.HandlerFunc {
+	return requestContentType(
+		contentLength(
+			postOnly(handle)))
+}
 
 //error handler deals with requests sent to an invalid endpoint and returns a 404.
-func (m MetricsExtender) errorHandler(w http.ResponseWriter, r *http.Request) {
+func errorHandler(w http.ResponseWriter, r *http.Request) {
 	log.Print("unknown path")
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotFound)
@@ -279,9 +309,9 @@ func checkSymLinks(filename string) error {
 // StartServer starts the HTTP server needed for scheduler.
 // It registers the handlers and checks for existing telemetry policies.
 func (m MetricsExtender) StartServer(port string, certFile string, keyFile string, caFile string, unsafe bool) {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { m.errorHandler(w, r) })
-	http.HandleFunc("/scheduler/prioritize", func(w http.ResponseWriter, r *http.Request) { m.Prioritize(w, r) })
-	http.HandleFunc("/scheduler/filter", func(w http.ResponseWriter, r *http.Request) { m.Filter(w, r) })
+	http.HandleFunc("/", handlerWithMiddleware(errorHandler))
+	http.HandleFunc("/scheduler/prioritize", handlerWithMiddleware(m.Prioritize))
+	http.HandleFunc("/scheduler/filter", handlerWithMiddleware(m.Filter))
 	var err error
 	if unsafe {
 		log.Printf("Extender Listening on HTTP  %v", port)
