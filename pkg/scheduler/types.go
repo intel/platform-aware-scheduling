@@ -11,6 +11,11 @@ type ExtenderScheduler interface {
 	Filter(w http.ResponseWriter, r *http.Request)
 }
 
+//Server declares ExtenderScheduler
+type Server struct {
+	ExtenderScheduler
+}
+
 //TODO: These types are in the k8s.io/kubernes/scheduler/api package
 // Some import issue is making them tough to access, so they are reimplemented here pending a solution.
 
