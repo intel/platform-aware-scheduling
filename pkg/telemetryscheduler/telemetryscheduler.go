@@ -47,7 +47,7 @@ func (m MetricsExtender) Prioritize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, ok := extenderArgs.Pod.Labels[tasPolicy]; !ok {
-		err = fmt.Errorf("no policy associated with pod")
+		log.Printf("no policy associated with pod")
 		w.WriteHeader(http.StatusBadRequest)
 	}
 	prioritizedNodes := m.prioritizeNodes(extenderArgs)

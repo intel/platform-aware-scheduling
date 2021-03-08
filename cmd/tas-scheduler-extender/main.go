@@ -20,7 +20,7 @@ func main() {
 	flag.Parse()
 	cacheReader := cache.RemoteClient{}
 	cacheReader.RegisterEndpoint(cacheEndpoint)
-	telemetry := telemetryscheduler.NewMetricsExtender(&cacheReader)
-	sch := scheduler.Server{ExtenderScheduler: telemetry}
+	tscheduler := telemetryscheduler.NewMetricsExtender(&cacheReader)
+	sch := scheduler.Server{ExtenderScheduler: tscheduler}
 	sch.StartServer(port, certFile, keyFile, caFile, unsafe)
 }

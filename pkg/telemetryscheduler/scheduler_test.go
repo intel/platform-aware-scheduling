@@ -1,5 +1,5 @@
 //Logic for the scheduler extender - including the server it starts and prioritize + filter methods - is implemented in this package.
-package scheduler
+package telemetryscheduler
 
 import (
 	"bytes"
@@ -7,6 +7,7 @@ import (
 	"errors"
 	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
+	"github.com/intel/telemetry-aware-scheduling/pkg/scheduler"
 	telpolv1 "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 	telpolclient "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/client/v1alpha1"
 	"io/ioutil"
@@ -20,19 +21,19 @@ import (
 	"testing"
 )
 
-var prioritizerArgs1 = ExtenderArgs{
+var prioritizerArgs1 = scheduler.ExtenderArgs{
 	Pod:       v1.Pod{TypeMeta: metav1.TypeMeta{}, ObjectMeta: metav1.ObjectMeta{Name: "big pod", Labels: map[string]string{"telemetry-policy": "test-policy"}, Namespace: "default"}},
 	Nodes:     &v1.NodeList{Items: []v1.Node{{TypeMeta: metav1.TypeMeta{}, ObjectMeta: metav1.ObjectMeta{Name: "node A"}, Spec: v1.NodeSpec{}, Status: v1.NodeStatus{}}}},
 	NodeNames: &[]string{"node A", "node B"},
 }
 
-var twoNodeArgument = ExtenderArgs{
+var twoNodeArgument = scheduler.ExtenderArgs{
 	Pod:       v1.Pod{TypeMeta: metav1.TypeMeta{}, ObjectMeta: metav1.ObjectMeta{Name: "big pod", Labels: map[string]string{"telemetry-policy": "test-policy"}, Namespace: "default"}},
 	Nodes:     &v1.NodeList{Items: []v1.Node{{TypeMeta: metav1.TypeMeta{}, ObjectMeta: metav1.ObjectMeta{Name: "node A"}, Spec: v1.NodeSpec{}, Status: v1.NodeStatus{}}, {TypeMeta: metav1.TypeMeta{}, ObjectMeta: metav1.ObjectMeta{Name: "node B"}, Spec: v1.NodeSpec{}, Status: v1.NodeStatus{}}}},
 	NodeNames: &[]string{"node A", "node B"},
 }
 
-var noPolicyPod = ExtenderArgs{
+var noPolicyPod = scheduler.ExtenderArgs{
 	Pod:       v1.Pod{TypeMeta: metav1.TypeMeta{}, ObjectMeta: metav1.ObjectMeta{Name: "big pod", Labels: map[string]string{"useless-label": "test-policy"}, Namespace: "default"}},
 	Nodes:     &v1.NodeList{Items: []v1.Node{{TypeMeta: metav1.TypeMeta{}, ObjectMeta: metav1.ObjectMeta{Name: "node A"}, Spec: v1.NodeSpec{}, Status: v1.NodeStatus{}}}},
 	NodeNames: &[]string{"node A", "node B"},
@@ -93,8 +94,8 @@ func TestMetricsExtender_prescheduleChecks(t *testing.T) {
 		fields         fields
 		args           args
 		metric         metrics.NodeMetricsInfo
-		prioritizeArgs ExtenderArgs
-		wanted         HostPriorityList
+		prioritizeArgs scheduler.ExtenderArgs
+		wanted         scheduler.HostPriorityList
 		wantErr        bool
 	}{
 		{name: "unlabelled pod",
@@ -103,7 +104,7 @@ func TestMetricsExtender_prescheduleChecks(t *testing.T) {
 			args:           args{httptest.NewRequest("POST", "http://localhost/scheduler/prioritize", nil)},
 			metric:         map[string]metrics.NodeMetric{"node A": {Value: *resource.NewQuantity(100, resource.DecimalSI)}, "node B": {Value: *resource.NewQuantity(90, resource.DecimalSI)}},
 			prioritizeArgs: noPolicyPod,
-			wanted:         []HostPriority{{"node A", 10}, {"node B", 9}},
+			wanted:         []scheduler.HostPriority{{Host: "node A", Score: 10}, {Host: "node B", Score: 9}},
 			wantErr:        true,
 		},
 	}
@@ -128,7 +129,7 @@ func TestMetricsExtender_prescheduleChecks(t *testing.T) {
 			tt.args.r.Body = ioutil.NopCloser(bytes.NewReader(argsAsJSON))
 			w := httptest.NewRecorder()
 			m.Prioritize(w, tt.args.r)
-			result := HostPriorityList{}
+			result := scheduler.HostPriorityList{}
 			b := w.Body.Bytes()
 			err = json.Unmarshal(b, &result)
 			log.Print(result)
@@ -154,8 +155,8 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 		fields         fields
 		args           args
 		metric         metrics.NodeMetricsInfo
-		prioritizeArgs ExtenderArgs
-		wanted         HostPriorityList
+		prioritizeArgs scheduler.ExtenderArgs
+		wanted         scheduler.HostPriorityList
 		wantErr        bool
 	}{
 		{"get and return node test",
@@ -164,7 +165,7 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 			args{httptest.NewRequest("POST", "http://localhost/scheduler/prioritize", nil)},
 			map[string]metrics.NodeMetric{"node A": {Value: *resource.NewQuantity(100, resource.DecimalSI)}, "node B": {Value: *resource.NewQuantity(90, resource.DecimalSI)}},
 			twoNodeArgument,
-			[]HostPriority{{"node A", 10}, {"node B", 9}},
+			[]scheduler.HostPriority{{Host: "node A", Score: 10}, {Host: "node B", Score: 9}},
 			false,
 		},
 		{"policy not found",
@@ -173,7 +174,7 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 			args{httptest.NewRequest("POST", "http://localhost/scheduler/prioritize", nil)},
 			map[string]metrics.NodeMetric{"node A": {Value: *resource.NewQuantity(90, resource.DecimalSI)}, "node B": {Value: *resource.NewQuantity(100, resource.DecimalSI)}},
 			twoNodeArgument,
-			[]HostPriority{},
+			[]scheduler.HostPriority{},
 			true,
 		},
 		{"cache returns error if empty",
@@ -182,15 +183,15 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 			args{httptest.NewRequest("POST", "http://localhost/scheduler/prioritize", nil)},
 			map[string]metrics.NodeMetric{"node A": {Value: *resource.NewQuantity(100, resource.DecimalSI)}},
 			prioritizerArgs1,
-			[]HostPriority{{"node B", 10}},
+			[]scheduler.HostPriority{{Host: "node B", Score: 10}},
 			true,
 		},
-		{"malformed arguments return error", fields{*dummyClient, cache.MockEmptySelfUpdatingCache(),
-			testPolicy1},
+		{"malformed arguments return error",fields{*dummyClient, cache.MockEmptySelfUpdatingCache(),
+				testPolicy1},
 			args{httptest.NewRequest("POST", "http://localhost/scheduler/prioritize", nil)},
 			map[string]metrics.NodeMetric{"node A": {Value: *resource.NewQuantity(100, resource.DecimalSI)}},
-			ExtenderArgs{},
-			[]HostPriority{{"node B", 10}},
+			scheduler.ExtenderArgs{},
+			[]scheduler.HostPriority{{Host: "node B", Score: 10}},
 			true,
 		},
 	}
@@ -216,7 +217,7 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 			tt.args.r.Body = ioutil.NopCloser(bytes.NewReader(argsAsJSON))
 			w := httptest.NewRecorder()
 			m.Prioritize(w, tt.args.r)
-			result := HostPriorityList{}
+			result := scheduler.HostPriorityList{}
 			b := w.Body.Bytes()
 			err = json.Unmarshal(b, &result)
 			if err != nil && tt.wantErr {
@@ -265,7 +266,7 @@ func TestMetricsExtender_Filter(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		wanted  ExtenderFilterResult
+		wanted  scheduler.ExtenderFilterResult
 		wantErr bool
 	}{
 		{name: "get and return node test",
@@ -275,14 +276,14 @@ func TestMetricsExtender_Filter(t *testing.T) {
 				testPolicy1},
 			args: args{
 				httptest.NewRequest("POST", "http://localhost/scheduler/prioritize", nil), metrics.TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{10, 30})},
-			wanted: ExtenderFilterResult{&v1.NodeList{}, &[]string{"node A"}, map[string]string{}, ""},
+			wanted: scheduler.ExtenderFilterResult{Nodes: &v1.NodeList{}, NodeNames: &[]string{"node A"}, FailedNodes: map[string]string{}},
 		},
 		{name: "filter out one node",
 			fields: fields{*dummyClient, cache.MockSelfUpdatingCache(),
 				metrics.NewDummyMetricsClient(metrics.InstanceOfMockMetricClientMap),
 				testPolicy1},
 			args:   args{httptest.NewRequest("POST", "http://localhost/scheduler/prioritize", nil), metrics.TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{50, 30})},
-			wanted: ExtenderFilterResult{&v1.NodeList{}, &[]string{"node A"}, map[string]string{"node A": ""}, ""},
+			wanted: scheduler.ExtenderFilterResult{Nodes: &v1.NodeList{}, NodeNames: &[]string{"node A"}, FailedNodes: map[string]string{"node A": ""}},
 		},
 	}
 	for _, tt := range tests {
@@ -308,7 +309,7 @@ func TestMetricsExtender_Filter(t *testing.T) {
 			tt.args.r.Header.Add("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 			m.Filter(w, tt.args.r)
-			result := ExtenderFilterResult{}
+			result := scheduler.ExtenderFilterResult{}
 			b := w.Body.Bytes()
 			err = json.Unmarshal(b, &result)
 			if err != nil {
