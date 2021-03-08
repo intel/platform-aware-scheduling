@@ -4,6 +4,7 @@ package scheduler
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -40,18 +41,34 @@ func requestContentType(next http.HandlerFunc) http.HandlerFunc {
 		requestContentType := r.Header.Get("Content-Type")
 		if requestContentType != "application/json" {
 			w.WriteHeader(http.StatusNotFound)
-			log.Print("request size too large")
+			log.Print("request content type not application/json")
 			return
 		}
 		next.ServeHTTP(w, r)
 	}
 }
 
+/*
+handlerWithMiddleware runs each function in sequence starting from the outermost function. These middleware functions
+are pass/fail checks on the scheduling request. If a check fails the response with an appropriate error is immediately
+written and returned.
+i.e. with this version of the code:
+	return requestContentType(
+			contentLength(
+				postOnly(handle),
+				),
+			)
+if the content type is not correct - i.e. NOT application/json - the response will be written. contentLength or postOnly
+will not run.
+*/
+
 //handlerWithMiddleware is handler wrapped with middleware to serve the prechecks at endpoint
 func handlerWithMiddleware(handle http.HandlerFunc) http.HandlerFunc {
 	return requestContentType(
-		contentLength(
-			postOnly(handle)))
+				contentLength(
+					postOnly(handle),
+				),
+			)
 }
 
 //error handler deals with requests sent to an invalid endpoint and returns a 404.

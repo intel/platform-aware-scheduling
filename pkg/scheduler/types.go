@@ -11,12 +11,12 @@ type ExtenderScheduler interface {
 	Filter(w http.ResponseWriter, r *http.Request)
 }
 
-//Server declares ExtenderScheduler
+//Server type wraps the implementation of the scheduler.
 type Server struct {
 	ExtenderScheduler
 }
 
-//TODO: These types are in the k8s.io/kubernes/scheduler/api package
+//TODO: These types are in the k8s.io/kubernetes/scheduler/api package
 // Some import issue is making them tough to access, so they are reimplemented here pending a solution.
 
 // HostPriority represents the priority of scheduling to a particular host, higher priority is better.
