@@ -30,7 +30,9 @@ spec:
         - --key=/tas/cert/tls.key
         - --cacert=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
         image: tas-extender
-        imagePullPolicy: IfNotPresent 
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          readOnlyRootFilesystem: true 
         volumeMounts:
         - name: certs
           mountPath: /tas/cert
