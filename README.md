@@ -7,20 +7,17 @@ For example - a pod that requires certain cache characteristics can be schedule 
 **This software is a pre-production alpha version and should not be deployed to production servers.**
 
 
-## Components
-Telemetry Aware Scheduling is made up of two components deployed in a single pod on a Kubernetes Cluster. 
+## Introduction
 
-### Telemetry Aware Scheduler Extender
 Telemetry Aware Scheduler Extender is contacted by the generic Kubernetes Scheduler every time it needs to make a scheduling decision.
 The extender checks if there is a telemetry policy associated with the workload. 
 If so, it inspects the strategies associated with the policy and returns opinions on pod placement to the generic scheduler.
 The scheduler extender has two strategies it acts on -  scheduleonmetric and dontschedule.
 This is implemented and configured as a [Kubernetes Scheduler Extender.](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#cluster-level-extended-resources)
 
-### Telemetry Policy Controller
-The Telemetry Policy Controller consumes TAS Policies - a Custom Resource. The controller parses this policy for deschedule, scheduleonmetric and dontschedule strategies and places them in a cache to make them locally available to all TAS components.
+The Scheduler consumes TAS Policies - a Custom Resource. The extender parses this policy for deschedule, scheduleonmetric and dontschedule strategies and places them in a cache to make them locally available to all TAS components.
 It consumes new Telemetry Policies as they are created, removes them when deleted, and updates them as they are changed.
-The policy controller also monitors the current state of policies to see if they are violated. For example if it notes that a deschedule policy is violated it labels the node as a violator allowing pods relating to that policy to be descheduled.
+The extender also monitors the current state of policies to see if they are violated. For example if it notes that a deschedule policy is violated it labels the node as a violator allowing pods relating to that policy to be descheduled.
 
 ## Usage
 A worked example for TAS is available [here](docs/health-metric-example.md)
@@ -33,7 +30,7 @@ There are three strategies that TAS acts on.
  **2 dontschedule** strategy has multiple rules, each with a metric name and operator and a target. A pod with this policy will never be scheduled on a node breaking any one of these rules.
  - example: **dontschedule** if **gpu_usage** is **GreaterThan 10**
  
- **3 deschedule** is consumed by the Telemetry Policy Controller. If a pod with this policy is running on a node that violates it can be descheduled with the kubernetes descheduler.
+ **3 deschedule** is consumed by the extender. If a pod with this policy is running on a node that violates it can be descheduled with the kubernetes descheduler.
 - example: **deschedule** if **network_bandwidth_percent_free** is **LessThan 10**
 
 The policy definition section below describes how to actually create these strategies in a kubernetes cluster.
@@ -163,28 +160,25 @@ spec:
 There are three strategy types in a policy file and rules associated with each.
  - **scheduleonmetric** has only one rule. It is consumed by the Telemetry Aware Scheduling Extender and prioritizes nodes based on the rule.
  - **dontschedule** strategy has multiple rules, each with a metric name and operator and a target. A pod with this policy will never be scheduled on a node breaking any one of these rules.
- - **deschedule** is consumed by the Telemetry Policy Controller. If a pod with this policy is running on a node that violates that pod can be descheduled with the kubernetes descheduler.
+ - **deschedule** is consumed by the extender. If a pod with this policy is running on a node that violates that pod can be descheduled with the kubernetes descheduler.
 
 dontschedule and deschedule - which incorporate multiple rules - function with an OR operator. That is if any single rule is broken the strategy is considered violated.
 Telemetry policies are namespaced, meaning that under normal circumstances a workload can only be associated with a pod in the same namespaces.
 
 ### Configuration flags
-The below flags can be passed to the binaries at run time.
+The below flags can be passed to the binary at run time.
 
-#### TAS Policy Controller
+#### TAS Scheduler Extender
 name |type | description| usage | default|
 -----|------|-----|-------|-----|
 |kubeConfig| string |location of kubernetes configuration file | -kubeConfig /root/filename|~/.kube/config
 |syncPeriod|duration string| interval between refresh of telemetry data|-syncPeriod 1m| 1s
 |cachePort | string | port number at which the cache server will listen for requests | --cachePort 9999 | 8111
-
-#### TAS Scheduler Extender
-name |type | description| usage | default|
------|------|-----|-------|-----|
 |syncPeriod|duration string| interval between refresh of telemetry data|-syncPeriod 1m| 1s
 |port| int | port number on which the scheduler extender will listen| -port 32000 | 9001
 |cert| string | location of the cert file for the TLS endpoint | --cert=/root/cert.txt| /etc/kubernetes/pki/ca.crt
 |key| string | location of the key file for the TLS endpoint| --key=/root/key.txt | /etc/kubernetes/pki/ca.key
+|cacert| string | location of the ca certificate for the TLS endpoint| --key=/root/cacert.txt | /etc/kubernetes/pki/ca.crt
 |unsafe| bool | whether or not to listen on a TLS endpoint with the scheduler extender | --unsafe=true| false
 
 ## Linking a workload to a policy 
@@ -235,10 +229,10 @@ There are three changes to the demo policy here:
 - Affinity rules which add a requiredDuringSchedulingIgnoredDuringExecution affinity to nodes which are labelled ``<POLICYNAME>=violating`` This is used by the descheduler to identify pods on nodes which break their TAS telemetry policies.
 
 ### Security
-TAS Policy Controller is set up to use in-Cluster config in order to access the Kubernetes API Server. When deployed inside the cluster this along with RBAC controls configured in the installation guide, will give it access to the required resources.
-If outside the cluster TAS Policy Controller will try to use a kubernetes config file in order to get permission to get resources from the API server. This can be passed with the --kubeconfig flag to the controller.
+TAS Scheduler Extender is set up to use in-Cluster config in order to access the Kubernetes API Server. When deployed inside the cluster this along with RBAC controls configured in the installation guide, will give it access to the required resources.
+If outside the cluster TAS will try to use a kubernetes config file in order to get permission to get resources from the API server. This can be passed with the --kubeconfig flag to the binary.
 
-TAS Scheduler Extender contacts api server in the same way as policy controller. An identical flag  --kubeConfig can be passed if it's operating outside the cluster.
+When TAS Scheduler Extender contacts api server an identical flag  --kubeConfig can be passed if it's operating outside the cluster.
 Additionally TAS Scheduler Extender listens on a TLS endpoint which requires a cert and a key to be supplied.
 These are passed to the executable using command line flags. In the provided deployment these certs are added in a Kubernetes secret which is mounted in the pod and passed as flags to the executable from there.
 
