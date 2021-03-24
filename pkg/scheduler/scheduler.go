@@ -93,13 +93,14 @@ func checkSymLinks(filename string) error {
 // StartServer starts the HTTP server needed for scheduler.
 // It registers the handlers and checks for existing telemetry policies.
 func (m Server) StartServer(port string, certFile string, keyFile string, caFile string, unsafe bool) {
-	http.HandleFunc("/", handlerWithMiddleware(errorHandler))
-	http.HandleFunc("/scheduler/prioritize", handlerWithMiddleware(m.Prioritize))
-	http.HandleFunc("/scheduler/filter", handlerWithMiddleware(m.Filter))
+	mx:= http.NewServeMux()
+	mx.HandleFunc("/", handlerWithMiddleware(errorHandler))
+	mx.HandleFunc("/scheduler/prioritize", handlerWithMiddleware(m.Prioritize))
+	mx.HandleFunc("/scheduler/filter", handlerWithMiddleware(m.Filter))
 	var err error
 	if unsafe {
 		log.Printf("Extender Listening on HTTP  %v", port)
-		err = http.ListenAndServe(":"+port, nil)
+		err = http.ListenAndServe(":"+port, mx)
 	} else {
 		err := checkSymLinks(certFile)
 		if err != nil {
@@ -115,6 +116,7 @@ func (m Server) StartServer(port string, certFile string, keyFile string, caFile
 		}
 		log.Printf("Extender Now Listening on HTTPS  %v", port)
 		srv := configureSecureServer(port, caFile)
+		srv.Handler = mx
 		log.Fatal(srv.ListenAndServeTLS(certFile, keyFile))
 	}
 	log.Printf("Scheduler extender failed %v ", err)

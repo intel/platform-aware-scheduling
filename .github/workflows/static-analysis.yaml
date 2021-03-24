@@ -22,10 +22,7 @@ jobs:
 #     Each dockerfile needs to be pointed to individually with this setup
     - uses: brpaz/hadolint-action@v1.2.1
       with:
-       dockerfile: deploy/images/Dockerfile_controller
-    - uses: brpaz/hadolint-action@v1.2.1
-      with:
-        dockerfile: deploy/images/Dockerfile_extender
+        dockerfile: deploy/images/Dockerfile
   golangci:
     strategy:
       matrix:

@@ -1,17 +1,16 @@
 package main
 
 import (
-	tascache "github.com/intel/telemetry-aware-scheduling/pkg/cache"
+	"flag"
 	"github.com/intel/telemetry-aware-scheduling/pkg/controller"
 	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
+	"github.com/intel/telemetry-aware-scheduling/pkg/scheduler"
+	"github.com/intel/telemetry-aware-scheduling/pkg/telemetryscheduler"
 	strategy "github.com/intel/telemetry-aware-scheduling/pkg/strategies/core"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/deschedule"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/dontschedule"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
 	telemetrypolicyclient "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/client/v1alpha1"
-
-	"context"
-	"flag"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -20,18 +19,32 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"context"
+	tascache "github.com/intel/telemetry-aware-scheduling/pkg/cache"
 )
 
-func parseCLIFlags(kubeConfig *string, syncPeriod *string, cachePort *string) {
-	flag.StringVar(kubeConfig, "kubeConfig", "/root/.kube/config", "location of kubernetes config file")
-	flag.StringVar(syncPeriod, "syncPeriod", "5s", "length of time in seconds between metrics updates")
-	flag.StringVar(cachePort, "cachePort", "8111", "enpoint at which cache server should be as accessible")
+func main() {
+	var kubeConfig, port, certFile, keyFile, caFile, syncPeriod string
+	var unsafe bool
+	flag.StringVar(&kubeConfig, "kubeConfig", "/root/.kube/config", "location of kubernetes config file")
+	flag.StringVar(&port, "port", "9001", "port on which the scheduler extender will listen")
+	flag.StringVar(&certFile, "cert", "/etc/kubernetes/pki/ca.crt", "cert file extender will use for authentication")
+	flag.StringVar(&keyFile, "key", "/etc/kubernetes/pki/ca.key", "key file extender will use for authentication")
+	flag.StringVar(&caFile, "cacert", "/etc/kubernetes/pki/ca.crt", "ca file extender will use for authentication")
+	flag.BoolVar(&unsafe, "unsafe", false, "unsafe instances of telemetry aware scheduler will be served over simple http.")
+	flag.StringVar(&syncPeriod, "syncPeriod", "5s", "length of time in seconds between metrics updates")
 	flag.Parse()
+	cache := tascache.NewAutoUpdatingCache()
+	tscheduler  := telemetryscheduler.NewMetricsExtender(cache)
+	sch := scheduler.Server{ExtenderScheduler: tscheduler}
+	go sch.StartServer(port, certFile, keyFile, caFile, unsafe)
+	tasController(kubeConfig, syncPeriod, cache)
 }
 
-func main() {
-	var kubeConfig, syncPeriod, cachePort string
-	parseCLIFlags(&kubeConfig, &syncPeriod, &cachePort)
+//tasController The controller load the TAS policy/strategies and places them into a local cache that is available
+//to all TAS components. It also monitors the current state of policies.
+func tasController(kubeConfig string, syncPeriod string, cache *tascache.AutoUpdatingCache) {
 	kubeClient, clientConfig, err := getkubeClient(kubeConfig)
 	if err != nil {
 		panic(err)
@@ -46,11 +59,8 @@ func main() {
 		panic(err)
 	}
 	metricTicker := time.NewTicker(syncDuration)
-	cache := tascache.NewAutoUpdatingCache()
 	initialData := map[string]interface{}{}
 	go cache.PeriodicUpdate(*metricTicker, metricsClient, initialData)
-	go cache.Serve(cachePort)
-
 	enforcerTicker := time.NewTicker(syncDuration)
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()

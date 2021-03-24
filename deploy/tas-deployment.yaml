@@ -17,19 +17,14 @@ spec:
     spec:
       serviceAccountName: telemetry-aware-scheduling-service-account
       containers:
-      - name: tascont
-        command:
-        - /controller
-        - --syncPeriod=2s
-        image: tas-controller 
-        imagePullPolicy: IfNotPresent
       - name: tasext
         command:
         - /extender
+        - --syncPeriod=2s
         - --cert=/tas/cert/tls.crt
         - --key=/tas/cert/tls.key
         - --cacert=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-        image: tas-extender
+        image: tasextender
         imagePullPolicy: IfNotPresent
         securityContext:
           readOnlyRootFilesystem: true 
