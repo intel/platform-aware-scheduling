@@ -70,8 +70,8 @@ func (m MetricsExtender) DecodeExtenderRequest(r *http.Request) (scheduler.Exten
 	if err := r.Body.Close(); err != nil {
 		return args, fmt.Errorf("cannot decode request %v", err)
 	}
-	if args.Nodes == nil {
-		return args, fmt.Errorf("no nodes in list")
+	if args.Nodes == nil || &args.Pod == nil {
+		return args, fmt.Errorf("error decoding request: %v", "node or pod not correctly specified")
 	}
 	return args, nil
 }
