@@ -1,6 +1,7 @@
 package deschedule
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
@@ -24,7 +25,7 @@ type patchValue struct {
 //For descheduling enforcement is done by labelling the nodes as violators. This label can then be used externally, for example by descheduler, to remedy the situation.
 //Here we make an api call to list all nodes first. This may be improved by using a controller instead or some other way of not waiting for the API call every time Enforce is called.
 func (d *Strategy) Enforce(enforcer *strategy.MetricEnforcer, cache cache.Reader) (int, error) {
-	nodes, err := enforcer.KubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
+	nodes, err := enforcer.KubeClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Print("cannot list nodes : ", err)
 		return -1, err
@@ -44,7 +45,7 @@ func (d *Strategy) patchNode(nodeName string, enforcer *strategy.MetricEnforcer,
 		log.Print(err)
 		return err
 	}
-	_, err = enforcer.KubeClient.CoreV1().Nodes().Patch(nodeName, types.JSONPatchType, jsonPayload)
+	_, err = enforcer.KubeClient.CoreV1().Nodes().Patch(context.TODO(), nodeName, types.JSONPatchType, jsonPayload, metav1.PatchOptions{})
 	if err != nil {
 		log.Print(err)
 		return err
