@@ -40,4 +40,4 @@ jobs:
         with:
           version: v1.29
         # Additional linting tools can be added here
-          args: --enable=golint
+          args: --enable=golint --timeout=5m
