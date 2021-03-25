@@ -1,6 +1,7 @@
 package deschedule
 
 import (
+	"context"
 	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
 	strategy "github.com/intel/telemetry-aware-scheduling/pkg/strategies/core"
@@ -46,7 +47,7 @@ func TestDescheduleStrategy_Enforce(t *testing.T) {
 	}
 	for _, tt := range tests {
 		err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1, Value: *resource.NewQuantity(100, resource.DecimalSI)}})
-		_, err = tt.args.enforcer.KubeClient.CoreV1().Nodes().Create(tt.node)
+		_, err = tt.args.enforcer.KubeClient.CoreV1().Nodes().Create(context.TODO(), tt.node, metav1.CreateOptions{})
 		tt.args.enforcer.RegisterStrategyType(tt.d)
 		tt.args.enforcer.AddStrategy(tt.d, tt.d.StrategyType())
 		t.Run(tt.name, func(t *testing.T) {
@@ -54,7 +55,7 @@ func TestDescheduleStrategy_Enforce(t *testing.T) {
 			if _, err = tt.d.Enforce(tt.args.enforcer, tt.args.cache); (err != nil) != tt.wantErr {
 				t.Errorf("Strategy.Enforce() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			labelledNodes, err := tt.args.enforcer.KubeClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: "deschedule-test=violating"})
+			labelledNodes, err := tt.args.enforcer.KubeClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: "deschedule-test=violating"})
 			if err != nil {
 				if !tt.wantErr {
 					t.Errorf("Strategy.Enforce() error = %v, wantErr %v", err, tt.wantErr)
@@ -65,7 +66,7 @@ func TestDescheduleStrategy_Enforce(t *testing.T) {
 			for _, node := range labelledNodes.Items {
 				got = append(got, node.Name)
 			}
-			nodys, _ := tt.args.enforcer.KubeClient.CoreV1().Nodes().List(metav1.ListOptions{})
+			nodys, _ := tt.args.enforcer.KubeClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 			log.Print(nodys.Items[0])
 			if len(tt.want.nodeNames) != len(got) {
 				t.Errorf("Number of pods returned: %v not as expected: %v", got, tt.want.nodeNames)
