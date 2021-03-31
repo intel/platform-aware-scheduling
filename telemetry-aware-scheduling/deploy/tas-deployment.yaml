@@ -31,6 +31,13 @@ spec:
         volumeMounts:
         - name: certs
           mountPath: /tas/cert
+        resources:
+          limits:
+            memory: "500Mi"
+            cpu: "500m"
+          requests:
+            memory: "100Mi"
+            cpu: "100m"
       volumes:
       - name: certs
         secret:
@@ -45,3 +52,4 @@ spec:
             - matchExpressions:
               - key: node-role.kubernetes.io/master
                 operator: Exists
+
