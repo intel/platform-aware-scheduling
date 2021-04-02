@@ -4,15 +4,16 @@
 package deschedule
 
 import (
+	"log"
+	"reflect"
+	"testing"
+	"time"
+
 	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/core"
 	v1 "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"log"
-	"reflect"
-	"testing"
-	"time"
 )
 
 func TestDescheduleStrategy_SetPolicyName(t *testing.T) {

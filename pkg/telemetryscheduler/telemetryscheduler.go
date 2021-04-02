@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"net/http"
+	"strings"
+
 	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
 	"github.com/intel/telemetry-aware-scheduling/pkg/scheduler"
@@ -13,9 +17,6 @@ import (
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
 	telemetrypolicy "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
-	"log"
-	"net/http"
-	"strings"
 )
 
 var tasPolicy = "telemetry-policy"

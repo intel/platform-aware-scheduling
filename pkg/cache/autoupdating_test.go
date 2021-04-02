@@ -1,12 +1,13 @@
 package cache
 
 import (
-	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
-	telemetrypolicy "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 	"log"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
+	telemetrypolicy "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 )
 
 func TestNodeMetricsCache_PeriodicUpdate(t *testing.T) {

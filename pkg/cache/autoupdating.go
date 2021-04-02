@@ -3,11 +3,12 @@ package cache
 import (
 	"errors"
 	"fmt"
-	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
-	telemetrypolicy "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
+	telemetrypolicy "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 )
 
 const (

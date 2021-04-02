@@ -1,10 +1,11 @@
 package core
 
 import (
+	"sort"
+
 	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
 	telempol "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"sort"
 )
 
 //EvaluateRule returns a boolean after implementing the function described in the TASPolicyRule.

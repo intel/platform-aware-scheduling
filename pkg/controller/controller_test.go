@@ -4,10 +4,11 @@ package controller
 
 import (
 	"context"
-	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
-	strategy "github.com/intel/telemetry-aware-scheduling/pkg/strategies/core"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
+	strategy "github.com/intel/telemetry-aware-scheduling/pkg/strategies/core"
 
 	"k8s.io/client-go/rest"
 )

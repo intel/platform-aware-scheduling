@@ -2,6 +2,12 @@ package main
 
 import (
 	"flag"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"github.com/intel/telemetry-aware-scheduling/pkg/controller"
 	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
 	"github.com/intel/telemetry-aware-scheduling/pkg/scheduler"
@@ -14,13 +20,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"context"
+
 	tascache "github.com/intel/telemetry-aware-scheduling/pkg/cache"
 )
 

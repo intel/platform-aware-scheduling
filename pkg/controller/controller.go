@@ -5,6 +5,8 @@ package controller
 import (
 	"context"
 	"errors"
+	"log"
+
 	strategy "github.com/intel/telemetry-aware-scheduling/pkg/strategies/core"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/deschedule"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/dontschedule"
@@ -13,7 +15,6 @@ import (
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
-	"log"
 )
 
 //Run starts the controller watching on the Informer queue and doesnt' stop it until the Done signal is received from context

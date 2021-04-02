@@ -1,11 +1,12 @@
 package core
 
 import (
-	"k8s.io/client-go/kubernetes"
-	testclient "k8s.io/client-go/kubernetes/fake"
 	"log"
 	"reflect"
 	"testing"
+
+	"k8s.io/client-go/kubernetes"
+	testclient "k8s.io/client-go/kubernetes/fake"
 )
 
 var mockedStrategy = &MockStrategy{StrategyTypeMock: "mocko"}

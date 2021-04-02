@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"k8s.io/client-go/tools/clientcmd"
 	"log"
 	"reflect"
 	"testing"
 	"time"
+
+	"k8s.io/client-go/tools/clientcmd"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"

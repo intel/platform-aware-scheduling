@@ -1,8 +1,9 @@
 package scheduler
 
 import (
-	v1 "k8s.io/api/core/v1"
 	"net/http"
+
+	v1 "k8s.io/api/core/v1"
 )
 
 //ExtenderScheduler has the capabilities needed to prioritize and filter nodes based on http requests.

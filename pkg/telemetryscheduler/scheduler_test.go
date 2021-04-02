@@ -5,20 +5,21 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
 	"github.com/intel/telemetry-aware-scheduling/pkg/scheduler"
 	telpolv1 "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 	telpolclient "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/client/v1alpha1"
-	"io/ioutil"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
-	"log"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 var prioritizerArgs1 = scheduler.ExtenderArgs{

@@ -1,13 +1,14 @@
 package core
 
 import (
-	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
-	telemetrypolicy "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"log"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
+	telemetrypolicy "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func testNodeMetricCustomInfo(nodeNames []string, numbers []int64) metrics.NodeMetricsInfo {

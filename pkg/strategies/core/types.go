@@ -3,8 +3,9 @@
 package core
 
 import (
-	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
 	"time"
+
+	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
 )
 
 //Interface describes expected behavior of a specific strategy.

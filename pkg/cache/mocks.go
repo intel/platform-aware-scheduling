@@ -2,11 +2,12 @@ package cache
 
 //This file contains mock methods and objects which are used to test across the TAS packages.
 import (
+	"time"
+
 	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
 	telemetrypolicy "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 //MockEmptySelfUpdatingCache returns auto updating cache
