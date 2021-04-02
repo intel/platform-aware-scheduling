@@ -23,6 +23,15 @@ jobs:
     - uses: brpaz/hadolint-action@v1.2.1
       with:
         dockerfile: deploy/images/Dockerfile
+  gofmt-imports:
+    runs-on: ubuntu-latest
+    name: Go Fmt and Go Import
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: 1.15
+      - run: go get golang.org/x/tools/cmd/goimports; test -z $(goimports -l .) && test -z $(gofmt -l .)
   golangci:
     strategy:
       matrix:

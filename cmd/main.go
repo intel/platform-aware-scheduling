@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"os"
+
 	"os/signal"
 	"syscall"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
 	"github.com/intel/telemetry-aware-scheduling/pkg/scheduler"
 	strategy "github.com/intel/telemetry-aware-scheduling/pkg/strategies/core"
+
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/deschedule"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/dontschedule"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
