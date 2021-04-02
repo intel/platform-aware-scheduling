@@ -23,6 +23,7 @@ func EvaluateRule(value resource.Quantity, rule telempol.TASPolicyRule) bool {
 	}
 	return operators[rule.Operator](value, rule.Target)
 }
+
 //OrderedList will return a list of nodes ordered by their linked metric and operator
 //TODO: Make this method more generic so it can use objects other than nodes.
 func OrderedList(metricsInfo metrics.NodeMetricsInfo, operator string) []NodeSortableMetric {

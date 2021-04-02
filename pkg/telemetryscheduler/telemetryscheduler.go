@@ -226,7 +226,6 @@ func (m MetricsExtender) getDontScheduleStrategy(policy telemetrypolicy.TASPolic
 	return dontscheduleStrategy, nil
 }
 
-
 //WriteFilterResponse takes the ExtenderFilterResults struct and writes it as a http response if valid.
 func (m MetricsExtender) WriteFilterResponse(w http.ResponseWriter, result *scheduler.ExtenderFilterResult) {
 	encoder := json.NewEncoder(w)

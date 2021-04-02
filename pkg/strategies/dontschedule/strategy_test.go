@@ -125,4 +125,3 @@ func TestDontScheduleStrategy_Enforce(t *testing.T) {
 		})
 	}
 }
-

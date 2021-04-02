@@ -35,6 +35,6 @@ func (v *MockStrategy) GetPolicyName() string {
 }
 
 //SetPolicyName sets the policy name of the mock strategy
-func (v *MockStrategy) SetPolicyName( policyName string)  {
+func (v *MockStrategy) SetPolicyName(policyName string) {
 
 }

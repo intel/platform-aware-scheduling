@@ -65,10 +65,10 @@ will not run.
 //handlerWithMiddleware is handler wrapped with middleware to serve the prechecks at endpoint
 func handlerWithMiddleware(handle http.HandlerFunc) http.HandlerFunc {
 	return requestContentType(
-				contentLength(
-					postOnly(handle),
-				),
-			)
+		contentLength(
+			postOnly(handle),
+		),
+	)
 }
 
 //error handler deals with requests sent to an invalid endpoint and returns a 404.
@@ -93,7 +93,7 @@ func checkSymLinks(filename string) error {
 // StartServer starts the HTTP server needed for scheduler.
 // It registers the handlers and checks for existing telemetry policies.
 func (m Server) StartServer(port string, certFile string, keyFile string, caFile string, unsafe bool) {
-	mx:= http.NewServeMux()
+	mx := http.NewServeMux()
 	mx.HandleFunc("/", handlerWithMiddleware(errorHandler))
 	mx.HandleFunc("/scheduler/prioritize", handlerWithMiddleware(m.Prioritize))
 	mx.HandleFunc("/scheduler/filter", handlerWithMiddleware(m.Filter))
@@ -132,13 +132,13 @@ func configureSecureServer(port string, caFile string) *http.Server {
 	caCertPool.AppendCertsFromPEM(caCert)
 
 	cfg := &tls.Config{
-		MinVersion:			tls.VersionTLS12,
-		CurvePreferences:		[]tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
-		ClientCAs:			caCertPool,
-		ClientAuth:			tls.RequireAndVerifyClientCert,
-		PreferServerCipherSuites: 	true,
-		InsecureSkipVerify:       	false,
-		CipherSuites:			[]uint16{
+		MinVersion:               tls.VersionTLS12,
+		CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+		ClientCAs:                caCertPool,
+		ClientAuth:               tls.RequireAndVerifyClientCert,
+		PreferServerCipherSuites: true,
+		InsecureSkipVerify:       false,
+		CipherSuites: []uint16{
 			// tls 1.2
 			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
 			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,

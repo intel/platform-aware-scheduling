@@ -38,6 +38,7 @@ func (c concurrentCache) newRequest(t requestType) request {
 		return request{Type: t}
 	}
 }
+
 //run runs a constant goroutine waiting for requests and setting up the initial data structure.
 func (c concurrentCache) run(ch chan request, initialData map[string]interface{}) {
 	cache := initialData
@@ -60,6 +61,7 @@ func (c concurrentCache) run(ch chan request, initialData map[string]interface{}
 		}
 	}
 }
+
 //Send to channel is a helper method that sends the request to the passed channel.
 func sendToChannel(ch chan request, req request) {
 	ch <- req
@@ -81,6 +83,7 @@ func (c concurrentCache) delete(key string) {
 	r.Key = key
 	sendToChannel(c.cache, r)
 }
+
 //Read creates a read request and sends it into the cache channel.
 func (c concurrentCache) read(itemName string) interface{} {
 	r := c.newRequest(READ)

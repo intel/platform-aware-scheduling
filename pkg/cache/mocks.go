@@ -1,4 +1,5 @@
 package cache
+
 //This file contains mock methods and objects which are used to test across the TAS packages.
 import (
 	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"

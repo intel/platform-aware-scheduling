@@ -71,7 +71,7 @@ var testPolicy2 = telpolv1.TASPolicy{
 			"dontschedule": {
 				PolicyName: "test-policy",
 				Rules: []telpolv1.TASPolicyRule{
-					{Metricname:"dummyMetric1", Operator: "GreaterThan", Target: 40},
+					{Metricname: "dummyMetric1", Operator: "GreaterThan", Target: 40},
 				},
 			},
 		},
@@ -186,8 +186,8 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 			[]scheduler.HostPriority{{Host: "node B", Score: 10}},
 			true,
 		},
-		{"malformed arguments return error",fields{*dummyClient, cache.MockEmptySelfUpdatingCache(),
-				testPolicy1},
+		{"malformed arguments return error", fields{*dummyClient, cache.MockEmptySelfUpdatingCache(),
+			testPolicy1},
 			args{httptest.NewRequest("POST", "http://localhost/scheduler/prioritize", nil)},
 			map[string]metrics.NodeMetric{"node A": {Value: *resource.NewQuantity(100, resource.DecimalSI)}},
 			scheduler.ExtenderArgs{},
@@ -332,4 +332,3 @@ func TestMetricsExtender_Filter(t *testing.T) {
 		})
 	}
 }
-

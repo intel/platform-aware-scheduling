@@ -25,6 +25,7 @@ func (controller *TelemetryPolicyController) Run(context context.Context) {
 	}
 	<-context.Done()
 }
+
 //Watch sets up the watcher on the kubernetes api server and adds event handlers for add, update and delete.
 func (controller *TelemetryPolicyController) watch(context context.Context) (cache.Controller, error) {
 	source := cache.NewListWatchFromClient(
@@ -46,7 +47,6 @@ func (controller *TelemetryPolicyController) watch(context context.Context) (cac
 	go policyController.Run(context.Done())
 	return policyController, nil
 }
-
 
 //onAdd fires when the controller sees a new policy in the apiserver. It adds the policy to the cache and adds each of its metrics to the cache.
 // It also adds the strategies contained in the policy to the strategy enforcer.
@@ -119,7 +119,7 @@ func (controller *TelemetryPolicyController) onUpdate(old, new interface{}) {
 		controller.Enforcer.RemoveStrategy(oldStrat, oldStrat.StrategyType())
 		for _, rule := range oldPol.Spec.Strategies[oldStrat.StrategyType()].Rules {
 			err := controller.DeleteMetric(rule.Metricname)
-			if err != nil{
+			if err != nil {
 				log.Print(err)
 			}
 		}
@@ -153,12 +153,12 @@ func (controller *TelemetryPolicyController) onDelete(obj interface{}) {
 		controller.Enforcer.RemoveStrategy(strt, strt.StrategyType())
 		for _, rule := range polCopy.Spec.Strategies[strt.StrategyType()].Rules {
 			err := controller.DeleteMetric(rule.Metricname)
-			if err != nil{
+			if err != nil {
 				log.Print(err)
 			}
 		}
 	}
-	err:= controller.DeletePolicy(polCopy.Namespace, polCopy.Name)
+	err := controller.DeletePolicy(polCopy.Namespace, polCopy.Name)
 	if err != nil {
 		log.Print(err)
 		return
