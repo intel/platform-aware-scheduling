@@ -86,6 +86,7 @@ func (client *Client) List(options metav1.ListOptions) (*telemetrypolicy.TASPoli
 func (client *Client) NewListWatch() *cache.ListWatch {
 	return cache.NewListWatchFromClient(client.rest, client.plural, client.namespace, fields.Everything())
 }
+
 // groupversion gives access to the Group Version struct for the API
 func groupVersion() schema.GroupVersion {
 	return schema.GroupVersion{

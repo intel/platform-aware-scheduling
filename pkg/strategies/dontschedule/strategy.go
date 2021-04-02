@@ -51,7 +51,7 @@ func (d *Strategy) StrategyType() string {
 
 //Equals implementation which checks to see if all rules and the policy name are equal for this strategy and another.
 //Used to avoid duplications and to find the correct strategy for deletions in the index.
-func (d *Strategy) Equals( other core.Interface) bool {
+func (d *Strategy) Equals(other core.Interface) bool {
 	OtherDontScheduleStrategy, ok := other.(*Strategy)
 	sameName := other.GetPolicyName() == d.GetPolicyName()
 	if ok && sameName && len(d.Rules) > 0 && len(d.Rules) == len(OtherDontScheduleStrategy.Rules) {
@@ -81,6 +81,7 @@ func (d *Strategy) SetPolicyName(policyName string) {
 func (d *Strategy) GetPolicyName() string {
 	return d.PolicyName
 }
+
 //Formats the rules as an interpretable string.
 func ruleToString(rule telemetryPolicyV1.TASPolicyRule) string {
 	return fmt.Sprintf("%v %v %v", rule.Metricname, rule.Operator, rule.Target)

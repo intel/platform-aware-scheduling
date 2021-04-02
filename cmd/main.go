@@ -5,12 +5,12 @@ import (
 	"github.com/intel/telemetry-aware-scheduling/pkg/controller"
 	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
 	"github.com/intel/telemetry-aware-scheduling/pkg/scheduler"
-	"github.com/intel/telemetry-aware-scheduling/pkg/telemetryscheduler"
 	strategy "github.com/intel/telemetry-aware-scheduling/pkg/strategies/core"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/deschedule"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/dontschedule"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
 	telemetrypolicyclient "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/client/v1alpha1"
+	"github.com/intel/telemetry-aware-scheduling/pkg/telemetryscheduler"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -36,7 +36,7 @@ func main() {
 	flag.StringVar(&syncPeriod, "syncPeriod", "5s", "length of time in seconds between metrics updates")
 	flag.Parse()
 	cache := tascache.NewAutoUpdatingCache()
-	tscheduler  := telemetryscheduler.NewMetricsExtender(cache)
+	tscheduler := telemetryscheduler.NewMetricsExtender(cache)
 	sch := scheduler.Server{ExtenderScheduler: tscheduler}
 	go sch.StartServer(port, certFile, keyFile, caFile, unsafe)
 	tasController(kubeConfig, syncPeriod, cache)
