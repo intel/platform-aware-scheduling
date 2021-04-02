@@ -5,10 +5,11 @@ package deschedule
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/core"
 	telempol "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
-	"log"
 )
 
 //StrategyType is set to de-schedule.

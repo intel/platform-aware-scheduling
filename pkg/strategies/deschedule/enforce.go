@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+
 	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
 	strategy "github.com/intel/telemetry-aware-scheduling/pkg/strategies/core"
 	v1 "k8s.io/api/core/v1"

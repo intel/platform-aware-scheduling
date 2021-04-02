@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"time"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"time"
 )
 
 //DummyRestClientConfig  Mocks used for testing in the metrics and other packages

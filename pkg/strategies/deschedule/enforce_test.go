@@ -2,6 +2,10 @@ package deschedule
 
 import (
 	"context"
+	"log"
+	"testing"
+	"time"
+
 	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
 	strategy "github.com/intel/telemetry-aware-scheduling/pkg/strategies/core"
@@ -11,9 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	testclient "k8s.io/client-go/kubernetes/fake"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
-	"log"
-	"testing"
-	"time"
 )
 
 func TestDescheduleStrategy_Enforce(t *testing.T) {

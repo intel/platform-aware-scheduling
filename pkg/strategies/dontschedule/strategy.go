@@ -4,10 +4,11 @@ package dontschedule
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/core"
 	telemetryPolicyV1 "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
-	"log"
 )
 
 //Strategy represents the TAS policy strategies.

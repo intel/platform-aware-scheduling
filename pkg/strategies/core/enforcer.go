@@ -1,11 +1,12 @@
 package core
 
 import (
-	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
-	"k8s.io/client-go/kubernetes"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
+	"k8s.io/client-go/kubernetes"
 )
 
 //MetricEnforcer instruments behavior to register strategies and trigger their enforcement actions.

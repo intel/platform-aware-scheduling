@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+
 	telemetrypolicy "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 

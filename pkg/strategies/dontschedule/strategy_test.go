@@ -1,14 +1,15 @@
 package dontschedule
 
 import (
+	"reflect"
+	"testing"
+	"time"
+
 	"github.com/intel/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/telemetry-aware-scheduling/pkg/metrics"
 	"github.com/intel/telemetry-aware-scheduling/pkg/strategies/core"
 	v1 "github.com/intel/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"reflect"
-	"testing"
-	"time"
 )
 
 func TestDontScheduleStrategy_Violated(t *testing.T) {
