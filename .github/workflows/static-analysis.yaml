@@ -19,10 +19,7 @@ jobs:
     name: Hadolint
     steps:
     - uses: actions/checkout@v2
-#     Each dockerfile needs to be pointed to individually with this setup
-    - uses: brpaz/hadolint-action@v1.2.1
-      with:
-        dockerfile: deploy/images/Dockerfile
+    - run: wget -q https://github.com/hadolint/hadolint/releases/download/v2.1.0/hadolint-Linux-x86_64 -O hadolint; chmod +x hadolint ; find . -type f \( -name "Dockerfile*" \) -print0 | xargs -n 1 -0 ./hadolint ;
   gofmt-imports:
     runs-on: ubuntu-latest
     name: Go Fmt and Go Import
