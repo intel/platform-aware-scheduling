@@ -1,4 +1,4 @@
-//Package extender extender logic contains code to respond call from the http endpoint.
+//Package extender contains types and logic to respond to requests from a Kubernetes http scheduler extender.
 package extender
 
 import (
@@ -90,13 +90,13 @@ func checkSymLinks(filename string) error {
 	return nil
 }
 
-// StartServer starts the HTTP server needed for extender.
+// StartServer starts the HTTP server needed for the scheduler extender.
 // It registers the handlers and checks for existing telemetry policies.
 func (m Server) StartServer(port string, certFile string, keyFile string, caFile string, unsafe bool) {
 	mx := http.NewServeMux()
 	mx.HandleFunc("/", handlerWithMiddleware(errorHandler))
-	mx.HandleFunc("/extender/prioritize", handlerWithMiddleware(m.Prioritize))
-	mx.HandleFunc("/extender/filter", handlerWithMiddleware(m.Filter))
+	mx.HandleFunc("/scheduler/prioritize", handlerWithMiddleware(m.Prioritize))
+	mx.HandleFunc("/scheduler/filter", handlerWithMiddleware(m.Filter))
 	var err error
 	if unsafe {
 		log.Printf("Extender Listening on HTTP  %v", port)

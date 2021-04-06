@@ -33,7 +33,7 @@ func NewMetricsExtender(newCache cache.Reader) MetricsExtender {
 	}
 }
 
-//Prioritize manages all prioritize requests from the extender extender.
+//Prioritize manages all prioritize requests from the scheduler extender.
 //It decodes the package, checks its policy, and performs error checking.
 //It then calls the prioritize logic and writes a response to the scheduler.
 func (m MetricsExtender) Prioritize(w http.ResponseWriter, r *http.Request) {
