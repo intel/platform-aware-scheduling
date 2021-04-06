@@ -32,7 +32,7 @@ func main() {
 	var kubeConfig, port, certFile, keyFile, caFile, syncPeriod string
 	var unsafe bool
 	flag.StringVar(&kubeConfig, "kubeConfig", "/root/.kube/config", "location of kubernetes config file")
-	flag.StringVar(&port, "port", "9001", "port on which the extender extender will listen")
+	flag.StringVar(&port, "port", "9001", "port on which the scheduler extender will listen")
 	flag.StringVar(&certFile, "cert", "/etc/kubernetes/pki/ca.crt", "cert file extender will use for authentication")
 	flag.StringVar(&keyFile, "key", "/etc/kubernetes/pki/ca.key", "key file extender will use for authentication")
 	flag.StringVar(&caFile, "cacert", "/etc/kubernetes/pki/ca.crt", "ca file extender will use for authentication")

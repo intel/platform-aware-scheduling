@@ -1,4 +1,4 @@
-//Logic for the scheduler extender - including the server it starts and prioritize + filter methods - is implemented in this package.
+//Tests for the scheduler extender - including the server it starts and prioritize + filter methods - is implemented in this package.
 package telemetryscheduler
 
 import (
