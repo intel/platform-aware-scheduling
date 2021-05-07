@@ -3,9 +3,10 @@ package metrics
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"time"
+
+	"k8s.io/klog/v2"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	restclient "k8s.io/client-go/rest"
@@ -17,7 +18,8 @@ import (
 func DummyRestClientConfig() *restclient.Config {
 	tmpFile, err := ioutil.TempFile("", "cmdtests_temp")
 	if err != nil {
-		panic(fmt.Sprintf("unable to create a fake client config: %v", err))
+		klog.InfoS("Unable to create a fake client config: "+err.Error(), "component", "testing")
+		panic(err)
 	}
 	loadingRules := &clientcmd.ClientConfigLoadingRules{
 		Precedence:     []string{tmpFile.Name()},

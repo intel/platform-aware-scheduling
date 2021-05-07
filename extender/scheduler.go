@@ -5,9 +5,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"time"
+
+	"k8s.io/klog/v2"
 )
 
 //postOnly check if the method type is POST
@@ -15,7 +16,7 @@ func postOnly(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
-			log.Print("method Type not POST")
+			klog.V(2).InfoS("method Type not POST", "component", "extender")
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -27,7 +28,7 @@ func contentLength(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.ContentLength > 1*1000*1000*1000 {
 			w.WriteHeader(http.StatusInternalServerError)
-			log.Print("request size too large")
+			klog.V(2).InfoS("request size too large", "component", "extender")
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -40,7 +41,7 @@ func requestContentType(next http.HandlerFunc) http.HandlerFunc {
 		requestContentType := r.Header.Get("Content-Type")
 		if requestContentType != "application/json" {
 			w.WriteHeader(http.StatusNotFound)
-			log.Print("request content type not application/json")
+			klog.V(2).InfoS("request content type not application/json", "component", "extender")
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -72,7 +73,7 @@ func handlerWithMiddleware(handle http.HandlerFunc) http.HandlerFunc {
 
 //error handler deals with requests sent to an invalid endpoint and returns a 404.
 func errorHandler(w http.ResponseWriter, r *http.Request) {
-	log.Print("unknown path")
+	klog.V(2).InfoS("Requested resource: '"+r.URL.Path+"' not found", "component", "extender")
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotFound)
 }
@@ -86,22 +87,23 @@ func (m Server) StartServer(port string, certFile string, keyFile string, caFile
 	mx.HandleFunc("/scheduler/filter", handlerWithMiddleware(m.Filter))
 	var err error
 	if unsafe {
-		log.Printf("Extender Listening on HTTP  %v", port)
+		klog.V(2).InfoS("Extender Listening on HTTP "+port, "component", "extender")
 		err = http.ListenAndServe(":"+port, mx)
 	} else {
-		log.Printf("Extender Now Listening on HTTPS  %v", port)
 		srv := configureSecureServer(port, caFile)
 		srv.Handler = mx
-		log.Fatal(srv.ListenAndServeTLS(certFile, keyFile))
+		klog.V(2).InfoS("Extender Listening on HTTPS "+port, "component", "extender")
+
+		klog.Fatal(srv.ListenAndServeTLS(certFile, keyFile))
 	}
-	log.Printf("Scheduler extender failed %v ", err)
+	klog.V(2).InfoS("Scheduler extender server failed to start "+err.Error(), "component", "extender")
 }
 
 //Configuration values including algorithms etc for the TAS scheduling endpoint.
 func configureSecureServer(port string, caFile string) *http.Server {
 	caCert, err := ioutil.ReadFile(caFile)
 	if err != nil {
-		log.Fatal(err)
+		klog.V(2).InfoS("caCert read failed: "+err.Error(), "component", "extender")
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)

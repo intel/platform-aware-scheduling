@@ -24,6 +24,7 @@ spec:
         - --cert=/tas/cert/tls.crt
         - --key=/tas/cert/tls.key
         - --cacert=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        - --v=2
         image: tasextender
         imagePullPolicy: IfNotPresent
         securityContext:

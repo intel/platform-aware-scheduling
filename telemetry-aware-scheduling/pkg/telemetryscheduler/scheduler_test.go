@@ -5,11 +5,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"k8s.io/klog/v2"
 
 	"github.com/intel/telemetry-aware-scheduling/extender"
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
@@ -114,12 +116,12 @@ func TestMetricsExtender_prescheduleChecks(t *testing.T) {
 			m := NewMetricsExtender(tt.fields.cache)
 			err := tt.fields.cache.WritePolicy(tt.fields.policy.Namespace, tt.fields.policy.Name, tt.fields.policy)
 			if err != nil && tt.wantErr {
-				log.Print(err)
+				klog.InfoS(err.Error(), "component", "testing")
 				return
 			}
 			argsAsJSON, err := json.Marshal(tt.prioritizeArgs)
 			if err != nil && tt.wantErr {
-				log.Print(err)
+				klog.InfoS(err.Error(), "component", "testing")
 				return
 			}
 			err = tt.fields.cache.WriteMetric(tt.fields.policy.Spec.Strategies["scheduleonmetric"].Rules[0].Metricname, tt.metric)
@@ -133,7 +135,8 @@ func TestMetricsExtender_prescheduleChecks(t *testing.T) {
 			result := extender.HostPriorityList{}
 			b := w.Body.Bytes()
 			err = json.Unmarshal(b, &result)
-			log.Print(result)
+			msg := fmt.Sprint(result)
+			klog.InfoS(msg, "component", "testing")
 			if err != nil && tt.wantErr {
 				return
 			}
@@ -201,17 +204,17 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 			m := NewMetricsExtender(tt.fields.cache)
 			err := tt.fields.cache.WritePolicy(tt.fields.policy.Namespace, tt.fields.policy.Name, tt.fields.policy)
 			if err != nil && tt.wantErr {
-				log.Print(err)
+				klog.InfoS(err.Error(), "component", "testing")
 				return
 			}
 			argsAsJSON, err := json.Marshal(tt.prioritizeArgs)
 			if err != nil && tt.wantErr {
-				log.Print(err)
+				klog.InfoS(err.Error(), "component", "testing")
 				return
 			}
 			err = tt.fields.cache.WriteMetric(tt.fields.policy.Spec.Strategies["scheduleonmetric"].Rules[0].Metricname, tt.metric)
 			if err != nil && tt.wantErr {
-				log.Print(err)
+				klog.InfoS(err.Error(), "component", "testing")
 				return
 			}
 			tt.args.r.Header.Add("Content-Type", "application/json")
@@ -222,7 +225,7 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 			b := w.Body.Bytes()
 			err = json.Unmarshal(b, &result)
 			if err != nil && tt.wantErr {
-				log.Print(err)
+				klog.InfoS(err.Error(), "component", "testing")
 				return
 			}
 			if len(result) == 0 {
@@ -231,7 +234,8 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 				}
 			}
 			if len(result) == len(tt.wanted) {
-				log.Print(result, tt.wanted)
+				msg := fmt.Sprint(result, tt.wanted)
+				klog.InfoS(msg, "component", "testing")
 				for i, priorityItem := range result {
 					if priorityItem.Host != tt.wanted[i].Host {
 						err = errors.New("host names not equal")
@@ -294,17 +298,17 @@ func TestMetricsExtender_Filter(t *testing.T) {
 			}
 			err := tt.fields.cache.WritePolicy(tt.fields.policy.Namespace, tt.fields.policy.Name, tt.fields.policy)
 			if err != nil && tt.wantErr {
-				log.Print(err)
+				klog.InfoS(err.Error(), "component", "testing")
 				return
 			}
 			err = tt.fields.cache.WriteMetric(tt.fields.policy.Spec.Strategies["dontschedule"].Rules[0].Metricname, tt.args.metric)
 			if err != nil && tt.wantErr {
-				log.Print(err)
+				klog.InfoS(err.Error(), "component", "testing")
 				return
 			}
 			argsAsJSON, err := json.Marshal(twoNodeArgument)
 			if err != nil {
-				log.Print(err)
+				klog.InfoS(err.Error(), "component", "testing")
 			}
 			tt.args.r.Body = ioutil.NopCloser(bytes.NewReader(argsAsJSON))
 			tt.args.r.Header.Add("Content-Type", "application/json")
@@ -317,7 +321,8 @@ func TestMetricsExtender_Filter(t *testing.T) {
 				t.Errorf("problem unmarshalling response %v", err)
 				return
 			}
-			log.Print(result)
+			msg := fmt.Sprint(result)
+			klog.InfoS(msg, "component", "testing")
 			if len(result.FailedNodes) == len(tt.wanted.FailedNodes) {
 				for name := range result.FailedNodes {
 					if _, ok := tt.wanted.FailedNodes[name]; !ok {

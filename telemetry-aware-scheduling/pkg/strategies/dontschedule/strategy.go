@@ -4,7 +4,8 @@ package dontschedule
 
 import (
 	"fmt"
-	"log"
+
+	"k8s.io/klog/v2"
 
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/core"
@@ -26,13 +27,15 @@ func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
 	for _, rule := range d.Rules {
 		nodeMetrics, err := cache.ReadMetric(rule.Metricname)
 		if err != nil {
-			log.Print(err)
+			klog.V(2).InfoS(err.Error(), "component", "controller")
 			continue
 		}
 		for nodeName, nodeMetric := range nodeMetrics {
-			log.Print(nodeName+" "+rule.Metricname, " = ", nodeMetric.Value.AsDec())
+			msg := fmt.Sprint(nodeName+" "+rule.Metricname, " = ", nodeMetric.Value.AsDec())
+			klog.V(2).InfoS(msg, "component", "controller")
 			if core.EvaluateRule(nodeMetric.Value, rule) {
-				log.Print(nodeName + " violating " + d.PolicyName + ": " + ruleToString(rule))
+				msg := fmt.Sprint(nodeName + " violating " + d.PolicyName + ": " + ruleToString(rule))
+				klog.V(2).InfoS(msg, "component", "controller")
 				violatingNodes[nodeName] = nil
 			}
 		}

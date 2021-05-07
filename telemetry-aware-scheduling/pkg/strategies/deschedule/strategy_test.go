@@ -4,10 +4,12 @@
 package deschedule
 
 import (
-	"log"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
+
+	"k8s.io/klog/v2"
 
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
@@ -17,7 +19,7 @@ import (
 )
 
 func TestDescheduleStrategy_SetPolicyName(t *testing.T) {
-	log.Print("entered in strategy ")
+	klog.InfoS("entered in strategy", "component", "testing")
 	type args struct {
 		name string
 	}
@@ -77,7 +79,8 @@ func TestDescheduleStrategy_Equals(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.d.Equals(tt.args.other); got != tt.want {
 				a, _ := tt.args.other.(*Strategy)
-				log.Print(a)
+				msg := fmt.Sprint(a)
+				klog.InfoS(msg, "component", "testing")
 				t.Errorf("Strategy.Equals() = %v, want %v", got, tt.want)
 			}
 		})
@@ -102,7 +105,7 @@ func TestDescheduleStrategy_Violated(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1, Value: *resource.NewQuantity(10, resource.DecimalSI)}})
 			if err != nil {
-				log.Print(err)
+				klog.InfoS("testing metric write on cache failed"+err.Error(), "component", "testing")
 			}
 			if got := tt.d.Violated(tt.args.cache); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Strategy.Violated() = %v, want %v", got, tt.want)

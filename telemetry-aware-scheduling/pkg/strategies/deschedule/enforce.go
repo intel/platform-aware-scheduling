@@ -4,14 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
 	strategy "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/core"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	"log"
+	"k8s.io/klog/v2"
 )
 
 type violationList map[string][]string
@@ -28,12 +28,14 @@ type patchValue struct {
 func (d *Strategy) Enforce(enforcer *strategy.MetricEnforcer, cache cache.Reader) (int, error) {
 	nodes, err := enforcer.KubeClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		log.Print("cannot list nodes : ", err)
+		msg := fmt.Sprintf("cannot list nodes: %v", err)
+		klog.V(2).InfoS(msg, "component", "controller")
 		return -1, err
 	}
 	list := d.nodeStatusForStrategy(enforcer, cache)
 	numberViolations, err := d.updateNodeLabels(enforcer, list, nodes)
 	if err != nil {
+		klog.V(2).InfoS(err.Error(), "component", "controller")
 		return -1, err
 	}
 	return numberViolations, nil
@@ -43,12 +45,12 @@ func (d *Strategy) Enforce(enforcer *strategy.MetricEnforcer, cache cache.Reader
 func (d *Strategy) patchNode(nodeName string, enforcer *strategy.MetricEnforcer, payload []patchValue) error {
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		log.Print(err)
+		klog.V(4).InfoS(err.Error(), "component", "controller")
 		return err
 	}
 	_, err = enforcer.KubeClient.CoreV1().Nodes().Patch(context.TODO(), nodeName, types.JSONPatchType, jsonPayload, metav1.PatchOptions{})
 	if err != nil {
-		log.Print(err)
+		klog.V(4).InfoS(err.Error(), "component", "controller")
 		return err
 	}
 	return nil
@@ -106,11 +108,11 @@ func (d *Strategy) updateNodeLabels(enforcer *strategy.MetricEnforcer, viols vio
 			if len(labelErrs) == 0 {
 				labelErrs = "could not label: "
 			}
-			log.Print(err)
+			klog.V(4).InfoS(err.Error(), "component", "controller")
 			labelErrs = labelErrs + node.Name + ": [ " + violatedPolicies + " ]; "
 		}
 		if len(violatedPolicies) > 0 {
-			log.Println("node", node.Name, "violating", violatedPolicies)
+			klog.V(2).InfoS("Node "+node.Name+" violating "+violatedPolicies, "component", "controller")
 		}
 	}
 	if len(labelErrs) > 0 {
@@ -123,7 +125,7 @@ func (d *Strategy) updateNodeLabels(enforcer *strategy.MetricEnforcer, viols vio
 func (d *Strategy) nodeStatusForStrategy(enforcer *strategy.MetricEnforcer, cache cache.Reader) violationList {
 	violations := violationList{}
 	for strat := range enforcer.RegisteredStrategies[StrategyType] {
-		log.Print("Evaluating ", strat.GetPolicyName())
+		klog.V(2).InfoS("Evaluating "+strat.GetPolicyName(), "component", "controller")
 		nodes := strat.Violated(cache)
 		for node := range nodes {
 			violations[node] = append(violations[node], strat.GetPolicyName())
