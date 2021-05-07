@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/klog/v2"
+
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/core"
@@ -30,6 +32,7 @@ func TestDontScheduleStrategy_Violated(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1, Value: *resource.NewQuantity(10, resource.DecimalSI)}})
 			if err != nil {
+				klog.V(4).InfoS(err.Error(), "component", "testing")
 				panic(err)
 			}
 			if got := tt.d.Violated(tt.args.cache); !reflect.DeepEqual(got, tt.want) {

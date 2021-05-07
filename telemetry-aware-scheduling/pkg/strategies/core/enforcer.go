@@ -1,9 +1,11 @@
 package core
 
 import (
-	"log"
+	"fmt"
 	"sync"
 	"time"
+
+	"k8s.io/klog/v2"
 
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
 	"k8s.io/client-go/kubernetes"
@@ -66,7 +68,8 @@ func (e *MetricEnforcer) RemoveStrategy(str Interface, strategyType string) {
 	for s := range e.RegisteredStrategies[strategyType] {
 		if s.Equals(str) {
 			delete(e.RegisteredStrategies[strategyType], s)
-			log.Printf("Removed %v: %v from strategy register", s.GetPolicyName(), strategyType)
+			msg := fmt.Sprintf("Removed %v: %v from strategy register", s.GetPolicyName(), strategyType)
+			klog.V(2).InfoS(msg, "component", "controller")
 		}
 	}
 }
@@ -77,11 +80,13 @@ func (e *MetricEnforcer) AddStrategy(str Interface, strategyType string) {
 	defer e.Unlock()
 	for s := range e.RegisteredStrategies[strategyType] {
 		if s.Equals(str) {
-			log.Printf("Duplicate strategy found. Not adding %v: %v to registry", s.GetPolicyName(), s.StrategyType())
+			msg := fmt.Sprintf("Duplicate strategy found. Not adding %v: %v to registry", s.GetPolicyName(), s.StrategyType())
+			klog.V(2).InfoS(msg, "component", "controller")
 			return
 		}
 	}
-	log.Printf("Adding strategies: %v %v", str.StrategyType(), str.GetPolicyName())
+	msg := fmt.Sprintf("Adding strategies: %v %v", str.StrategyType(), str.GetPolicyName())
+	klog.V(2).InfoS(msg, "component", "controller")
 	if _, ok := e.RegisteredStrategies[strategyType]; ok {
 		e.RegisteredStrategies[strategyType][str] = nil
 		return
@@ -107,7 +112,8 @@ func (e *MetricEnforcer) enforceStrategy(strategyType string, cache cache.Reader
 		for str := range strList {
 			_, err := str.Enforce(e, cache)
 			if err != nil {
-				log.Print(err)
+				msg := fmt.Sprintf("Enforce the strategy failed: %v", err)
+				klog.V(2).InfoS(msg, "component", "controller")
 			}
 		}
 	}

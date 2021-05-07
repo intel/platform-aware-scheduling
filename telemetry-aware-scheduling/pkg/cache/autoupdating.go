@@ -3,12 +3,13 @@ package cache
 import (
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
 	telemetrypolicy "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
+
+	"k8s.io/klog/v2"
 )
 
 const (
@@ -50,7 +51,7 @@ func (n *AutoUpdatingCache) updateAllMetrics(client metrics.Client) {
 		if len(name) > 0 {
 			err := n.updateMetric(client, name)
 			if err != nil {
-				log.Print(err)
+				klog.V(2).InfoS(err.Error(), "component", "controller")
 			}
 		} else {
 			delete(n.metricMap, name)
@@ -117,7 +118,7 @@ func (n *AutoUpdatingCache) WriteMetric(metricName string, data metrics.NodeMetr
 
 //DeletePolicy removes the policy removes the policy object at the given namespace/name string from the cache
 func (n *AutoUpdatingCache) DeletePolicy(namespace string, policyName string) error {
-	log.Print("deleting", fmt.Sprintf(policyPath, namespace, policyName))
+	klog.V(2).InfoS("deleting "+fmt.Sprintf(policyPath, namespace, policyName), "component", "controller")
 	n.delete(fmt.Sprintf(policyPath, namespace, policyName))
 	return nil
 }

@@ -1,13 +1,15 @@
 package cache
 
 import (
-	"log"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
 	telemetrypolicy "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
+
+	"k8s.io/klog/v2"
 )
 
 func TestNodeMetricsCache_PeriodicUpdate(t *testing.T) {
@@ -55,7 +57,8 @@ func TestNodeMetricsCache_PeriodicUpdate(t *testing.T) {
 				t.Error(err)
 			}
 			if atStart[tt.queriedNode].Value == atEnd[tt.queriedNode].Value {
-				log.Print(atStart[tt.queriedNode].Value, atEnd[tt.queriedNode].Value)
+				msg := fmt.Sprint(atStart[tt.queriedNode].Value, atEnd[tt.queriedNode].Value)
+				klog.InfoS(msg, "component", "testing")
 				t.Fail()
 			}
 		})

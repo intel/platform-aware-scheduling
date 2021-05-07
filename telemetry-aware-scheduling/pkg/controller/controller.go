@@ -5,7 +5,7 @@ package controller
 import (
 	"context"
 	"errors"
-	"log"
+	"fmt"
 
 	strategy "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/core"
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/deschedule"
@@ -15,13 +15,15 @@ import (
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 )
 
 //Run starts the controller watching on the Informer queue and doesnt' stop it until the Done signal is received from context
 func (controller *TelemetryPolicyController) Run(context context.Context) {
-	log.Print("Watching Telemetry Policies ")
+	klog.V(2).InfoS("Watching Telemetry Policies", "component", "controller")
 	_, err := controller.watch(context)
 	if err != nil {
+		klog.V(2).InfoS(err.Error(), "component", "controller")
 		panic(err)
 	}
 	<-context.Done()
@@ -54,20 +56,20 @@ func (controller *TelemetryPolicyController) watch(context context.Context) (cac
 func (controller *TelemetryPolicyController) onAdd(obj interface{}) {
 	pol, ok := obj.(*telemetrypolicy.TASPolicy)
 	if !ok {
-		log.Print("cannot add policy: not recognized as a telemetry policy")
+		klog.V(4).InfoS("cannot add policy: not recognized as a telemetry policy", "component", "controller")
 		return
 	}
 	polCopy := pol.DeepCopy()
 	err := controller.WritePolicy(polCopy.Namespace, polCopy.Name, *polCopy)
 	if err != nil {
-		log.Print("policy not added to cache: ", err)
+		klog.V(2).InfoS("Policy not added to cache: "+err.Error(), "component", "controller")
 		return
 	}
 	for _, name := range controller.Enforcer.RegisteredStrategyTypes() {
-		log.Printf("registering %v from %v", name, pol.Name)
+		klog.V(4).InfoS("registering "+name+" from "+pol.Name, "component", "controller")
 		strt, err := castStrategy(name, polCopy.Spec.Strategies[name])
 		if err != nil {
-			log.Print(err)
+			klog.V(2).InfoS(err.Error(), "component", "controller")
 			return
 		}
 		strt.SetPolicyName(polCopy.ObjectMeta.Name)
@@ -76,11 +78,11 @@ func (controller *TelemetryPolicyController) onAdd(obj interface{}) {
 		for _, rule := range ruleset[name].Rules {
 			err := controller.WriteMetric(rule.Metricname, nil)
 			if err == nil {
-				log.Print("Added " + rule.Metricname)
+				klog.V(2).InfoS("Added "+rule.Metricname, "component", "controller")
 			}
 		}
 	}
-	log.Println("Added policy,", polCopy.Name)
+	klog.V(2).InfoS("Added policy, "+polCopy.Name, "component", "controller")
 }
 
 //castStrategy takes in a TASpolicy and returns its specific type based on the structure of the policy file.
@@ -107,26 +109,27 @@ func (controller *TelemetryPolicyController) onUpdate(old, new interface{}) {
 	polCopy := newPol.DeepCopy()
 	err := controller.WritePolicy(polCopy.Namespace, polCopy.Name, *polCopy)
 	if err != nil {
-		log.Print("cached policy not updated: ", err)
+		msg := fmt.Sprintf("cached policy not updated %v", err)
+		klog.V(2).InfoS(msg, "component", "controller")
 		return
 	}
-	log.Println("Policy: ", polCopy.Name, " updated")
+	klog.V(2).InfoS("Policy: "+polCopy.Name+" updated", "component", "controller")
 	for _, name := range controller.Enforcer.RegisteredStrategyTypes() {
 		oldStrat, err := castStrategy(name, oldPol.Spec.Strategies[name])
 		if err != nil {
-			log.Print(err)
+			klog.V(2).InfoS(err.Error(), "component", "controller")
 			return
 		}
 		controller.Enforcer.RemoveStrategy(oldStrat, oldStrat.StrategyType())
 		for _, rule := range oldPol.Spec.Strategies[oldStrat.StrategyType()].Rules {
 			err := controller.DeleteMetric(rule.Metricname)
 			if err != nil {
-				log.Print(err)
+				klog.V(2).InfoS(err.Error(), "component", "controller")
 			}
 		}
 		strt, err := castStrategy(name, polCopy.Spec.Strategies[name])
 		if err != nil {
-			log.Print(err)
+			klog.V(2).InfoS(err.Error(), "component", "controller")
 			return
 		}
 		strt.SetPolicyName(polCopy.ObjectMeta.Name)
@@ -134,7 +137,7 @@ func (controller *TelemetryPolicyController) onUpdate(old, new interface{}) {
 		for _, rule := range polCopy.Spec.Strategies[name].Rules {
 			err := controller.WriteMetric(rule.Metricname, nil)
 			if err != nil {
-				log.Print(err)
+				klog.V(2).InfoS(err.Error(), "component", "controller")
 			}
 		}
 	}
@@ -147,7 +150,7 @@ func (controller *TelemetryPolicyController) onDelete(obj interface{}) {
 	for _, name := range controller.Enforcer.RegisteredStrategyTypes() {
 		strt, err := castStrategy(name, polCopy.Spec.Strategies[name])
 		if err != nil {
-			log.Print(err)
+			klog.V(2).InfoS(err.Error(), "component", "controller")
 			return
 		}
 		strt.SetPolicyName(pol.Name)
@@ -155,14 +158,14 @@ func (controller *TelemetryPolicyController) onDelete(obj interface{}) {
 		for _, rule := range polCopy.Spec.Strategies[strt.StrategyType()].Rules {
 			err := controller.DeleteMetric(rule.Metricname)
 			if err != nil {
-				log.Print(err)
+				klog.V(2).InfoS(err.Error(), "component", "controller")
 			}
 		}
 	}
 	err := controller.DeletePolicy(polCopy.Namespace, polCopy.Name)
 	if err != nil {
-		log.Print(err)
+		klog.V(4).InfoS(err.Error(), "component", "controller")
 		return
 	}
-	log.Println("Policy: ", polCopy.Name, " deleted")
+	klog.V(2).InfoS("Policy: "+polCopy.Name+" deleted", "component", "controller")
 }

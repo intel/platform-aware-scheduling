@@ -1,9 +1,10 @@
 package core
 
 import (
-	"log"
 	"reflect"
 	"testing"
+
+	"k8s.io/klog/v2"
 
 	"k8s.io/client-go/kubernetes"
 	testclient "k8s.io/client-go/kubernetes/fake"
@@ -164,7 +165,8 @@ func TestMetricEnforcer_AddStrategy(t *testing.T) {
 			e.RegisterStrategyType(tt.args.str)
 			e.AddStrategy(tt.args.str, tt.args.strategyType)
 			for str := range e.RegisteredStrategies[tt.args.strategyType] {
-				log.Print(e.RegisteredStrategies[tt.args.strategyType])
+				klog.InfoS("Test metric enforcer", "registered strategies",
+					e.RegisteredStrategies[tt.args.strategyType], "component", "controller")
 				sart := tt.wanted[str.StrategyType()]
 				if lsart, ok := sart.(*MockStrategy); ok {
 					if !str.Equals(lsart) {

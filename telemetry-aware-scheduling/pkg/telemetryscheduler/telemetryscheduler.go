@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
 	telemetrypolicy "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/klog/v2"
 )
 
 var tasPolicy = "telemetry-policy"
@@ -37,18 +37,18 @@ func NewMetricsExtender(newCache cache.Reader) MetricsExtender {
 //It decodes the package, checks its policy, and performs error checking.
 //It then calls the prioritize logic and writes a response to the scheduler.
 func (m MetricsExtender) Prioritize(w http.ResponseWriter, r *http.Request) {
-	log.Print("Received prioritize request")
+	klog.V(2).InfoS("Received prioritize request", "component", "extender")
 	extenderArgs, err := m.DecodeExtenderRequest(r)
 	if err != nil {
-		log.Printf("failed to prioritize %v", err)
+		klog.V(2).InfoS("failed to prioritize: "+err.Error(), "component", "extender")
 		return
 	}
 	if len(extenderArgs.Nodes.Items) == 0 {
-		log.Print("bad extender arguments. No nodes in list")
+		klog.V(2).InfoS("bad extender arguments. No nodes in list", "component", "extender")
 		return
 	}
 	if _, ok := extenderArgs.Pod.Labels[tasPolicy]; !ok {
-		log.Printf("no policy associated with pod")
+		klog.V(2).InfoS("no policy associated with pod", "component", "extender")
 		w.WriteHeader(http.StatusBadRequest)
 	}
 	prioritizedNodes := m.prioritizeNodes(extenderArgs)
@@ -81,20 +81,21 @@ func (m MetricsExtender) DecodeExtenderRequest(r *http.Request) (extender.Args, 
 func (m MetricsExtender) prioritizeNodes(args extender.Args) *extender.HostPriorityList {
 	policy, err := m.getPolicyFromPod(&args.Pod)
 	if err != nil {
-		log.Print(err)
+		klog.V(2).InfoS("get policy from pod failed: "+err.Error(), "component", "extender")
 		return &extender.HostPriorityList{}
 	}
 	scheduleRule, err := m.getSchedulingRule(policy)
 	if err != nil {
-		log.Print(err)
+		klog.V(2).InfoS("get scheduling rule from policy failed: "+err.Error(), "component", "extender")
 		return &extender.HostPriorityList{}
 	}
 	chosenNodes, err := m.prioritizeNodesForRule(scheduleRule, args.Nodes)
 	if err != nil {
-		log.Print(err)
+		klog.V(2).InfoS(err.Error(), "component", "extender")
 		return &extender.HostPriorityList{}
 	}
-	log.Printf("node priorities returned: %v", chosenNodes)
+	msg := fmt.Sprintf("node priorities returned: %v", chosenNodes)
+	klog.V(2).InfoS(msg, "component", "extender")
 	return &chosenNodes
 }
 
@@ -143,7 +144,7 @@ func (m MetricsExtender) prioritizeNodesForRule(rule telemetrypolicy.TASPolicyRu
 		metricsOutput = fmt.Sprint(metricsOutput, " [ ", node.NodeName, " :", node.MetricValue.AsDec(), "]")
 		outputNodes = append(outputNodes, extender.HostPriority{Host: node.NodeName, Score: 10 - i})
 	}
-	log.Print(metricsOutput)
+	klog.V(2).InfoS(metricsOutput, "component", "extender")
 	return outputNodes, nil
 }
 
@@ -151,6 +152,7 @@ func (m MetricsExtender) prioritizeNodesForRule(rule telemetrypolicy.TASPolicyRu
 func (m MetricsExtender) WritePrioritizeResponse(w http.ResponseWriter, result *extender.HostPriorityList) {
 	encoder := json.NewEncoder(w)
 	if err := encoder.Encode(result); err != nil {
+		klog.V(4).InfoS("Encode error: "+err.Error(), "component", "extender")
 		http.Error(w, "Encode error ", http.StatusBadRequest)
 	}
 }
@@ -159,15 +161,15 @@ func (m MetricsExtender) WritePrioritizeResponse(w http.ResponseWriter, result *
 //It decodes the request, checks its policy and registers it.
 //It then calls the filter logic and writes a response to the scheduler.
 func (m MetricsExtender) Filter(w http.ResponseWriter, r *http.Request) {
-	log.Print("filter request received")
+	klog.V(2).InfoS("Filter request received", "component", "extender")
 	extenderArgs, err := m.DecodeExtenderRequest(r)
 	if err != nil {
-		log.Printf("cannot filter %v", err)
+		klog.V(2).InfoS("cannot filter "+err.Error(), "component", "extender")
 		return
 	}
 	filteredNodes := m.filterNodes(extenderArgs)
 	if filteredNodes == nil {
-		log.Print("No filtered nodes returned")
+		klog.V(2).InfoS("No filtered nodes returned", "component", "extender")
 		w.WriteHeader(http.StatusNotFound)
 	}
 	m.WriteFilterResponse(w, filteredNodes)
@@ -181,17 +183,17 @@ func (m MetricsExtender) filterNodes(args extender.Args) *extender.FilterResult 
 	result := extender.FilterResult{}
 	policy, err := m.getPolicyFromPod(&args.Pod)
 	if err != nil {
-		log.Print(err)
+		klog.V(2).InfoS("get policy from pod failed "+err.Error(), "component", "extender")
 		return nil
 	}
 	dontscheduleStrategy, err := m.getDontScheduleStrategy(policy)
 	if err != nil {
-		log.Print(err)
+		klog.V(2).InfoS("Don't scheduler strategy failed "+err.Error(), "component", "extender")
 		return nil
 	}
 	violatingNodes := dontscheduleStrategy.Violated(m.cache)
 	if len(args.Nodes.Items) == 0 {
-		log.Print("No nodes to compare ")
+		klog.V(2).InfoS("No nodes to compare", "component", "extender")
 		return nil
 	}
 	for _, node := range args.Nodes.Items {
@@ -212,7 +214,7 @@ func (m MetricsExtender) filterNodes(args extender.Args) *extender.FilterResult 
 		Error:       "",
 	}
 	if len(availableNodeNames) > 0 {
-		log.Printf("Filtered nodes for %v : %v", policy.Name, availableNodeNames)
+		klog.V(2).InfoS("Filtered nodes for "+policy.Name+": "+availableNodeNames, "component", "extender")
 	}
 	return &result
 }
@@ -231,6 +233,7 @@ func (m MetricsExtender) getDontScheduleStrategy(policy telemetrypolicy.TASPolic
 func (m MetricsExtender) WriteFilterResponse(w http.ResponseWriter, result *extender.FilterResult) {
 	encoder := json.NewEncoder(w)
 	if err := encoder.Encode(result); err != nil {
+		klog.V(4).InfoS("Encode error "+err.Error(), "component", "extender")
 		http.Error(w, "Encode error", http.StatusBadRequest)
 	}
 }

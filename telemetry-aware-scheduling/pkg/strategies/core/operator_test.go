@@ -1,10 +1,11 @@
 package core
 
 import (
-	"log"
 	"reflect"
 	"testing"
 	"time"
+
+	"k8s.io/klog/v2"
 
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
 	telemetrypolicy "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
@@ -65,7 +66,7 @@ func TestOrderedList(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("OrderedList() = %v, want %v", got, tt.want)
 			}
-			log.Print(got, tt.want)
+			klog.InfoS("Testing ordered list", "list", got, "want", tt.want, "component", "controller")
 		},
 		)
 	}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"log"
 	"os"
 
 	"os/signal"
@@ -22,6 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 
 	"context"
 
@@ -31,6 +31,7 @@ import (
 func main() {
 	var kubeConfig, port, certFile, keyFile, caFile, syncPeriod string
 	var unsafe bool
+	klog.InitFlags(nil)
 	flag.StringVar(&kubeConfig, "kubeConfig", "/root/.kube/config", "location of kubernetes config file")
 	flag.StringVar(&port, "port", "9001", "port on which the scheduler extender will listen")
 	flag.StringVar(&certFile, "cert", "/etc/kubernetes/pki/ca.crt", "cert file extender will use for authentication")
@@ -44,6 +45,7 @@ func main() {
 	sch := extender.Server{Scheduler: tscheduler}
 	go sch.StartServer(port, certFile, keyFile, caFile, unsafe)
 	tasController(kubeConfig, syncPeriod, cache)
+	klog.Flush()
 }
 
 //tasController The controller load the TAS policy/strategies and places them into a local cache that is available
@@ -51,15 +53,18 @@ func main() {
 func tasController(kubeConfig string, syncPeriod string, cache *tascache.AutoUpdatingCache) {
 	kubeClient, clientConfig, err := getkubeClient(kubeConfig)
 	if err != nil {
+		klog.V(2).InfoS("Issue in getting client config: "+err.Error(), "component", "controller")
 		panic(err)
 	}
 	syncDuration, err := time.ParseDuration(syncPeriod)
 	if err != nil {
+		klog.V(2).InfoS("Sync problems in Parsing: "+err.Error(), "component", "controller")
 		panic(err)
 	}
 	metricsClient := metrics.NewClient(clientConfig)
 	telpolicyClient, _, err := telemetrypolicyclient.NewRest(*clientConfig)
 	if err != nil {
+		klog.V(2).InfoS("Rest client access to telemetrypolicy CRD problem: "+err.Error(), "component", "controller")
 		panic(err)
 	}
 	metricTicker := time.NewTicker(syncDuration)
@@ -86,7 +91,7 @@ func tasController(kubeConfig string, syncPeriod string, cache *tascache.AutoUpd
 func getkubeClient(kubeConfig string) (kubernetes.Interface, *rest.Config, error) {
 	clientConfig, err := rest.InClusterConfig()
 	if err != nil {
-		log.Print("not in cluster - trying file-based configuration")
+		klog.V(4).InfoS("not in cluster - trying file-based configuration", "component", "controller")
 		clientConfig, err = clientcmd.BuildConfigFromFlags("", kubeConfig)
 		if err != nil {
 			return nil, nil, err
@@ -102,5 +107,5 @@ func getkubeClient(kubeConfig string) (kubernetes.Interface, *rest.Config, error
 func catchInterrupt(done chan os.Signal) {
 	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
 	<-done
-	log.Println("\nPolicy controller closed ")
+	klog.V(2).InfoS("Policy controller closed ", "component", "controller")
 }

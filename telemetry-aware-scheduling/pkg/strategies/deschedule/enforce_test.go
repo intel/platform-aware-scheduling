@@ -2,9 +2,11 @@ package deschedule
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"testing"
 	"time"
+
+	"k8s.io/klog/v2"
 
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
@@ -75,7 +77,8 @@ func TestDescheduleStrategy_Enforce(t *testing.T) {
 				got = append(got, node.Name)
 			}
 			nodys, _ := tt.args.enforcer.KubeClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-			log.Print(nodys.Items[0])
+			msg := fmt.Sprint(nodys.Items[0])
+			klog.InfoS(msg, "component", "testing")
 			if len(tt.want.nodeNames) != len(got) {
 				t.Errorf("Number of pods returned: %v not as expected: %v", got, tt.want.nodeNames)
 			}

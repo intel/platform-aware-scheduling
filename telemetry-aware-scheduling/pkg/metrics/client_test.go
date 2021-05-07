@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"reflect"
 	"testing"
 	"time"
+
+	"k8s.io/klog/v2"
 
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -30,7 +31,8 @@ var baseTimeStamp = time.Date(2019, time.May, 20, 12, 25, 00, 0, time.UTC)
 func dummyRestClientConfig() *restclient.Config {
 	tmpFile, err := ioutil.TempFile("", "cmdtests_temp")
 	if err != nil {
-		panic(fmt.Sprintf("unable to create a fake client config: %v", err))
+		klog.InfoS("Unable to create a fake client config: "+err.Error(), "component", "testing")
+		panic(err)
 	}
 	loadingRules := &clientcmd.ClientConfigLoadingRules{
 		Precedence:     []string{tmpFile.Name()},
@@ -41,7 +43,7 @@ func dummyRestClientConfig() *restclient.Config {
 	clientConfig := clientcmd.NewInteractiveDeferredLoadingClientConfig(loadingRules, overrides, fallbackReader)
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
-		log.Fatalf("Can't create dummy rest client config %v ", err)
+		klog.InfoS("Can't create dummy rest client config: "+err.Error(), "component", "testing")
 	}
 	return restConfig
 }
@@ -135,7 +137,7 @@ func TestNewClient(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewClient(tt.args.config)
 			if reflect.TypeOf(got) != reflect.TypeOf(dummyRestClientConfig()) {
-				log.Print("No real test implemented here")
+				klog.InfoS("No real test implemented here", "component", "testing")
 				//TODO:add some better verification constructor has worked here.
 			}
 		})
