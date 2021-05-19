@@ -1,0 +1,20 @@
+name: End to end tests
+
+on: [push, pull_request]
+
+jobs:
+  end-to-end-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set up Go version
+        uses: actions/setup-go@v1
+        with:
+         go-version: 1.13
+      - name: Get tools for cluster installation
+        run: ./.github/scripts/e2e_get_tools.sh
+      - name: Set up cluster with TAS and custom metrics
+        run: ./.github/scripts/e2e_setup_cluster.sh
+      - name: Run end to end tests
+        run: go test -v ./.github/e2e/e2e_test.go
