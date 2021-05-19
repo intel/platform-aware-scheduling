@@ -1,0 +1,26 @@
+    {
+        "kind" : "KubeSchedulerConfiguration",
+        "apiVersion" : "kubescheduler.config.k8s.io/v1beta1",
+        "clientConnection": {
+           "kubeconfig": "/etc/kubernetes/scheduler.conf"
+        },
+        "extenders" : [
+            {
+              "urlPrefix": "https://tas-service.default.svc.cluster.local:9001",             
+              "prioritizeVerb": "scheduler/prioritize",
+              "filterVerb": "scheduler/filter",
+              "weight": 100,
+              "managedResources": [
+                   {
+                     "name": "telemetry/scheduling",
+                     "ignoredByScheduler": true
+                   }
+              ],
+              "tlsConfig": {
+                     "insecure": true,
+                     "certFile": "/etc/kubernetes/pki/ca.crt",
+                     "keyFile" : "/etc/kubernetes/pki/ca.key"
+              }
+            }
+           ]
+    }
