@@ -4,10 +4,12 @@ import (
 	"net/http"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 //Scheduler has the capabilities needed to prioritize and filter nodes based on http requests.
 type Scheduler interface {
+	Bind(w http.ResponseWriter, r *http.Request)
 	Prioritize(w http.ResponseWriter, r *http.Request)
 	Filter(w http.ResponseWriter, r *http.Request)
 }
@@ -57,6 +59,24 @@ type FilterResult struct {
 	NodeNames *[]string
 	// Filtered out nodes where the pod can't be scheduled and the failure messages
 	FailedNodes FailedNodesMap
+	// Error message indicating failure
+	Error string
+}
+
+// BindingArgs represents the arguments to an extender for binding a pod to a node.
+type BindingArgs struct {
+	// PodName is the name of the pod being bound
+	PodName string
+	// PodNamespace is the namespace of the pod being bound
+	PodNamespace string
+	// PodUID is the UID of the pod being bound
+	PodUID types.UID
+	// Node selected by the scheduler
+	Node string
+}
+
+// BindingResult stores the result from extender to be sent as response.
+type BindingResult struct {
 	// Error message indicating failure
 	Error string
 }

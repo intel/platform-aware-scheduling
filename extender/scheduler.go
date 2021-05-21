@@ -19,6 +19,7 @@ func postOnly(next http.HandlerFunc) http.HandlerFunc {
 			klog.V(2).InfoS("method Type not POST", "component", "extender")
 			return
 		}
+
 		next.ServeHTTP(w, r)
 	}
 }
@@ -31,6 +32,7 @@ func contentLength(next http.HandlerFunc) http.HandlerFunc {
 			klog.V(2).InfoS("request size too large", "component", "extender")
 			return
 		}
+
 		next.ServeHTTP(w, r)
 	}
 }
@@ -44,6 +46,7 @@ func requestContentType(next http.HandlerFunc) http.HandlerFunc {
 			klog.V(2).InfoS("request content type not application/json", "component", "extender")
 			return
 		}
+
 		next.ServeHTTP(w, r)
 	}
 }
@@ -85,6 +88,7 @@ func (m Server) StartServer(port string, certFile string, keyFile string, caFile
 	mx.HandleFunc("/", handlerWithMiddleware(errorHandler))
 	mx.HandleFunc("/scheduler/prioritize", handlerWithMiddleware(m.Prioritize))
 	mx.HandleFunc("/scheduler/filter", handlerWithMiddleware(m.Filter))
+	mx.HandleFunc("/scheduler/bind", handlerWithMiddleware(m.Bind))
 	var err error
 	if unsafe {
 		klog.V(2).InfoS("Extender Listening on HTTP "+port, "component", "extender")
