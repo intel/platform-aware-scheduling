@@ -175,6 +175,11 @@ func (m MetricsExtender) Filter(w http.ResponseWriter, r *http.Request) {
 	m.WriteFilterResponse(w, filteredNodes)
 }
 
+// Bind binds the pod to the node. Not implemented by TAS, hence response with StatusNotFound.
+func (m MetricsExtender) Bind(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotFound)
+}
+
 //filterNodes takes in the arguments for the scheduler and filters nodes based on the pod's dontschedule strategy - if it has one in an attached policy.
 func (m MetricsExtender) filterNodes(args extender.Args) *extender.FilterResult {
 	availableNodeNames := ""
