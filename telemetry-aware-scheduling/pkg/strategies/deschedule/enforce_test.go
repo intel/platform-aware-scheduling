@@ -48,12 +48,19 @@ func TestDescheduleStrategy_Enforce(t *testing.T) {
 	}
 	for _, tt := range tests {
 		err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1, Value: *resource.NewQuantity(100, resource.DecimalSI)}})
+		if err != nil {
+			t.Errorf("Cannot write metric to mock cach for test: %v", err)
+		}
 		_, err = tt.args.enforcer.KubeClient.CoreV1().Nodes().Create(context.TODO(), tt.node, metav1.CreateOptions{})
+		if err != nil {
+			t.Errorf("Cannot write metric to mock cach for test: %v", err)
+		}
+
 		tt.args.enforcer.RegisterStrategyType(tt.d)
 		tt.args.enforcer.AddStrategy(tt.d, tt.d.StrategyType())
 		t.Run(tt.name, func(t *testing.T) {
 			got := []string{}
-			if _, err = tt.d.Enforce(tt.args.enforcer, tt.args.cache); (err != nil) != tt.wantErr {
+			if _, err := tt.d.Enforce(tt.args.enforcer, tt.args.cache); (err != nil) != tt.wantErr {
 				t.Errorf("Strategy.Enforce() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			labelledNodes, err := tt.args.enforcer.KubeClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: "deschedule-test=violating"})
