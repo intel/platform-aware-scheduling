@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -78,18 +77,6 @@ func errorHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 }
 
-//Check symlinks checks if a file is a simlink and returns an error if it is.
-func checkSymLinks(filename string) error {
-	info, err := os.Lstat(filename)
-	if err != nil {
-		return err
-	}
-	if info.Mode() == os.ModeSymlink {
-		return err
-	}
-	return nil
-}
-
 // StartServer starts the HTTP server needed for the scheduler extender.
 // It registers the handlers and checks for existing telemetry policies.
 func (m Server) StartServer(port string, certFile string, keyFile string, caFile string, unsafe bool) {
@@ -102,18 +89,6 @@ func (m Server) StartServer(port string, certFile string, keyFile string, caFile
 		log.Printf("Extender Listening on HTTP  %v", port)
 		err = http.ListenAndServe(":"+port, mx)
 	} else {
-		err := checkSymLinks(certFile)
-		if err != nil {
-			panic(err)
-		}
-		err = checkSymLinks(keyFile)
-		if err != nil {
-			panic(err)
-		}
-		err = checkSymLinks(caFile)
-		if err != nil {
-			panic(err)
-		}
 		log.Printf("Extender Now Listening on HTTPS  %v", port)
 		srv := configureSecureServer(port, caFile)
 		srv.Handler = mx
