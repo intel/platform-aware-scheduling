@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
 )
 
 //MockStrategy is used in the tests for the core and other packages.

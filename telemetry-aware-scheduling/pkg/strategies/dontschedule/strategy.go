@@ -7,9 +7,9 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/core"
-	telemetryPolicyV1 "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/core"
+	telemetryPolicyV1 "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 )
 
 //Strategy represents the TAS policy strategies.

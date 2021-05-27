@@ -7,8 +7,8 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
-	telemetrypolicy "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
+	telemetrypolicy "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 

@@ -62,6 +62,11 @@ With a policy like the above as part of the Kubernetes scheduler configuration t
 
 To read more about scheduler extenders see the [official docs](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/scheduling/scheduler_extender.md).
 
+## Adding a new extender to Platform Aware Scheduling
+Platform Aware Scheduling is a single repo designed to host multiple hardware enabling Kubernetes Scheduler Extenders. A new scheduler can be added with an issue and pull request.
+
+Each project under the top-level repo has its own go module, dependency model and lifecycle.There is no single top level go.mod for the project. Some development tools and testing workflows may need to be done in the context of the go module they're targeting i.e. by changing into one of the directories that contains a go module.
+
 ## Communication and contribution
 
 Report a bug by [filing a new issue](https://github.com/intel/telemetry-aware-scheduling/issues).
