@@ -3,8 +3,8 @@ package cache
 import (
 	"time"
 
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
-	telemetrypolicy "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
+	telemetrypolicy "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 )
 
 //Reader is the functionality to read metrics and policies from the cache

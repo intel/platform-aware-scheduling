@@ -29,22 +29,23 @@ jobs:
         with:
           go-version: 1.15
       - run: go get golang.org/x/tools/cmd/goimports; test -z $(goimports -l .) && test -z $(gofmt -l .)
-  golangci:
+
+  golangci-TAS:
     strategy:
       matrix:
-        go-version: [1.15.x]
-        os: [ubuntu-latest]
+        workingdir: [extender, telemetry-aware-scheduling]
     name: lint
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
           go-version: 1.15
-      - name: golangci-lint
+      - name: golangci-lint-TAS
         uses: golangci/golangci-lint-action@v2
         with:
           version: v1.29
           skip-go-installation: true
+          working-directory: ${{matrix.workingdir }}
         # Additional linting tools can be added here
           args: --enable=golint --timeout=5m

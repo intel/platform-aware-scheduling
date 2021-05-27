@@ -17,4 +17,4 @@ jobs:
       - name: Set up cluster with TAS and custom metrics
         run: ./.github/scripts/e2e_setup_cluster.sh
       - name: Run end to end tests
-        run: go test -v ./.github/e2e/e2e_test.go
+        run: cd .github/e2e/&& go test -v e2e_test.go

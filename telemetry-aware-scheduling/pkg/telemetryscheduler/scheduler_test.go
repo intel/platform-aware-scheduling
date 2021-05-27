@@ -13,11 +13,11 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/intel/telemetry-aware-scheduling/extender"
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
-	telpolv1 "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
-	telpolclient "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/client/v1alpha1"
+	"github.com/intel/platform-aware-scheduling/extender"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
+	telpolv1 "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
+	telpolclient "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/client/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

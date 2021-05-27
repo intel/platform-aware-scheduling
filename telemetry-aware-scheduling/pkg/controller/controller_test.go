@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
-	strategy "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/core"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
+	strategy "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/core"
 
 	"k8s.io/client-go/rest"
 )

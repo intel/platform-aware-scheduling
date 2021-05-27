@@ -8,16 +8,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/intel/telemetry-aware-scheduling/extender"
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/controller"
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
-	strategy "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/core"
+	"github.com/intel/platform-aware-scheduling/extender"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/controller"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
+	strategy "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/core"
 
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/deschedule"
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/dontschedule"
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
-	telemetrypolicyclient "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/client/v1alpha1"
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/telemetryscheduler"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/deschedule"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/dontschedule"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
+	telemetrypolicyclient "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/client/v1alpha1"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetryscheduler"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -25,7 +25,7 @@ import (
 
 	"context"
 
-	tascache "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
+	tascache "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
 )
 
 func main() {

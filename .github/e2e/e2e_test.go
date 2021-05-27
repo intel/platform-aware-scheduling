@@ -13,12 +13,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/deschedule"
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/dontschedule"
-	"github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
-	api "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
-	tasclient "github.com/intel/telemetry-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/client/v1alpha1"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/deschedule"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/dontschedule"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
+	api "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
+	tasclient "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/client/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
