@@ -197,6 +197,19 @@ func TestTASPrioritize(t *testing.T) {
 
 }
 
+func repeatTest (f func(*testing.T), t *testing.T,reps int) {
+	for i:= 0 ; i<= reps ; i++ {
+		f(t)
+	}
+}
+
+
+//TestAddAndDeletePolicy repeats a test to show an issue in repeatedly adding and deleting policies
+func TestAddAndDeletePolicy(t *testing.T) {
+	repeatTest(TestTASFilter, t, 5)
+}
+
+
 func podForPolicy(podName, policyName string) *v1.Pod {
 	return &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -265,7 +278,12 @@ func tasLog() string {
 	if err != nil {
 		return "error in opening stream"
 	}
-	defer podLogs.Close()
+	defer func() {
+		err := podLogs.Close()
+		if err != nil {
+			log.Print("error in closing log stream")
+		}
+	}()
 
 	buf := new(bytes.Buffer)
 	_, err = io.Copy(buf, podLogs)
