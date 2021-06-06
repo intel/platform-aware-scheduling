@@ -91,7 +91,7 @@ func (n *AutoUpdatingCache) ReadPolicy(namespace string, policyName string) (tel
 	if policy, ok := value.(telemetrypolicy.TASPolicy); ok {
 		return policy, nil
 	}
-	return telemetrypolicy.TASPolicy{}, errors.New("no policy of this name found")
+	return telemetrypolicy.TASPolicy{}, errors.New("no policy " + policyName+" found")
 }
 
 //WritePolicy sends the passed object to be stored in the cache under the namespace/name
