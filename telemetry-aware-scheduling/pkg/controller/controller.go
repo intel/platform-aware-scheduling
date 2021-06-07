@@ -65,7 +65,7 @@ func (controller *TelemetryPolicyController) onAdd(obj interface{}) {
 		klog.V(2).InfoS("Policy not added to cache: "+err.Error(), "component", "controller")
 		return
 	}
-	for _, name := range controller.Enforcer.RegisteredStrategyTypes() {
+	for name := range polCopy.Spec.Strategies {
 		klog.V(4).InfoS("registering "+name+" from "+pol.Name, "component", "controller")
 		strt, err := castStrategy(name, polCopy.Spec.Strategies[name])
 		if err != nil {
@@ -114,7 +114,7 @@ func (controller *TelemetryPolicyController) onUpdate(old, new interface{}) {
 		return
 	}
 	klog.V(2).InfoS("Policy: "+polCopy.Name+" updated", "component", "controller")
-	for _, name := range controller.Enforcer.RegisteredStrategyTypes() {
+	for name := range polCopy.Spec.Strategies {
 		oldStrat, err := castStrategy(name, oldPol.Spec.Strategies[name])
 		if err != nil {
 			klog.V(2).InfoS(err.Error(), "component", "controller")
@@ -147,7 +147,7 @@ func (controller *TelemetryPolicyController) onUpdate(old, new interface{}) {
 func (controller *TelemetryPolicyController) onDelete(obj interface{}) {
 	pol := obj.(*telemetrypolicy.TASPolicy)
 	polCopy := pol.DeepCopy()
-	for _, name := range controller.Enforcer.RegisteredStrategyTypes() {
+	for name := range polCopy.Spec.Strategies {
 		strt, err := castStrategy(name, polCopy.Spec.Strategies[name])
 		if err != nil {
 			klog.V(2).InfoS(err.Error(), "component", "controller")

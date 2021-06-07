@@ -83,47 +83,6 @@ var (
 	deschedule1Policy = getTASPolicy("deschedule1", deschedule.StrategyType, "deschedule1_metric", "GreaterThan", 8)
 )
 
-// TestTASPrioritize will test the behaviour of a pod with a listed deschedule policy in TAS
-func TestTASDeschedule(t *testing.T) {
-	tests := map[string]struct {
-		policy *api.TASPolicy
-		want   map[string]bool
-	}{
-		"Label node for deschedule": {policy: deschedule1Policy, want: map[string]bool{"kind-worker2": true}},
-	}
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			res := map[string]bool{}
-			log.Printf("Running: %v\n", name)
-			//defer the running of a cleanup function to remove the policy and pod after the test case
-			defer cleanup("", tc.policy.Name)
-			_, err := tascl.Create(tc.policy)
-			if err != nil {
-				log.Print(err)
-			}
-			time.Sleep(time.Second * 5)
-			lbls := metav1.LabelSelector{MatchLabels: map[string]string{deschedule1Policy.Name: "violating"}}
-
-			nodes, err := cl.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: labels.Set(lbls.MatchLabels).String()})
-			if err != nil {
-				log.Print(err)
-			}
-			for _, n := range nodes.Items {
-				res[n.Name] = true
-			}
-			if !reflect.DeepEqual(tc.want, res) {
-				//Log full node specs and TAS Pod log if the test fails
-				nodes, _ = cl.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
-				log.Print(tasLog())
-				for _, n := range nodes.Items {
-					log.Printf("%v labels: %v", n.Name, n.ObjectMeta.Labels)
-				}
-				t.Errorf("expected: %v, got: %v", tc.want, res)
-			}
-		})
-	}
-}
-
 // TestTASFilter will test the behaviour of a pod with a listed filter/dontschedule policy in TAS
 func TestTASFilter(t *testing.T) {
 	tests := map[string]struct {
@@ -197,18 +156,51 @@ func TestTASPrioritize(t *testing.T) {
 
 }
 
-func repeatTest (f func(*testing.T), t *testing.T,reps int) {
-	for i:= 0 ; i<= reps ; i++ {
-		f(t)
+// TestTASDeschedule will test the behaviour of a pod with a listed deschedule policy in TAS
+func TestTASDeschedule(t *testing.T) {
+	tests := map[string]struct {
+		policy *api.TASPolicy
+		want   map[string]bool
+	}{
+		"Label node for deschedule": {policy: deschedule1Policy, want: map[string]bool{"kind-worker2": true}},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			res := map[string]bool{}
+			log.Printf("Running: %v\n", name)
+			//defer the running of a cleanup function to remove the policy and pod after the test case
+			defer cleanup("", tc.policy.Name)
+			_, err := tascl.Create(tc.policy)
+			if err != nil {
+				log.Print(err)
+			}
+			time.Sleep(time.Second * 5)
+			lbls := metav1.LabelSelector{MatchLabels: map[string]string{deschedule1Policy.Name: "violating"}}
+
+			nodes, err := cl.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: labels.Set(lbls.MatchLabels).String()})
+			if err != nil {
+				log.Print(err)
+			}
+			for _, n := range nodes.Items {
+				res[n.Name] = true
+			}
+			if !reflect.DeepEqual(tc.want, res) {
+				//Log full node specs and TAS Pod log if the test fails
+				nodes, _ = cl.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+				log.Print(tasLog())
+				for _, n := range nodes.Items {
+					log.Printf("%v labels: %v", n.Name, n.ObjectMeta.Labels)
+				}
+				t.Errorf("expected: %v, got: %v", tc.want, res)
+			}
+		})
 	}
 }
-
 
 //TestAddAndDeletePolicy repeats a test to show an issue in repeatedly adding and deleting policies
 func TestAddAndDeletePolicy(t *testing.T) {
 	repeatTest(TestTASFilter, t, 5)
 }
-
 
 func podForPolicy(podName, policyName string) *v1.Pod {
 	return &v1.Pod{
@@ -323,4 +315,10 @@ func getTASPolicy(name string, str string, metric string, operator string, targe
 			}
 	}
 	return pol
+}
+
+func repeatTest(f func(*testing.T), t *testing.T, reps int) {
+	for i := 0; i <= reps; i++ {
+		f(t)
+	}
 }
