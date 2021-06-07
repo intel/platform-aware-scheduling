@@ -188,8 +188,11 @@ func (m MetricsExtender) filterNodes(args extender.Args) *extender.FilterResult 
 	}
 	dontscheduleStrategy, err := m.getDontScheduleStrategy(policy)
 	if err != nil {
-		klog.V(2).InfoS("Don't scheduler strategy failed "+err.Error(), "component", "extender")
-		return nil
+		// If no dontschedulepolicy is found return the full list of nodes but log an error
+		klog.V(2).InfoS("Dontschedule strategy failed "+err.Error(), "component", "extender")
+		klog.V(2).InfoS("Returning unfiltered list of nodes for scheduling", "component", "extender")
+		result.Nodes = args.Nodes
+		return &result
 	}
 	violatingNodes := dontscheduleStrategy.Violated(m.cache)
 	if len(args.Nodes.Items) == 0 {

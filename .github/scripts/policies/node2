@@ -1,4 +1,5 @@
 node_filter1_metric 20
 node_filter2_metric 0
 node_prioritize1_metric 9999
+node_prioritize2_metric 9999
 node_deschedule1_metric 9
