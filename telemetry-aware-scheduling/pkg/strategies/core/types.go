@@ -22,7 +22,6 @@ type Interface interface {
 type Enforcer interface {
 	RegisterStrategyType(strategy Interface)
 	UnregisterStrategyType(strategy Interface)
-	RegisteredStrategyTypes() []string
 	IsRegistered(string) bool
 	AddStrategy(Interface, string)
 	RemoveStrategy(Interface, string)
