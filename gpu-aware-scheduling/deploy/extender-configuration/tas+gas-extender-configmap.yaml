@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scheduler-extender-policy
+  namespace: kube-system
+data:
+  policy.cfg: |
+    {
+        "kind" : "Policy",
+        "apiVersion" : "v1",
+        "extenders" : [
+          {
+              "urlPrefix": "https://gas-service.default.svc.cluster.local:9001",
+              "apiVersion": "v1",
+              "filterVerb": "scheduler/filter",
+              "bindVerb": "scheduler/bind",
+              "weight": 1,
+              "enableHttps": true,
+              "managedResources": [
+                   {
+                     "name": "gpu.intel.com/i915",
+                     "ignoredByScheduler": false
+                   }
+              ],
+              "ignorable": true,
+              "tlsConfig": {
+                     "insecure": false,
+                     "certFile": "/host/certs/client.crt",
+                     "keyFile" : "/host/certs/client.key"
+              },
+              "nodeCacheCapable": true
+          },
+          {
+              "urlPrefix": "https://tas-service.default.svc.cluster.local:9001",             
+              "apiVersion": "v1",
+              "prioritizeVerb": "scheduler/prioritize",
+              "filterVerb": "scheduler/filter",
+              "weight": 1,
+              "enableHttps": true,
+              "managedResources": [
+                   {
+                     "name": "telemetry/scheduling",
+                     "ignoredByScheduler": true
+                   }
+              ],
+              "ignorable": true,
+              "tlsConfig": {
+                     "insecure": false,
+                     "certFile": "/host/certs/client.crt",
+                     "keyFile" : "/host/certs/client.key"
+              }
+          }
+        ]
+    }

@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpu-aware-scheduling
+  namespace: default 
+  labels:
+    app: gas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gas
+  template:
+    metadata:
+      labels:
+        app: gas
+    spec:
+      serviceAccountName: gpu-aware-scheduling-service-account
+      containers:
+      - name: gasext
+        command:
+        - "/extender"
+        - "--cert=/gas/cert/tls.crt"
+        - "--key=/gas/cert/tls.key"
+        - "--cacert=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+        - "--v=4"
+        image: intel/gpu-extender
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: certs
+          mountPath: /gas/cert
+      volumes:
+      - name: certs
+        secret:
+          secretName: extender-secret
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/master
+                operator: Exists
