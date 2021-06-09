@@ -19,4 +19,6 @@ format:
 clean:
 		rm -f ./bin/$(BINARY_NAME)
 
+e2e:
+		cd ../.github/e2e; go test -v e2e_test.go
 

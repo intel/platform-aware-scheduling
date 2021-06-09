@@ -1,4 +1,4 @@
-TOPTARGETS := all clean image build test
+TOPTARGETS := all clean image build test e2e
 
 SUBDIRS := $(wildcard *-aware-scheduling/.)
 

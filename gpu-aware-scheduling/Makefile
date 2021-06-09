@@ -20,5 +20,5 @@ format:
 
 clean:
 		rm -f ./bin/*
-
+e2e:
 
