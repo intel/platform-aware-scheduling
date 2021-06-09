@@ -33,7 +33,7 @@ jobs:
   golangci-TAS:
     strategy:
       matrix:
-        workingdir: [extender, telemetry-aware-scheduling]
+        workingdir: [extender, telemetry-aware-scheduling, gpu-aware-scheduling]
     name: lint
     runs-on: ubuntu-latest
     steps:
