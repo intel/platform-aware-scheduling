@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfd-master
+spec:
+  template:
+    spec:
+      containers:
+        - name: nfd-master
+          command:
+            - "nfd-master"
+            - "--resource-labels=gpu.intel.com/memory.max,gpu.intel.com/millicores"
+            - "--extra-label-ns=gpu.intel.com"

@@ -1,0 +1,7 @@
+resources:
+- v0.7.0/nfd-master.yaml.template
+- v0.7.0/nfd-worker-daemonset.yaml.template
+patchesStrategicMerge:
+- kustom/external_resources.yaml
+- kustom/env_vars.yaml
+- kustom/rbac.yaml

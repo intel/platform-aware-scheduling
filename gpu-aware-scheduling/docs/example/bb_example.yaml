@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bb-example
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bb-example
+  template:
+    metadata:
+      labels:
+        app: bb-example
+    spec:
+      containers:
+      - name: gpu-resource-request
+        image: busybox:1.33.1
+        command: ['sh', '-c', 'echo The gpu resource request app is running! && sleep 6000']
+        resources:
+          limits:
+            gpu.intel.com/i915: 1
+            gpu.intel.com/millicores: 100
+            gpu.intel.com/memory.max: 1G
