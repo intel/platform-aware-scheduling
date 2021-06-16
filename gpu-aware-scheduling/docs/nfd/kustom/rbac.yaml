@@ -1,0 +1,18 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: nfd-master
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+# since we are using command line flag --resource-labels to create extended resources
+# this kustomize patch uncomments "- nodes/status"
+  - nodes/status
+  verbs:
+  - get
+  - patch
+  - update
+  # List only needed for --prune
+  - list

@@ -36,7 +36,7 @@ Note: a shell script that shows these steps can be found [here](deploy/extender-
 
 The extender configuration files can be found under deploy/extender-configuration.
 GAS Scheduler Extender needs to be registered with the Kubernetes Scheduler. In order to do this a configmap should be created like the below:
-````
+```
 apiVersion: v1alpha1
 kind: ConfigMap
 metadata:
@@ -72,14 +72,14 @@ data:
          ]
     }
 
-````
+```
 
 A similar file can be found [in the deploy folder](./deploy/extender-configuration/scheduler-extender-configmap.yaml). This configmap can be created with ``kubectl apply -f ./deploy/scheduler-extender-configmap.yaml``
 The scheduler requires flags passed to it in order to know the location of this config map. The flags are:
-````
+```
     - --policy-configmap=scheduler-extender-policy
     - --policy-configmap-namespace=kube-system
-````
+```
 
 If scheduler is running as a service these can be added as flags to the binary. If scheduler is running as a container - as in kubeadm - these args can be passed in the deployment file.
 Note: For Kubeadm set ups some additional steps may be needed.

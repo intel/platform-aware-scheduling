@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: resource-reader-rb
+subjects:
+- kind: ServiceAccount
+  name: resource-reader-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: resource-reader
+  apiGroup: rbac.authorization.k8s.io
