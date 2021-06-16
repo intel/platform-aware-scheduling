@@ -418,18 +418,18 @@ func (c *Cache) workerRun() {
 }
 
 func (c *Cache) work() bool {
-	klog.V(L3).Info("worker started")
+	klog.V(L5).Info("worker started")
 
 	itemI, quit := c.workQueue.Get()
 
 	if quit {
-		klog.V(L3).Info("worker quitting")
+		klog.V(L2).Info("worker quitting")
 
 		return false
 	}
 
 	defer c.workQueue.Done(itemI)
-	defer klog.V(L3).Info("worker ended work")
+	defer klog.V(L5).Info("worker ended work")
 
 	item := itemI.(workQueueItem)
 	forget, err := c.handlePod(item)
