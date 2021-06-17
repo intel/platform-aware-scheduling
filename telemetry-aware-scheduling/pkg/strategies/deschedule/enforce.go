@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
 	strategy "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/core"
@@ -20,6 +21,32 @@ type patchValue struct {
 	Op    string `json:"op"`
 	Path  string `json:"path"`
 	Value string `json:"value"`
+}
+//Cleanup remove node labels for violating when policy is deleted
+func (d *Strategy) Cleanup(enforcer *strategy.MetricEnforcer, policyName string) error {
+	lbls := metav1.LabelSelector{MatchLabels: map[string]string{policyName: "violating"}}
+	nodes, err := enforcer.KubeClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: labels.Set(lbls.MatchLabels).String()})
+	if err != nil {
+		msg := fmt.Sprintf("cannot list nodes: %v", err)
+		klog.V(2).InfoS(msg, "component", "controller")
+		return err
+	}
+	for _, node := range nodes.Items {
+		var payload []patchValue
+		if _, ok := node.Labels[policyName]; ok {
+			payload = append(payload,
+				patchValue{
+					Op:   "remove",
+					Path: "/metadata/labels/" + policyName,
+				})
+		}
+		err := d.patchNode(node.Name, enforcer, payload)
+			if err != nil {
+				klog.V(2).InfoS(err.Error(), "component", "controller")
+			}
+	}
+	klog.V(2).InfoS(fmt.Sprintf("Unlabel node that was violating the policy %v", policyName),"component", "controller")
+	return nil
 }
 
 //Enforce describes the behavior followed by this strategy to return associated pods to non-violating status.
