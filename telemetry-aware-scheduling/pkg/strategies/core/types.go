@@ -16,6 +16,7 @@ type Interface interface {
 	GetPolicyName() string
 	SetPolicyName(string)
 }
+
 //Enforceable enforce strategies and clean up after strategies are removed
 type Enforceable interface {
 	Enforce(enforcer *MetricEnforcer, cache cache.Reader) (int, error)

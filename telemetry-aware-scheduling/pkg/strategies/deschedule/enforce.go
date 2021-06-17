@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
@@ -22,6 +23,7 @@ type patchValue struct {
 	Path  string `json:"path"`
 	Value string `json:"value"`
 }
+
 //Cleanup remove node labels for violating when policy is deleted
 func (d *Strategy) Cleanup(enforcer *strategy.MetricEnforcer, policyName string) error {
 	lbls := metav1.LabelSelector{MatchLabels: map[string]string{policyName: "violating"}}
@@ -41,11 +43,11 @@ func (d *Strategy) Cleanup(enforcer *strategy.MetricEnforcer, policyName string)
 				})
 		}
 		err := d.patchNode(node.Name, enforcer, payload)
-			if err != nil {
-				klog.V(2).InfoS(err.Error(), "component", "controller")
-			}
+		if err != nil {
+			klog.V(2).InfoS(err.Error(), "component", "controller")
+		}
 	}
-	klog.V(2).InfoS(fmt.Sprintf("Unlabel node that was violating the policy %v", policyName),"component", "controller")
+	klog.V(2).InfoS(fmt.Sprintf("Remove the node label on policy %v deletion", policyName), "component", "controller")
 	return nil
 }
 
