@@ -74,7 +74,7 @@ func (e *MetricEnforcer) RemoveStrategy(str Interface, strategyType string) {
 	if enf, ok := str.(Enforceable); ok {
 		err := enf.Cleanup(e, str.GetPolicyName())
 		if err != nil {
-			msg := fmt.Sprintf("cleaning up the strategy failed: %v", err)
+			msg := fmt.Sprintf("Failed to remove strategy: %v", err)
 			klog.V(2).InfoS(msg, "component", "controller")
 		}
 	}
@@ -121,7 +121,7 @@ func (e *MetricEnforcer) enforceStrategy(strategyType string, cache cache.Reader
 			if enf, ok := str.(Enforceable); ok {
 				_, err := enf.Enforce(e, cache)
 				if err != nil {
-					msg := fmt.Sprintf("Enforce the strategy failed: %v", err)
+					msg := fmt.Sprintf("Strategy was not enforceable: %v", err)
 					klog.V(2).InfoS(msg, "component", "controller")
 				}
 			}
