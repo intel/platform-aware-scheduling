@@ -71,6 +71,13 @@ func (e *MetricEnforcer) RemoveStrategy(str Interface, strategyType string) {
 			klog.V(2).InfoS(msg, "component", "controller")
 		}
 	}
+	if enf, ok := str.(Enforceable); ok {
+		err := enf.Cleanup(e, str.GetPolicyName())
+		if err != nil {
+			msg := fmt.Sprintf("cleaning up the strategy failed: %v", err)
+			klog.V(2).InfoS(msg, "component", "controller")
+		}
+	}
 }
 
 //AddStrategy includes the specific strategy under its type in the strategy registry.
@@ -87,8 +94,10 @@ func (e *MetricEnforcer) AddStrategy(str Interface, strategyType string) {
 	msg := fmt.Sprintf("Adding strategies: %v %v", str.StrategyType(), str.GetPolicyName())
 	klog.V(2).InfoS(msg, "component", "controller")
 	if _, ok := e.RegisteredStrategies[strategyType]; ok {
-		e.RegisteredStrategies[strategyType][str] = nil
-		return
+		if _, ok := str.(Enforceable); ok {
+			e.RegisteredStrategies[strategyType][str] = nil
+			return
+		}
 	}
 }
 
@@ -109,10 +118,12 @@ func (e *MetricEnforcer) enforceStrategy(strategyType string, cache cache.Reader
 	strList, ok := e.RegisteredStrategies[strategyType]
 	if ok {
 		for str := range strList {
-			_, err := str.Enforce(e, cache)
-			if err != nil {
-				msg := fmt.Sprintf("Enforce the strategy failed: %v", err)
-				klog.V(2).InfoS(msg, "component", "controller")
+			if enf, ok := str.(Enforceable); ok {
+				_, err := enf.Enforce(e, cache)
+				if err != nil {
+					msg := fmt.Sprintf("Enforce the strategy failed: %v", err)
+					klog.V(2).InfoS(msg, "component", "controller")
+				}
 			}
 		}
 	}

@@ -11,11 +11,15 @@ import (
 //Interface describes expected behavior of a specific strategy.
 type Interface interface {
 	Violated(cache cache.Reader) map[string]interface{}
-	Enforce(enforcer *MetricEnforcer, cache cache.Reader) (int, error)
 	StrategyType() string
 	Equals(Interface) bool
 	GetPolicyName() string
 	SetPolicyName(string)
+}
+//Enforceable enforce strategies and clean up after strategies are removed
+type Enforceable interface {
+	Enforce(enforcer *MetricEnforcer, cache cache.Reader) (int, error)
+	Cleanup(enforcer *MetricEnforcer, policyName string) error
 }
 
 //Enforcer registers strategies by type, adds specific strategies to a registry, and Enforces those strategies.
