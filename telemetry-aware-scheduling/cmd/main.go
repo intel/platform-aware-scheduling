@@ -15,6 +15,7 @@ import (
 
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/deschedule"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/dontschedule"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/labeling"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
 	telemetrypolicyclient "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/client/v1alpha1"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetryscheduler"
@@ -88,6 +89,7 @@ func tasController(kubeConfig string, syncPeriod string, cache *tascache.AutoUpd
 	enfrcr.RegisterStrategyType(&deschedule.Strategy{})
 	enfrcr.RegisterStrategyType(&scheduleonmetric.Strategy{})
 	enfrcr.RegisterStrategyType(&dontschedule.Strategy{})
+	enfrcr.RegisterStrategyType(&labeling.Strategy{})
 	go cont.Run(ctx)
 	go enfrcr.EnforceRegisteredStrategies(cache, *enforcerTicker)
 	done := make(chan os.Signal, 1)
