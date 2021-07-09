@@ -22,7 +22,7 @@ The extender also monitors the current state of policies to see if they are viol
 ## Usage
 A worked example for TAS is available [here](docs/health-metric-example.md)
 ### Strategies
-There are three strategies that TAS acts on. 
+There are four strategies that TAS acts on.
  
  **1 scheduleonmetric** has only one rule. It is consumed by the Telemetry Aware Scheduling Extender and prioritizes nodes based on a comparator and an up to date metric value.
   - example: **scheduleonmetric** when **cache_hit_ratio** is **GreaterThan**
@@ -31,7 +31,11 @@ There are three strategies that TAS acts on.
  - example: **dontschedule** if **gpu_usage** is **GreaterThan 10**
  
  **3 deschedule** is consumed by the extender. If a pod with this policy is running on a node that violates it can be descheduled with the kubernetes descheduler.
-- example: **deschedule** if **network_bandwidth_percent_free** is **LessThan 10**
+ - example: **deschedule** if **network_bandwidth_percent_free** is **LessThan 10**
+
+ **4 labeling** is a multi-rule strategy for creating node labels based on rule violations. Multiple labels can be defined for each rule.
+ The labels can then be used with external components.
+ - example: **label 'gas-disable-card0'** if **gpu_card0_temperature** is **GreaterThan 100**
 
 The policy definition section below describes how to actually create these strategies in a kubernetes cluster.
 
@@ -136,11 +140,46 @@ spec:
       rules:
       - metricname: node_metric
         operator: GreaterThan
+    labeling:
+      rules:
+      - metricname: node_metric
+        operator: GreaterThan
+        target: 100
+        labels: ["label1=foo","label2=bar"]
 ````
-There are three strategy types in a policy file and rules associated with each.
+There can be four strategy types in a policy file and rules associated with each.
  - **scheduleonmetric** has only one rule. It is consumed by the Telemetry Aware Scheduling Extender and prioritizes nodes based on the rule.
  - **dontschedule** strategy has multiple rules, each with a metric name and operator and a target. A pod with this policy will never be scheduled on a node breaking any one of these rules.
  - **deschedule** is consumed by the extender. If a pod with this policy is running on a node that violates that pod can be descheduled with the kubernetes descheduler.
+ - **labeling** is a multi-rule strategy for creating node labels based on rule violations. Multiple labels can be defined for each rule.
+ The labels can then be used with external components.
+ Labels will be written to the namespace `telemetry.aware.scheduling.policyname`, where policyname will be replaced by the name of the `TASPolicy`.
+ For the above policy, if `node_metric` would be greater than 100, the created node labels would look like this:
+
+         telemetry.aware.scheduling.scheduling-policy/label1=foo
+         telemetry.aware.scheduling.scheduling-policy/label2=bar
+
+     Labels should have different names in different rules. Labels are key-value pairs and only unique keys can exist in each label namespace.
+
+     In the use of GreaterThan when using labels with the same name, the rule with the maximum metric value will be the only one honored.
+     Similarly, in the use of LessThan when using labels with the same name, the rule with the minimum metric value will be the only one honored.
+     Example:
+
+         labeling:
+           rules:
+           - metricname: node_metric_1
+             operator: GreaterThan
+             target: 100
+             labels: ["foo=1"]
+           - metricname: node_metric_2
+             operator: GreaterThan
+             target: 100
+             labels: ["foo=2"]
+
+     The above rules would create label `telemetry.aware.scheduling.scheduling-policy/foo=1` when `node_metric_1` is greater than `node_metric_2` and also greater than 100.
+     If instead `node_metric_2` would be greater than `node_metric_1` and also greater than 100, the produced label would be `telemetry.aware.scheduling.scheduling-policy/foo=2`.
+     If neither metric would be greater than 100, no label would be created. When there are multiple candidates with equal values, the resulting label is
+     random among the equal candidates. Label cleanup happens automatically.
 
 dontschedule and deschedule - which incorporate multiple rules - function with an OR operator. That is if any single rule is broken the strategy is considered violated.
 Telemetry policies are namespaced, meaning that under normal circumstances a workload can only be associated with a pod in the same namespaces.
@@ -152,7 +191,6 @@ The below flags can be passed to the binary at run time.
 name |type | description| usage | default|
 -----|------|-----|-------|-----|
 |kubeConfig| string |location of kubernetes configuration file | -kubeConfig /root/filename|~/.kube/config
-|syncPeriod|duration string| interval between refresh of telemetry data|-syncPeriod 1m| 1s
 |cachePort | string | port number at which the cache server will listen for requests | --cachePort 9999 | 8111
 |syncPeriod|duration string| interval between refresh of telemetry data|-syncPeriod 1m| 1s
 |port| int | port number on which the scheduler extender will listen| -port 32000 | 9001

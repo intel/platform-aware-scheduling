@@ -1,0 +1,154 @@
+// The labeling strategy, violations conditions and enforcement behavior are defined in this package.
+// When a node is violating the labeling strategy, the enforcer labels it by the label defined in the policy.
+// This label can then be used externally to act on the strategy violation.
+package labeling
+
+import (
+	"fmt"
+	"reflect"
+	"testing"
+	"time"
+
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/core"
+	v1 "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/klog/v2"
+)
+
+func TestLabelingStrategy_SetPolicyName(t *testing.T) {
+	klog.InfoS("entered in strategy", "component", "testing")
+	type args struct {
+		name string
+	}
+	tests := []struct {
+		name string
+		d    *Strategy
+		args args
+	}{
+		{name: "set no name", d: &Strategy{}, args: args{}},
+		{name: "set basic name", d: &Strategy{}, args: args{"test policy"}},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			tt.d.SetPolicyName(tt.args.name)
+			if tt.d.PolicyName != tt.args.name {
+				t.Error("Outcome didn't match expected result")
+			}
+		})
+	}
+}
+
+func TestLabelingStrategy_GetPolicyName(t *testing.T) {
+	tests := []struct {
+		name string
+		d    *Strategy
+		want string
+	}{
+		{name: "retrieve basic name", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{}}, want: "test name"},
+		{name: "retrieve no name", d: &Strategy{PolicyName: "", Rules: []v1.TASPolicyRule{}}, want: ""},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.d.GetPolicyName(); got != tt.want {
+				t.Errorf("Strategy.GetPolicyName() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLabelingStrategy_Equals(t *testing.T) {
+	type args struct {
+		other core.Interface
+	}
+	tests := []struct {
+		name string
+		d    *Strategy
+		args args
+		want bool
+	}{
+		{name: "Not Equal: one empty strategies", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}},
+		{name: "Equal: one rule per strategy", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}}, want: true},
+		{name: "Equal: 2 different rules same order", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "cpu", Operator: "Equals", Target: 1, Labels: []string{"card0=false"}}, {Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "cpu", Operator: "Equals", Target: 1, Labels: []string{"card0=false"}}, {Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}}, want: true},
+		{name: "Not equal: 2 different rules different order", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}, {Metricname: "cpu", Operator: "Equals", Target: 1, Labels: []string{"card0=false"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "cpu", Operator: "Equals", Target: 1, Labels: []string{"card0=false"}}, {Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}}, want: false},
+		{name: "Not equal: different number rules", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "cpu", Operator: "Equals", Target: 1, Labels: []string{"card0=false"}}, {Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}}, want: false},
+		{name: "Not equal: different number rules different order", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}, {Metricname: "cpu", Operator: "Equals", Target: 1, Labels: []string{"card0=false"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}, want: false},
+		{name: "Not equal: different rules", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "cpu", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=false"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}}, want: false},
+		{name: "Not equal: different operator", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "LessThan", Target: 50, Labels: []string{"card0=false"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=false"}}}}}, want: false},
+		{name: "Not equal: different target", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "LessThan", Target: 10, Labels: []string{"card0=false"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=false"}}}}}, want: false},
+		{name: "Not equal: different metrics", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "cpu", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=false"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=false"}}}}}, want: false},
+		{name: "Not equal: different labels", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=false"}}}}}, want: false},
+		{name: "Equal: 2 labels same order", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true", "card1=false"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true", "card1=false"}}}}}, want: true},
+		{name: "Not Equal: 2 labels different order", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card1=false", "card0=true"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true", "card1=false"}}}}}, want: false},
+		{name: "Not Equal: different number of labels", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card1=false"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true", "card1=false"}}}}}, want: false},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.d.Equals(tt.args.other); got != tt.want {
+				a, _ := tt.args.other.(*Strategy)
+				msg := fmt.Sprint(a)
+				klog.InfoS(msg, "component", "testing")
+				t.Errorf("Strategy.Equals() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLabelingStrategy_Violated(t *testing.T) {
+	type args struct {
+		cache cache.ReaderWriter
+	}
+	tests := []struct {
+		name string
+		d    *Strategy
+		args args
+		want map[string]interface{}
+	}{
+		{name: "One node violating", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 9, Labels: []string{"card0=false"}}}}, args: args{cache.MockEmptySelfUpdatingCache()}, want: map[string]interface{}{"node-1": v1.TASPolicyRule{Metricname: "memory", Operator: "GreaterThan", Target: 9, Labels: []string{"card0=false"}}}},
+		{name: "No nodes violating", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 11, Labels: []string{"card0=false"}}}}, args: args{cache.MockEmptySelfUpdatingCache()}, want: map[string]interface{}{}},
+		{name: "No metric found", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "", Operator: "GreaterThan", Target: 9, Labels: []string{"card0=false"}}}}, args: args{cache.MockEmptySelfUpdatingCache()}, want: map[string]interface{}{}},
+		{name: "No labels found", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 9, Labels: []string{}}}}, args: args{cache.MockEmptySelfUpdatingCache()}, want: map[string]interface{}{"node-1": v1.TASPolicyRule{Metricname: "memory", Operator: "GreaterThan", Target: 9, Labels: []string{}}}},
+		{name: "No metrics and labels found", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "", Operator: "GreaterThan", Target: 9, Labels: []string{}}}}, args: args{cache.MockEmptySelfUpdatingCache()}, want: map[string]interface{}{}},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1, Value: *resource.NewQuantity(10, resource.DecimalSI)}})
+			if err != nil {
+				klog.InfoS("testing metric write on cache failed"+err.Error(), "component", "testing")
+			}
+			tmp := map[string]interface{}{}
+			for node, t1 := range tt.d.Violated(tt.args.cache) {
+				for _, t2 := range t1.(*violationResultType).ruleResults {
+					tmp[node] = t2.rule
+				}
+			}
+			if got := tmp; !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Strategy.Violated() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLabelingStrategy_StrategyType(t *testing.T) {
+	tests := []struct {
+		name string
+		d    *Strategy
+		want string
+	}{
+		{name: "basic type", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{}}, want: "labeling"},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.d.StrategyType(); got != tt.want {
+				t.Errorf("Strategy.StrategyType() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

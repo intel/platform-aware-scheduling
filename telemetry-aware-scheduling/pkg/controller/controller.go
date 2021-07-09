@@ -11,6 +11,7 @@ import (
 	strategy "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/core"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/deschedule"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/dontschedule"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/labeling"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
 	telemetrypolicy "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 	core "k8s.io/api/core/v1"
@@ -101,6 +102,9 @@ func castStrategy(strategyType string, policy telemetrypolicy.TASPolicyStrategy)
 		return &str, nil
 	case dontschedule.StrategyType:
 		str := (dontschedule.Strategy)(policy)
+		return &str, nil
+	case labeling.StrategyType:
+		str := (labeling.Strategy)(policy)
 		return &str, nil
 	default:
 		return nil, errors.New("strategy could not be added - invalid strategy type")
