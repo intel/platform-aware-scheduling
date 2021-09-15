@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 
 	strategy "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/core"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/deschedule"
@@ -20,11 +21,15 @@ import (
 
 //Run starts the controller watching on the Informer queue and doesnt' stop it until the Done signal is received from context
 func (controller *TelemetryPolicyController) Run(context context.Context) {
-	klog.V(2).InfoS("Watching Telemetry Policies", "component", "controller")
+	log.Print("Watching Telemetry Policies", "component", "controller")
+	defer func() {
+		if err := recover(); err != nil {
+			log.Print("Recovered from runtime error", "component", "controller")
+		}
+	}()
 	_, err := controller.watch(context)
 	if err != nil {
-		klog.V(2).InfoS(err.Error(), "component", "controller")
-		panic(err)
+		log.Panic(err.Error())
 	}
 	<-context.Done()
 }

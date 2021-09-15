@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/klog/v2"
+
 	"github.com/pkg/errors"
 
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
@@ -54,25 +56,25 @@ func init() {
 	}
 	config, err := clientcmd.BuildConfigFromFlags("", *kubeConfigPath)
 	if err != nil {
-		panic(err.Error())
+		klog.Exit(err.Error())
 	}
 
 	// create the clientset
 	cl, err = kubernetes.NewForConfig(config)
 	if err != nil {
-		panic(err.Error())
+		klog.Exit(err.Error())
 	}
 	cm = metrics.NewClient(config)
 
 	tascl, err = tasclient.New(*config, "default")
 	if err != nil {
-		panic(err.Error())
+		klog.Exit(err.Error())
 	}
 	//TODO: Replace the generic timeout with an explicit check for the custom metrics from the API Server which times out after some period
 	err = waitForMetrics(120 * time.Second)
 
 	if err != nil {
-		panic(err.Error())
+		klog.Exit(err.Error())
 	}
 }
 

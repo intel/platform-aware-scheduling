@@ -29,10 +29,15 @@ var baseTimeStamp = time.Date(2019, time.May, 20, 12, 25, 00, 0, time.UTC)
 //As in NewTestFactory method from kubectl/testing/fake.go
 //Reproduced rather than referenced because of dependency issues.
 func dummyRestClientConfig() *restclient.Config {
+	defer func() {
+		if err := recover(); err != nil {
+			klog.InfoS("Recovered from runtime error", "component", "testing")
+		}
+	}()
 	tmpFile, err := ioutil.TempFile("", "cmdtests_temp")
 	if err != nil {
-		klog.InfoS("Unable to create a fake client config: "+err.Error(), "component", "testing")
-		panic(err)
+		klog.InfoS("Unable to create a fake client config", "component", "testing")
+		klog.Exit(err.Error())
 	}
 	loadingRules := &clientcmd.ClientConfigLoadingRules{
 		Precedence:     []string{tmpFile.Name()},

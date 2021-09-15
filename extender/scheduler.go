@@ -93,6 +93,9 @@ func (m Server) StartServer(port string, certFile string, keyFile string, caFile
 	if unsafe {
 		klog.V(2).InfoS("Extender Listening on HTTP "+port, "component", "extender")
 		err = http.ListenAndServe(":"+port, mx)
+		if err != nil {
+			klog.V(2).InfoS("Listening on HTTP failed: "+err.Error(), "component", "extender")
+		}
 	} else {
 		srv := configureSecureServer(port, caFile)
 		srv.Handler = mx

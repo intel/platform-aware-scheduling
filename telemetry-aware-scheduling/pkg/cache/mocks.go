@@ -4,6 +4,8 @@ package cache
 import (
 	"time"
 
+	"k8s.io/klog/v2"
+
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
 	telemetrypolicy "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -20,9 +22,18 @@ func MockEmptySelfUpdatingCache() ReaderWriter {
 //MockSelfUpdatingCache returns auto updating cache
 func MockSelfUpdatingCache() *AutoUpdatingCache {
 	n := MockEmptySelfUpdatingCache()
-	_ = n.WriteMetric("dummyMetric1", TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{50, 30}))
-	_ = n.WriteMetric("dummyMetric2", TestNodeMetricCustomInfo([]string{"node 1", "node2"}, []int64{100, 200}))
-	_ = n.WriteMetric("dummyMetric3", TestNodeMetricCustomInfo([]string{"node Z", "node Y"}, []int64{8, 40000000}))
+	err := n.WriteMetric("dummyMetric1", TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{50, 30}))
+	if err != nil {
+		klog.InfoS("Unable to create a dummymetric: "+err.Error(), "component", "testing")
+	}
+	err = n.WriteMetric("dummyMetric2", TestNodeMetricCustomInfo([]string{"node 1", "node2"}, []int64{100, 200}))
+	if err != nil {
+		klog.InfoS("Unable to create a dummymetric: "+err.Error(), "component", "testing")
+	}
+	err = n.WriteMetric("dummyMetric3", TestNodeMetricCustomInfo([]string{"node Z", "node Y"}, []int64{8, 40000000}))
+	if err != nil {
+		klog.InfoS("Unable to create a dummymetric: "+err.Error(), "component", "testing")
+	}
 	return n.(*AutoUpdatingCache)
 }
 

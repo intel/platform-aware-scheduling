@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -121,8 +122,7 @@ func (e *MetricEnforcer) enforceStrategy(strategyType string, cache cache.Reader
 			if enf, ok := str.(Enforceable); ok {
 				_, err := enf.Enforce(e, cache)
 				if err != nil {
-					msg := fmt.Sprintf("Strategy was not enforceable: %v", err)
-					klog.V(2).InfoS(msg, "component", "controller")
+					log.Print("Strategy was not enforceable.", err.Error(), "component", "controller")
 				}
 			}
 		}
