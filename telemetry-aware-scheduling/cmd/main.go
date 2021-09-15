@@ -51,21 +51,27 @@ func main() {
 //tasController The controller load the TAS policy/strategies and places them into a local cache that is available
 //to all TAS components. It also monitors the current state of policies.
 func tasController(kubeConfig string, syncPeriod string, cache *tascache.AutoUpdatingCache) {
+	defer func() {
+		err := recover()
+		if err != nil {
+			klog.V(2).InfoS("Recovered from runtime error", "component", "controller")
+		}
+	}()
 	kubeClient, clientConfig, err := getkubeClient(kubeConfig)
 	if err != nil {
-		klog.V(2).InfoS("Issue in getting client config: "+err.Error(), "component", "controller")
-		panic(err)
+		klog.V(2).InfoS("Issue in getting client config", "component", "controller")
+		klog.Exit(err.Error())
 	}
 	syncDuration, err := time.ParseDuration(syncPeriod)
 	if err != nil {
-		klog.V(2).InfoS("Sync problems in Parsing: "+err.Error(), "component", "controller")
-		panic(err)
+		klog.V(2).InfoS("Sync problems in Parsing", "component", "controller")
+		klog.Exit(err.Error())
 	}
 	metricsClient := metrics.NewClient(clientConfig)
 	telpolicyClient, _, err := telemetrypolicyclient.NewRest(*clientConfig)
 	if err != nil {
-		klog.V(2).InfoS("Rest client access to telemetrypolicy CRD problem: "+err.Error(), "component", "controller")
-		panic(err)
+		klog.V(2).InfoS("Rest client access to telemetrypolicy CRD problem", "component", "controller")
+		klog.Exit(err.Error())
 	}
 	metricTicker := time.NewTicker(syncDuration)
 	initialData := map[string]interface{}{}

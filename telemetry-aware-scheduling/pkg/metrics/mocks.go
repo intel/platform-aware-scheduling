@@ -16,10 +16,15 @@ import (
 
 //DummyRestClientConfig  Mocks used for testing in the metrics and other packages
 func DummyRestClientConfig() *restclient.Config {
+	defer func() {
+		if err := recover(); err != nil {
+			klog.InfoS("Recovered from runtime error", "component", "testing")
+		}
+	}()
 	tmpFile, err := ioutil.TempFile("", "cmdtests_temp")
 	if err != nil {
-		klog.InfoS("Unable to create a fake client config: "+err.Error(), "component", "testing")
-		panic(err)
+		klog.InfoS("Unable to create a fake client config", "component", "testing")
+		klog.Exit(err.Error())
 	}
 	loadingRules := &clientcmd.ClientConfigLoadingRules{
 		Precedence:     []string{tmpFile.Name()},

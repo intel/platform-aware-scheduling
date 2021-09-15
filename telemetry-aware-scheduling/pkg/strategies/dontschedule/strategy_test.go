@@ -33,7 +33,7 @@ func TestDontScheduleStrategy_Violated(t *testing.T) {
 			err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1, Value: *resource.NewQuantity(10, resource.DecimalSI)}})
 			if err != nil {
 				klog.V(4).InfoS(err.Error(), "component", "testing")
-				panic(err)
+				klog.Exit(err)
 			}
 			if got := tt.d.Violated(tt.args.cache); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Strategy.Violated() = %v, want %v", got, tt.want)
