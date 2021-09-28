@@ -40,8 +40,6 @@ spec:
         - containerPort: 9103
           hostPort: 9103
           name: http
-      hostNetwork: true
-      hostPID: true
       volumes:
       - name: config
         configMap:
