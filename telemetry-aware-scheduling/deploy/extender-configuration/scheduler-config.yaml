@@ -1,0 +1,18 @@
+apiVersion: kubescheduler.config.k8s.io/XVERSIONX
+kind: KubeSchedulerConfiguration
+clientConnection:
+  kubeconfig: /etc/kubernetes/scheduler.conf
+extenders:
+  - urlPrefix: "https://tas-service.default.svc.cluster.local:9001"
+    prioritizeVerb: "scheduler/prioritize"
+    filterVerb: "scheduler/filter"
+    weight: 1
+    enableHTTPS: true
+    managedResources:
+      - name: "telemetry/scheduling"
+        ignoredByScheduler: true
+    ignorable: true
+    tlsConfig:
+      insecure: false
+      certFile: "/host/certs/client.crt"
+      keyFile: "/host/certs/client.key"
