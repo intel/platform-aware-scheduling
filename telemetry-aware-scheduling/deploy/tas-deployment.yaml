@@ -28,7 +28,12 @@ spec:
         image: tasextender
         imagePullPolicy: IfNotPresent
         securityContext:
-          readOnlyRootFilesystem: true 
+          capabilities:
+            drop:
+              - all
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
         volumeMounts:
         - name: certs
           mountPath: /tas/cert
