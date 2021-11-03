@@ -20,51 +20,36 @@ The [extender](/extender) package at the top-level of this repo can be used to q
 
 ### Enabling a scheduler extender
 
-Scheduler extenders are enabled by providing a scheduling policy to the default Kubernetes scheduler. An example policy looks like:
+Scheduler extenders are enabled by providing a scheduling configuration file to the default Kubernetes scheduler. An example of a configuration file:
 
 ````
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: scheduler-extender-policy
-  namespace: kube-system
-data:
-  policy.cfg: |
-    {
-        "kind" : "Policy",
-        "apiVersion" : "v1",
-        "extenders" : [
-            {
-              "urlPrefix": "https://tas-service.default.svc.cluster.local:9001",
-              "apiVersion": "v1",
-              "prioritizeVerb": "scheduler/prioritize",
-              "filterVerb": "scheduler/filter",
-              "weight": 1,
-              "enableHttps": true,
-              "managedResources": [
-                   {
-                     "name": "telemetry/scheduling",
-                     "ignoredByScheduler": true
-                   }
-              ],
-              "ignorable": true,
-              "tlsConfig": {
-                     "insecure": false,
-                     "certFile": "/host/certs/client.crt",
-                     "keyFile" : "/host/certs/client.key"
-              }
-            }
-           ]
-    }
+apiVersion: kubescheduler.config.k8s.io/v1beta2
+kind: KubeSchedulerConfiguration
+clientConnection:
+  kubeconfig: /etc/kubernetes/scheduler.conf
+extenders:
+  - urlPrefix: "https://tas-service.default.svc.cluster.local:9001"
+    prioritizeVerb: "scheduler/prioritize"
+    filterVerb: "scheduler/filter"
+    weight: 1
+    enableHTTPS: true
+    managedResources:
+      - name: "telemetry/scheduling"
+        ignoredByScheduler: true
+    ignorable: true
+    tlsConfig:
+      insecure: false
+      certFile: "/host/certs/client.crt"
+      keyFile: "/host/certs/client.key"
 
 ````
 
 There are a number of options available to us under the "extenders" configuration object. Some of these fields - such as setting the urlPrefix, filterVerb and prioritizeVerb are necessary to point the Kubernetes scheduler to our scheduling service, while other sections deal the TLS configuration of mutual TLS. The remaining fields tune the behavior of the scheduler: managedResource is used to specify which pods should be scheduled using this service, in this case pods which request the dummy resource telemetry/scheduling, ignorable tells the scheduler what to do if it can't reach our extender and weight sets the relative influence our extender has on prioritization decisions.
 
-With a policy like the above as part of the Kubernetes scheduler configuration the identified webhook becomes part of the scheduling process.
+With a configuration like the above as part of the Kubernetes scheduler configuration the identified webhook becomes part of the scheduling process.
 
 To read more about scheduler extenders see the [official docs](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/scheduling/scheduler_extender.md).
-
+ 
 ## Adding a new extender to Platform Aware Scheduling
 Platform Aware Scheduling is a single repo designed to host multiple hardware enabling Kubernetes Scheduler Extenders. A new scheduler can be added with an issue and pull request.
 
