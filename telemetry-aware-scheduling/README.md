@@ -46,50 +46,30 @@ If this pipeline isn't set up, and node level metrics aren't exposed through it,
 Note: a shell script that shows these steps can be found [here](deploy/extender-configuration). This script should be seen as a guide only, and will not work on most Kubernetes installations.
 
 The extender configuration files can be found under deploy/extender-configuration.
-TAS Scheduler Extender needs to be registered with the Kubernetes Scheduler. In order to do this a configmap should be created like the below:
+TAS Scheduler Extender needs to be registered with the Kubernetes Scheduler. In order to do this a configuration file should be created like one the below:
 ````
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: scheduler-extender-policy
-  namespace: kube-system
-data:
-  policy.cfg: |
-    {
-        "kind" : "Policy",
-        "apiVersion" : "v1",
-        "extenders" : [
-            {
-              "urlPrefix": "https://tas-service.default.svc.cluster.local:9001",             
-              "apiVersion": "v1",
-              "prioritizeVerb": "scheduler/prioritize",
-              "filterVerb": "scheduler/filter",
-              "weight": 1,
-              "enableHttps": true,
-              "managedResources": [
-                   {
-                     "name": "telemetry/scheduling",
-                     "ignoredByScheduler": true
-                   }
-              ],
-              "ignorable": true,
-              "tlsConfig": {
-                     "insecure": false,
-                     "certFile": "/host/certs/client.crt",
-                     "keyFile" : "/host/certs/client.key"
-              }
-            }
-           ]
-    }
+apiVersion: kubescheduler.config.k8s.io/v1beta2
+kind: KubeSchedulerConfiguration
+clientConnection:
+  kubeconfig: /etc/kubernetes/scheduler.conf
+extenders:
+  - urlPrefix: "https://tas-service.default.svc.cluster.local:9001"
+    prioritizeVerb: "scheduler/prioritize"
+    filterVerb: "scheduler/filter"
+    weight: 1
+    enableHTTPS: true
+    managedResources:
+      - name: "telemetry/scheduling"
+        ignoredByScheduler: true
+    ignorable: true
+    tlsConfig:
+      insecure: false
+      certFile: "/host/certs/client.crt"
+      keyFile: "/host/certs/client.key"
 
 ````
-This file can be found [in the deploy folder](deploy/extender-configuration/scheduler-extender-configmap.yaml). This configmap can be created with ``kubectl apply -f ./deploy/scheduler-extender-configmap.yaml``
-The scheduler requires flags passed to it in order to know the location of this config map. The flags are:
-````
-    - --policy-configmap=scheduler-extender-policy
-    - --policy-configmap-namespace=kube-system
-````
-
+This file can be found [in the deploy folder](deploy/extender-configuration/scheduler-config.yaml). The API version of the file is updated by executing a [shell script](deploy/extender-configuration/configure-scheduler.sh). 
+Note that k8s, from version 1.22 onwards, will no longer accept a scheduling policy to be passed as a flag to the kube-scheduler. The shell script will make sure the scheduler is set-up according to its version: scheduling by policy or configuration file.
 If scheduler is running as a service these can be added as flags to the binary. If scheduler is running as a container - as in kubeadm - these args can be passed in the deployment file.
 Note: For Kubeadm set ups some additional steps may be needed.
 1) Add the ability to get configmaps to the kubeadm scheduler config map. (A cluster role binding for this is at deploy/extender-configuration/configmap-getter.yaml)
@@ -98,7 +78,7 @@ Note: For Kubeadm set ups some additional steps may be needed.
 After these steps the scheduler extender should be registered with the Kubernetes Scheduler.
 
 #### Deploy TAS
-Telemetry Aware Scheduling uses go modules. It requires Go 1.13+ with modules enabled in order to build. TAS has been tested with Kubernetes 1.14+. TAS was tested on Intel® Server Board S2600WF-Based Systems (Wolf Pass).
+Telemetry Aware Scheduling uses go modules. It requires Go 1.16+ with modules enabled in order to build. TAS has been tested with Kubernetes 1.20+. TAS was tested on Intel® Server Board S2600WF-Based Systems (Wolf Pass).
 A yaml file for TAS is contained in the deploy folder along with its service and RBAC roles and permissions.
 
 **Note:** If run without the unsafe flag ([described in the table below](#tas-scheduler-extender)) a secret called extender-secret will need to be created with the cert and key for the TLS endpoint.
