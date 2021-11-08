@@ -1,7 +1,7 @@
 # GPU Aware Scheduling
-GPU Aware Scheduling (GAS) allows using GPU resources such as memory amount for scheduling decisions in Kubernetes. It is primarily targeted at preventing bad scheduling decisions during situations when the POD resource requirement can only be satisfied by fragmenting over several GPUs of the node and cannot be met by any single GPU.
+GPU Aware Scheduling (GAS) allows using GPU resources such as memory amount for scheduling decisions in Kubernetes. It is used to optimize scheduling decisions when the POD resource requirements need to use several GPUS or fragments of GPUs on a node, instead of traditionally mapping a GPU to a pod.
 
-GPU Aware Scheduling is made up of one component deployed in a single pod on a Kubernetes Cluster. 
+GPU Aware Scheduling is deployed in a single pod on a Kubernetes Cluster. 
 
 **This software is a pre-production alpha version and should not be deployed to production servers.**
 
