@@ -13,7 +13,7 @@ scheduler_config_destination=/etc/kubernetes
 help() {
   echo "Usage: $(basename "$0") [-m PATH_TO_MANIFEST_FILE] [-f PATH_TO_CONFIGURATION_FILE] [-d CONFIGURATION_DESTINATION_FOLDER] [-th]" 2>&1
   echo 'Configure the Kubernetes scheduler using one or more of the parameters below. If not entered, the script will be using default values. '
-  echo 'Please make sure the user used to run this script has read & write access to the files/directories mentioned below.'
+  echo 'Please ensure permissions for read & write to the files/directories mentioned below.'
   
   echo '   -m PATH_TO_MANIFEST_FILE               Specify the path to the Kubernetes manifest kube-scheduler.yaml file'
   echo '                                          If not provided, it will default to /etc/kubernetes/manifest/kube-scheduler.yaml'
@@ -39,7 +39,7 @@ while getopts 'm:f:d:th' option; do
     help
     exit;;
   t) # start the script in test mode. We require parameters to be provided for -m, -f, -d in order to not accidentally
-    # production configuration when in this mode
+    # alter production configuration when in this mode
     if [ $# -lt 6 ]; then
       echo "Not enough input parameters were passed to the script. This requires -m, -f, -d to have values. Exiting..."
       exit
