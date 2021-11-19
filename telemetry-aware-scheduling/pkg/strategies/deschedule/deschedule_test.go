@@ -53,6 +53,7 @@ func TestDeschedule_Cleanup(t *testing.T) {
 			want: []string{}},
 	}
 	for _, tt := range tests {
+		tt := tt
 		nodeAction(t, tt, "create")
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.d.Cleanup(tt.args.enforcer, tt.d.PolicyName) //testing Cleanup()
@@ -88,6 +89,7 @@ func TestDeschedule_Relabel_nodes(t *testing.T) {
 			want: []string{"violating", "violating"}},
 	}
 	for _, tt := range tests {
+		tt := tt
 		nodeAction(t, tt, "create")
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.d.Cleanup(tt.args.enforcer, tt.d.PolicyName) //testing Cleanup()

@@ -49,6 +49,7 @@ func TestDescheduleStrategy_Enforce(t *testing.T) {
 			want: expected{nodeNames: []string{}}},
 	}
 	for _, tt := range tests {
+		tt := tt
 		err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1, Value: *resource.NewQuantity(100, resource.DecimalSI)}})
 		if err != nil {
 			t.Errorf("Cannot write metric to mock cach for test: %v", err)

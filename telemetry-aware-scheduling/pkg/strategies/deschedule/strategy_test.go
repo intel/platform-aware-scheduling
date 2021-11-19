@@ -31,6 +31,7 @@ func TestDescheduleStrategy_SetPolicyName(t *testing.T) {
 		{name: "set basic name", d: &Strategy{}, args: args{"test policy"}},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			tt.d.SetPolicyName(tt.args.name)
 			if tt.d.PolicyName != tt.args.name {
@@ -49,6 +50,7 @@ func TestDescheduleStrategy_GetPolicyName(t *testing.T) {
 		{name: "retrieve basic name", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{}}, want: "test name"},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.d.GetPolicyName(); got != tt.want {
 				t.Errorf("Strategy.GetPolicyName() = %v, want %v", got, tt.want)
@@ -76,6 +78,7 @@ func TestDescheduleStrategy_Equals(t *testing.T) {
 		{name: "Not equal different target", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 10}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.d.Equals(tt.args.other); got != tt.want {
 				a, _ := tt.args.other.(*Strategy)
@@ -102,6 +105,7 @@ func TestDescheduleStrategy_Violated(t *testing.T) {
 		{name: "No metric found", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "mem", Operator: "GreaterThan", Target: 9}}}, args: args{cache.MockEmptySelfUpdatingCache()}, want: map[string]interface{}{}},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1, Value: *resource.NewQuantity(10, resource.DecimalSI)}})
 			if err != nil {
@@ -123,6 +127,7 @@ func TestDescheduleStrategy_StrategyType(t *testing.T) {
 		{name: "basic type", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{}}, want: "deschedule"},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.d.StrategyType(); got != tt.want {
 				t.Errorf("Strategy.StrategyType() = %v, want %v", got, tt.want)

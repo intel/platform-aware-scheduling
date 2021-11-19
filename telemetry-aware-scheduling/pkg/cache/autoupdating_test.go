@@ -34,6 +34,7 @@ func TestNodeMetricsCache_PeriodicUpdate(t *testing.T) {
 			metrics.TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{500, 300}), true},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			n := NewAutoUpdatingCache()
 			go n.PeriodicUpdate(*time.NewTicker(time.Second), tt.args.client, map[string]interface{}{})
@@ -79,6 +80,7 @@ func TestNodeMetricsCache_ReadMetric(t *testing.T) {
 		{"non existing metric", MockSelfUpdatingCache(), args{"non-existing metric"}, metrics.TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{50, 30}), true},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := tt.n.ReadMetric(tt.args.metricName)
 			if err != nil {
@@ -109,6 +111,7 @@ func TestNodeMetricsCache_ReadPolicy(t *testing.T) {
 		{"non existing policy", MockSelfUpdatingCache(), args{mockPolicy}, mockPolicy2, true},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			err1 := tt.n.WritePolicy(tt.args.policy.Namespace, tt.args.policy.Name, mockPolicy)
 			got, err2 := tt.n.ReadPolicy(tt.want.Namespace, tt.want.Name)
@@ -144,6 +147,7 @@ func TestNodeMetricsCache_DeletePolicy(t *testing.T) {
 		{"delete non existing policy", MockSelfUpdatingCache(), args{mockPolicy}, mockPolicy2, false},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			_ = tt.n.WritePolicy(tt.args.policy.Namespace, tt.args.policy.Name, mockPolicy)
 			err2 := tt.n.DeletePolicy(tt.deleted.Namespace, tt.deleted.Name)
@@ -178,6 +182,7 @@ func TestNodeMetricsCache_WriteMetric(t *testing.T) {
 		{"add existing metric", MockEmptySelfUpdatingCache(), "dummyMetric1", args{"dummyMetric1"}, false},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.n.WriteMetric(tt.args.metricName, nil)
 			if err != nil && !tt.errorExpected {
@@ -210,6 +215,7 @@ func TestNodeMetricsCache_DeleteMetric(t *testing.T) {
 		{"delete non-Existing Metric", MockSelfUpdatingCache(), args{"top speed"}, "dummyMetric1", true},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			_, presentAtStart := tt.n.ReadMetric(tt.queriedMetric)
 			err := tt.n.DeleteMetric(tt.args.metricName)

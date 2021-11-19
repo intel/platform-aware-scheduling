@@ -112,6 +112,7 @@ func TestMetricsExtender_prescheduleChecks(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			m := NewMetricsExtender(tt.fields.cache)
 			err := tt.fields.cache.WritePolicy(tt.fields.policy.Namespace, tt.fields.policy.Name, tt.fields.policy)
@@ -200,6 +201,7 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			m := NewMetricsExtender(tt.fields.cache)
 			err := tt.fields.cache.WritePolicy(tt.fields.policy.Namespace, tt.fields.policy.Name, tt.fields.policy)
@@ -292,6 +294,7 @@ func TestMetricsExtender_Filter(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			m := MetricsExtender{
 				cache: tt.fields.cache,

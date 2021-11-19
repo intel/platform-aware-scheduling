@@ -24,6 +24,7 @@ func TestNewEnforcer(t *testing.T) {
 		// TODO: add test cases.
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			if got := NewEnforcer(tt.args.kubeClient); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewEnforcer() = %v, want %v", got, tt.want)
@@ -50,6 +51,7 @@ func TestMetricEnforcer_RegisterStrategyType(t *testing.T) {
 		{"RegisterStrategyType one strategy", fields{make(map[string]map[Interface]interface{}), "violates", testclient.NewSimpleClientset()}, args{str: mockedStrategy}, []string{"mocko"}},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			e := &MetricEnforcer{
 				RegisteredStrategies: tt.fields.RegisteredTypes,
@@ -86,6 +88,7 @@ func TestMetricEnforcer_UnregisterStrategyType(t *testing.T) {
 		{"RegisterStrategyType working", fields{make(map[string]map[Interface]interface{}), "violates", testclient.NewSimpleClientset()}, args{str: mockedStrategy}, []string{}},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			e := &MetricEnforcer{
 				RegisteredStrategies: tt.fields.RegisteredTypes,
@@ -120,6 +123,7 @@ func TestMetricEnforcer_RegisteredStrategyTypes(t *testing.T) {
 		{"no strategies", fields{RegisteredTypes: map[string]map[Interface]interface{}{}, PodViolatingLabel: "", KubeClient: testclient.NewSimpleClientset()}, []string{}},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			e := &MetricEnforcer{
 				RegisteredStrategies: tt.fields.RegisteredTypes,
@@ -157,6 +161,7 @@ func TestMetricEnforcer_AddStrategy(t *testing.T) {
 			args{str: mockedStrategy, strategyType: "mocko"}, map[string]Interface{"mocko": mockedStrategy}},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			e := &MetricEnforcer{
 				RegisteredStrategies: tt.fields.RegisteredStrategies,
@@ -237,6 +242,7 @@ func TestMetricEnforcer_IsRegistered(t *testing.T) {
 			args{"not registered"}, false},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			e := &MetricEnforcer{
 				RegisteredStrategies: tt.fields.RegisteredStrategies,
@@ -275,6 +281,7 @@ func TestMetricEnforcer_RemoveStrategy(t *testing.T) {
 			true},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			e := &MetricEnforcer{
 				RegisteredStrategies: tt.fields.RegisteredStrategies,

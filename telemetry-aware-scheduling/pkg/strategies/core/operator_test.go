@@ -40,6 +40,7 @@ func TestOperator(t *testing.T) {
 		{name: "Blank Operator", args: args{value: 100, rule: telemetrypolicy.TASPolicyRule{Metricname: "memory", Operator: "", Target: 1000}}, want: false},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			num := *resource.NewQuantity(tt.args.value, resource.DecimalSI)
 			if got := EvaluateRule(num, tt.args.rule); got != tt.want {
@@ -63,6 +64,7 @@ func TestOrderedList(t *testing.T) {
 		{"greater than test", args{testNodeMetricCustomInfo([]string{"node A", "node B", "node C"}, []int64{100, 200, 10}), "GreaterThan"}, []NodeSortableMetric{{"node B", *resource.NewQuantity(200, resource.DecimalSI)}, {"node A", *resource.NewQuantity(100, resource.DecimalSI)}, {"node C", *resource.NewQuantity(10, resource.DecimalSI)}}},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got := OrderedList(tt.args.metricsInfo, tt.args.operator)
 			if !reflect.DeepEqual(got, tt.want) {
