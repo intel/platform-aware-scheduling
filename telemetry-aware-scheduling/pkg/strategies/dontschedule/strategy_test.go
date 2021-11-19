@@ -29,6 +29,7 @@ func TestDontScheduleStrategy_Violated(t *testing.T) {
 		{name: "No metric found", d: Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "mem", Operator: "GreaterThan", Target: 9}}}, args: args{cache: cache.MockEmptySelfUpdatingCache()}, want: map[string]interface{}{}},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1, Value: *resource.NewQuantity(10, resource.DecimalSI)}})
 			if err != nil {
@@ -51,6 +52,7 @@ func TestDontScheduleStrategy_StrategyType(t *testing.T) {
 		{"get strategy type", Strategy{}, "dontschedule"},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			d := Strategy{}
 			if got := d.StrategyType(); got != tt.want {
@@ -73,6 +75,7 @@ func TestDontScheduleStrategy_Equals(t *testing.T) {
 		{"simple equality test ", Strategy{}, args{&Strategy{}}, false},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			d := Strategy{}
 			if got := d.Equals(tt.args.in0); got != tt.want {
@@ -91,6 +94,7 @@ func TestDontScheduleStrategy_GetPolicyName(t *testing.T) {
 		{"get name", Strategy{}, "demo-policy"},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			d := Strategy{}
 			d.SetPolicyName("demo-policy")
@@ -116,6 +120,7 @@ func TestDontScheduleStrategy_Enforce(t *testing.T) {
 		{"simple enforce test", Strategy{}, args{&core.MetricEnforcer{}, &cache.AutoUpdatingCache{}}, 0, false},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			d := Strategy{}
 			got, err := d.Enforce(tt.args.enforcer, tt.args.cache)

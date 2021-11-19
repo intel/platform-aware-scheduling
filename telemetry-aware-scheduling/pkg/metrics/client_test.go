@@ -105,6 +105,7 @@ func Test_customMetricsClient_GetNodeMetric(t *testing.T) {
 		{"non existent metric query", fields{dm}, args{"nonExistentMetric"}, NodeMetricsInfo{}, true},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			c := CustomMetricsClient{
 				tt.fields.client,
@@ -139,6 +140,7 @@ func TestNewClient(t *testing.T) {
 		{"valid config", args{dummyRestClientConfig()}},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewClient(tt.args.config)
 			if reflect.TypeOf(got) != reflect.TypeOf(dummyRestClientConfig()) {
