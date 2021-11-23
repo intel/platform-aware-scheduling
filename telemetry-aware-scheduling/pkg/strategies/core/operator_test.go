@@ -36,6 +36,8 @@ func TestOperator(t *testing.T) {
 		{name: "LessThan false", args: args{value: 10000, rule: telemetrypolicy.TASPolicyRule{Metricname: "memory", Operator: "LessThan", Target: 10}}},
 		{name: "GreaterThan false", args: args{value: 1, rule: telemetrypolicy.TASPolicyRule{Metricname: "memory", Operator: "GreaterThan", Target: 10000}}},
 		{name: "Equals false", args: args{value: 1, rule: telemetrypolicy.TASPolicyRule{Metricname: "memory", Operator: "Equals", Target: 100}}},
+		{name: "Invalid Operator", args: args{value: 100, rule: telemetrypolicy.TASPolicyRule{Metricname: "memory", Operator: "ABCDE", Target: 1000}}, want: false},
+		{name: "Blank Operator", args: args{value: 100, rule: telemetrypolicy.TASPolicyRule{Metricname: "memory", Operator: "", Target: 1000}}, want: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
