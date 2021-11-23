@@ -6,6 +6,7 @@ import (
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
 	telempol "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/klog/v2"
 )
 
 //EvaluateRule returns a boolean after implementing the function described in the TASPolicyRule.
@@ -22,6 +23,11 @@ func EvaluateRule(value resource.Quantity, rule telempol.TASPolicyRule) bool {
 			return value.CmpInt64(target) == 0
 		},
 	}
+	if _, ok := operators[rule.Operator]; !ok {
+		klog.InfoS("Invalid operator type:"+rule.Operator, "component", "controller")
+		return false
+	}
+
 	return operators[rule.Operator](value, rule.Target)
 }
 
