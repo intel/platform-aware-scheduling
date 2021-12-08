@@ -16,6 +16,20 @@ type MockCacheAPI struct {
 	mock.Mock
 }
 
+// AdjustPodResourcesL provides a mock function with given fields: cache, pod, adj, annotation, nodeName
+func (_m *MockCacheAPI) AdjustPodResourcesL(cache *Cache, pod *v1.Pod, adj bool, annotation string, nodeName string) error {
+	ret := _m.Called(cache, pod, adj, annotation, nodeName)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*Cache, *v1.Pod, bool, string, string) error); ok {
+		r0 = rf(cache, pod, adj, annotation, nodeName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // FetchNode provides a mock function with given fields: cache, nodeName
 func (_m *MockCacheAPI) FetchNode(cache *Cache, nodeName string) (*v1.Node, error) {
 	ret := _m.Called(cache, nodeName)
@@ -32,6 +46,29 @@ func (_m *MockCacheAPI) FetchNode(cache *Cache, nodeName string) (*v1.Node, erro
 	var r1 error
 	if rf, ok := ret.Get(1).(func(*Cache, string) error); ok {
 		r1 = rf(cache, nodeName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FetchPod provides a mock function with given fields: cache, podNS, podName
+func (_m *MockCacheAPI) FetchPod(cache *Cache, podNS string, podName string) (*v1.Pod, error) {
+	ret := _m.Called(cache, podNS, podName)
+
+	var r0 *v1.Pod
+	if rf, ok := ret.Get(0).(func(*Cache, string, string) *v1.Pod); ok {
+		r0 = rf(cache, podNS, podName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1.Pod)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*Cache, string, string) error); ok {
+		r1 = rf(cache, podNS, podName)
 	} else {
 		r1 = ret.Error(1)
 	}

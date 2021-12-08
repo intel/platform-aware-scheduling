@@ -65,6 +65,15 @@ Your PODs then, needs to ask for some GPU-resources. Like this:
 
 A complete example pod yaml is located in [docs/example](./example)
 
+## Allowlist and Denylist
+
+You can use POD-annotations in your POD-templates to list the GPU names which you allow, or deny for your deployment. The values for the annotations are comma separated value lists of the form "card0,card1,card2", and the names of the annotations are:
+
+- `gas-allow`
+- `gas-deny`
+
+Note that the feature is disabled by default. You need to enable allowlist and/or denylist via command line flags.
+
 ## Summary in a chronological order
 
 - GPU-plugin initcontainer installs an NFD hook which prints labels for you, based on the Intel GPUs it finds

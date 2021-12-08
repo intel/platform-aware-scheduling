@@ -9,56 +9,89 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"testing"
 
 	"github.com/intel/platform-aware-scheduling/extender"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/mock"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/rest"
 )
 
-func getDummyExtender() *GASExtender {
-	var nilRestConfig *rest.Config
+const (
+	nodename = "nodename"
+)
 
-	mockClientAPI := new(MockClientAPI)
-	iClient = mockClientAPI
+func getDummyExtender(objects ...runtime.Object) *GASExtender {
+	clientset := fake.NewSimpleClientset(objects...)
 
-	mockClientAPI.On("InClusterConfig").Return(nil, nil)
-	mockClientAPI.On("NewForConfig", nilRestConfig).Return(nil, nil)
-
-	clientset := fake.NewSimpleClientset()
-
-	return NewGASExtender(clientset)
+	return NewGASExtender(clientset, true, true)
 }
 
-func TestRealGetPod(t *testing.T) {
-	// this is a useless test, but the real get pod only seldom gets
-	// called since it is found only in an error path
-	Convey("When I call GetPod on a fake client", t, func() {
-		clientset := fake.NewSimpleClientset()
-		pod, err := iClient.GetPod(clientset, "foo", "bar")
-		So(pod, ShouldBeNil)
-		So(err, ShouldNotBeNil)
-	})
+func getFakePod() *v1.Pod {
+	return &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{"gas-ts": "1"},
+		},
+		Spec: *getMockPodSpec(),
+	}
+}
+
+func getMockPodSpec() *v1.PodSpec {
+	return &v1.PodSpec{
+		Containers: []v1.Container{
+			{
+				Resources: v1.ResourceRequirements{
+					Requests: v1.ResourceList{
+						"gpu.intel.com/i915": resource.MustParse("1"),
+					},
+				},
+			},
+		},
+	}
+}
+
+func getMockNode(cardNames ...string) *v1.Node {
+	if len(cardNames) == 0 {
+		cardNames = []string{"card0"}
+	}
+
+	node := v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{},
+			Name:   "mocknode",
+		},
+		Status: v1.NodeStatus{
+			Capacity:    v1.ResourceList{},
+			Allocatable: v1.ResourceList{},
+		},
+	}
+
+	cardCount := strconv.Itoa(len(cardNames))
+	node.Status.Capacity["gpu.intel.com/i915"] = resource.MustParse(cardCount)
+	node.Status.Allocatable["gpu.intel.com/i915"] = resource.MustParse(cardCount)
+
+	delim := ""
+
+	cardNameList := ""
+	for _, cardName := range cardNames {
+		cardNameList += delim + cardName
+		delim = ","
+	}
+
+	node.Labels["gpu.intel.com/cards"] = cardNameList
+
+	return &node
 }
 
 func TestNewGASExtender(t *testing.T) {
 	Convey("When I create a new gas extender", t, func() {
-		mockClientAPI := new(MockClientAPI)
-		iClient = mockClientAPI
 		Convey("and InClusterConfig returns an error", func() {
-			mockClientAPI.On("InClusterConfig").Return(nil, errMock)
-			gas := NewGASExtender(nil)
-			So(gas.clientset, ShouldBeNil)
-		})
-
-		Convey("and InClusterConfig returns a nil config without error", func() {
-			mockClientAPI.On("InClusterConfig").Return(nil, nil)
-			var nilRestConfig *rest.Config
-			mockClientAPI.On("NewForConfig", nilRestConfig).Return(nil, errMock)
-			gas := NewGASExtender(nil)
+			gas := NewGASExtender(nil, false, false)
 			So(gas.clientset, ShouldBeNil)
 		})
 	})
@@ -82,7 +115,7 @@ func TestSchedulingLogicBadParams(t *testing.T) {
 
 	Convey("When I call getAnnotationForPodGPURequest with empty params", t, func() {
 		mockCache.On("FetchNode", mock.Anything, mock.Anything).Return(nil, errMock).Once()
-		result, err := gas.runSchedulingLogic(&pod, "")
+		result, _, err := gas.runSchedulingLogic(&pod, "")
 		So(result, ShouldEqual, "")
 		So(err, ShouldNotBeNil)
 	})
@@ -153,7 +186,7 @@ func TestFilterNodes(t *testing.T) {
 		So(result.Error, ShouldNotEqual, "")
 	})
 
-	args.NodeNames = &[]string{"nodename"}
+	args.NodeNames = &[]string{nodename}
 	mockCache := MockCacheAPI{}
 	origCacheAPI := iCache
 	iCache = &mockCache
@@ -170,6 +203,180 @@ func TestFilterNodes(t *testing.T) {
 		result := gas.filterNodes(&args)
 		So(len(*result.NodeNames), ShouldEqual, 0)
 	})
+
+	iCache = origCacheAPI
+}
+
+func TestBindNode(t *testing.T) {
+	pod := getFakePod()
+
+	gas := getDummyExtender(pod)
+	mockCache := MockCacheAPI{}
+	origCacheAPI := iCache
+	iCache = &mockCache
+	args := extender.BindingArgs{}
+
+	Convey("When the args are empty", t, func() {
+		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(nil, errMock).Once()
+		result := gas.bindNode(&args)
+		So(result.Error, ShouldNotEqual, "")
+	})
+
+	args.Node = nodename
+
+	Convey("When node can't be read", t, func() {
+		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{}, nil).Once()
+		mockCache.On("FetchNode", mock.Anything, args.Node).Return(nil, errMock).Once()
+		result := gas.bindNode(&args)
+		So(result.Error, ShouldNotBeNil)
+	})
+
+	Convey("When node can be read, but has no capacity", t, func() {
+		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+			Spec: *getMockPodSpec(),
+		}, nil).Once()
+		mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					"gpu.intel.com/cards": "card0",
+				},
+			},
+		}, nil).Once()
+		mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
+		result := gas.bindNode(&args)
+		So(result.Error, ShouldEqual, "will not fit")
+	})
+
+	Convey("When node can be read, and it has capacity", t, func() {
+		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+			Spec: *getMockPodSpec(),
+		}, nil).Once()
+		mockCache.On("FetchNode", mock.Anything, args.Node).Return(getMockNode(), nil).Once()
+		mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
+		mockCache.On("AdjustPodResourcesL",
+			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		result := gas.bindNode(&args)
+		So(result.Error, ShouldEqual, "")
+	})
+
+	iCache = origCacheAPI
+}
+
+func TestAllowlist(t *testing.T) {
+	pod := getFakePod()
+
+	gas := getDummyExtender(pod)
+	mockCache := MockCacheAPI{}
+	origCacheAPI := iCache
+	iCache = &mockCache
+	args := extender.BindingArgs{}
+	args.Node = nodename
+
+	for _, cardName := range []string{"card0", "card1"} {
+		cardName := cardName
+
+		Convey("When pod has an allowlist and the node card is in it", t, func() {
+			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"gas-allow": cardName},
+				},
+				Spec: *getMockPodSpec(),
+			}, nil).Once()
+			mockCache.On("FetchNode", mock.Anything, args.Node).Return(getMockNode(), nil).Once()
+			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
+			mockCache.On("AdjustPodResourcesL",
+				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
+			result := gas.bindNode(&args)
+			if cardName == "card0" {
+				So(result.Error, ShouldEqual, "")
+			} else {
+				So(result.Error, ShouldEqual, "will not fit")
+			}
+		})
+	}
+
+	iCache = origCacheAPI
+}
+
+func TestDenylist(t *testing.T) {
+	pod := getFakePod()
+
+	gas := getDummyExtender(pod)
+	mockCache := MockCacheAPI{}
+	origCacheAPI := iCache
+	iCache = &mockCache
+	args := extender.BindingArgs{}
+	args.Node = nodename
+
+	for _, cardName := range []string{"card0", "card1"} {
+		cardName := cardName
+
+		Convey("When pod has a denylist", t, func() {
+			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"gas-deny": cardName},
+				},
+				Spec: *getMockPodSpec(),
+			}, nil).Once()
+			mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"gpu.intel.com/cards": "card0"}},
+				Status: v1.NodeStatus{
+					Capacity:    v1.ResourceList{"gpu.intel.com/i915": resource.MustParse("1")},
+					Allocatable: v1.ResourceList{"gpu.intel.com/i915": resource.MustParse("1")},
+				},
+			}, nil).Once()
+			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
+			mockCache.On("AdjustPodResourcesL",
+				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
+			result := gas.bindNode(&args)
+			if cardName != "card0" {
+				So(result.Error, ShouldEqual, "")
+			} else {
+				So(result.Error, ShouldEqual, "will not fit")
+			}
+		})
+	}
+
+	iCache = origCacheAPI
+}
+
+func TestGPUDisabling(t *testing.T) {
+	pod := getFakePod()
+
+	gas := getDummyExtender(pod)
+	mockCache := MockCacheAPI{}
+	origCacheAPI := iCache
+	iCache = &mockCache
+	args := extender.BindingArgs{}
+	args.Node = nodename
+
+	for _, labelValue := range []string{pciGroupValue, "true"} {
+		labelValue := labelValue
+
+		Convey("When node has a disable-label and the node card is in it", t, func() {
+			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+				Spec: *getMockPodSpec(),
+			}, nil).Once()
+			mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"gpu.intel.com/cards": "card0",
+						tasNSPrefix + "policy/" + gpuDisableLabelPrefix + "card0": labelValue,
+						pciGroupLabel: "0",
+					},
+				},
+				Status: v1.NodeStatus{
+					Capacity:    v1.ResourceList{"gpu.intel.com/i915": resource.MustParse("1")},
+					Allocatable: v1.ResourceList{"gpu.intel.com/i915": resource.MustParse("1")},
+				},
+			}, nil).Once()
+			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
+			mockCache.On("AdjustPodResourcesL",
+				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
+			result := gas.bindNode(&args)
+			So(result.Error, ShouldEqual, "will not fit")
+		})
+	}
 
 	iCache = origCacheAPI
 }
@@ -197,6 +404,44 @@ func TestDecodeRequest(t *testing.T) {
 	})
 }
 
+func TestPreferredGPU(t *testing.T) {
+	gas := getDummyExtender()
+	node := getMockNode("card0", "card1", "card2")
+
+	pod := getFakePod()
+
+	containerRequest := resourceMap{"gpu.intel.com/i915": 1}
+	perGPUCapacity := resourceMap{"gpu.intel.com/i915": 1}
+
+	nodeResourcesUsed := nodeResources{"card0": resourceMap{}, "card1": resourceMap{}, "card2": resourceMap{}}
+	gpuMap := map[string]bool{"card0": true, "card1": true, "card2": true}
+
+	Convey("When a gpu is not preferred, alphabetically first gpu should be selected", t, func() {
+		cards, preferred, err := gas.getCardsForContainerGPURequest(containerRequest, perGPUCapacity,
+			node, pod,
+			nodeResourcesUsed,
+			gpuMap)
+
+		So(len(cards), ShouldEqual, 1)
+		So(cards[0], ShouldEqual, "card0")
+		So(err, ShouldBeNil)
+		So(preferred, ShouldBeFalse)
+	})
+
+	Convey("When a gpu is preferred, it should be selected", t, func() {
+		node.Labels["telemetry.aware.scheduling.policy/gas-prefer-gpu"] = "card2"
+		cards, preferred, err := gas.getCardsForContainerGPURequest(containerRequest, perGPUCapacity,
+			node, pod,
+			nodeResourcesUsed,
+			gpuMap)
+
+		So(len(cards), ShouldEqual, 1)
+		So(cards[0], ShouldEqual, "card2")
+		So(err, ShouldBeNil)
+		So(preferred, ShouldBeTrue)
+	})
+}
+
 func TestFilter(t *testing.T) {
 	gas := getDummyExtender()
 
@@ -220,6 +465,38 @@ func TestFilter(t *testing.T) {
 			gas.Filter(&w, request)
 		})
 	})
+}
+
+func TestBind(t *testing.T) {
+	gas := getDummyExtender()
+
+	mockCache := MockCacheAPI{}
+	origCacheAPI := iCache
+	iCache = &mockCache
+
+	Convey("When Bind is called", t, func() {
+		w := testWriter{}
+		r := http.Request{}
+		Convey("when args are fine but request body is empty", func() {
+			r.Method = http.MethodPost
+			r.ContentLength = 100
+			r.Header = http.Header{}
+			r.Header.Set("Content-Type", "application/json")
+			gas.Bind(&w, &r)
+		})
+		Convey("when args are fine but request body is ok", func() {
+			content, err := json.Marshal(map[string]string{"foo": "bar"})
+			So(err, ShouldBeNil)
+			request, err := http.NewRequestWithContext(context.Background(),
+				"POST", "http://foo/bar", bytes.NewBuffer(content))
+			So(err, ShouldBeNil)
+			request.Header.Set("Content-Type", "application/json")
+			mockCache.On("FetchPod", mock.Anything, mock.Anything, mock.Anything).Return(nil, errMock).Once()
+			gas.Bind(&w, request)
+		})
+	})
+
+	iCache = origCacheAPI
 }
 
 func TestGetNodeGPUList(t *testing.T) {

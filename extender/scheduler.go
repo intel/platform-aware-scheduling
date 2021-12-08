@@ -1,4 +1,4 @@
-//Package extender contains types and logic to respond to requests from a Kubernetes http scheduler extender.
+// Package extender contains types and logic to respond to requests from a Kubernetes http scheduler extender.
 package extender
 
 import (
@@ -11,7 +11,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-//postOnly check if the method type is POST
+// postOnly check if the method type is POST.
 func postOnly(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -24,7 +24,7 @@ func postOnly(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-//contentLength check the if the request size is adequate
+// contentLength check the if the request size is adequate.
 func contentLength(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.ContentLength > 1*1000*1000*1000 {
@@ -37,7 +37,7 @@ func contentLength(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-//requestContentType verify the content type of the request
+// requestContentType verify the content type of the request.
 func requestContentType(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		requestContentType := r.Header.Get("Content-Type")
@@ -65,7 +65,7 @@ if the content type is not correct - i.e. NOT application/json - the response wi
 will not run.
 */
 
-//handlerWithMiddleware is handler wrapped with middleware to serve the prechecks at endpoint
+// handlerWithMiddleware is handler wrapped with middleware to serve the prechecks at endpoint.
 func handlerWithMiddleware(handle http.HandlerFunc) http.HandlerFunc {
 	return requestContentType(
 		contentLength(
@@ -74,7 +74,7 @@ func handlerWithMiddleware(handle http.HandlerFunc) http.HandlerFunc {
 	)
 }
 
-//error handler deals with requests sent to an invalid endpoint and returns a 404.
+// error handler deals with requests sent to an invalid endpoint and returns a 404.
 func errorHandler(w http.ResponseWriter, r *http.Request) {
 	klog.V(2).InfoS("Requested resource: '"+r.URL.Path+"' not found", "component", "extender")
 	w.Header().Add("Content-Type", "application/json")
@@ -106,7 +106,7 @@ func (m Server) StartServer(port string, certFile string, keyFile string, caFile
 	klog.V(2).InfoS("Scheduler extender server failed to start "+err.Error(), "component", "extender")
 }
 
-//Configuration values including algorithms etc for the TAS scheduling endpoint.
+// Configuration values including algorithms etc for the TAS scheduling endpoint.
 func configureSecureServer(port string, caFile string) *http.Server {
 	caCert, err := ioutil.ReadFile(caFile)
 	if err != nil {

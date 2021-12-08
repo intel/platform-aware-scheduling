@@ -45,7 +45,7 @@ func TestValidation(t *testing.T) {
 		panic(err)
 	}
 
-	gasscheduler := NewGASExtender(kubeClient)
+	gasscheduler := NewGASExtender(kubeClient, true, true)
 	sch := extender.Server{Scheduler: gasscheduler}
 	c := make(chan bool)
 	go preStopServer(c)

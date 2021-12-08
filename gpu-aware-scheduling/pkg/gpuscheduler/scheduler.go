@@ -16,29 +16,33 @@ import (
 	"github.com/intel/platform-aware-scheduling/extender"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 )
 
-//nolint:gomnd
 const (
-	tsAnnotationName   = "gas-ts"
-	cardAnnotationName = "gas-container-cards"
-	updateErrorStr     = "please apply your changes to the latest version"
-	updateRetryCount   = 5
-	gpuListLabel       = "gpu.intel.com/cards"
-	gpuPluginResource  = "gpu.intel.com/i915"
-	L1                 = klog.Level(1)
-	L2                 = klog.Level(2)
-	L3                 = klog.Level(3)
-	L4                 = klog.Level(4)
-	L5                 = klog.Level(5)
+	tsAnnotationName        = "gas-ts"
+	cardAnnotationName      = "gas-container-cards"
+	allowlistAnnotationName = "gas-allow"
+	denylistAnnotationName  = "gas-deny"
+	tasNSPrefix             = "telemetry.aware.scheduling."
+	gpuDisableLabelPrefix   = "gas-disable-"
+	gpuPreferenceLabel      = "gas-prefer-gpu"
+	gpuListLabel            = "gpu.intel.com/cards"
+	gpuPluginResource       = "gpu.intel.com/i915"
+	L1                      = klog.Level(1)
+	L2                      = klog.Level(2)
+	L3                      = klog.Level(3)
+	L4                      = klog.Level(4)
+	L5                      = klog.Level(5)
+	maxLabelParts           = 2
+	base10                  = 10
 )
 
 //nolint: gochecknoglobals // only mocked APIs are allowed as globals
 var (
-	iClient ClientAPI
-	iCache  CacheAPI
+	iCache CacheAPI
 )
 
 // Errors.
@@ -51,68 +55,65 @@ var (
 
 //nolint: gochecknoinits // only mocked APIs are allowed in here
 func init() {
-	iClient = &clientAPI{}
 	iCache = &cacheAPI{}
 }
 
 // GASExtender is the scheduler extension part.
 type GASExtender struct {
-	cache     *Cache
-	clientset kubernetes.Interface
-	rwmutex   sync.RWMutex
+	cache            *Cache
+	clientset        kubernetes.Interface
+	rwmutex          sync.RWMutex
+	allowlistEnabled bool
+	denylistEnabled  bool
 }
 
 // NewGASExtender returns a new GAS Extender.
-func NewGASExtender(clientset kubernetes.Interface) *GASExtender {
+func NewGASExtender(clientset kubernetes.Interface, enableAllowlist, enableDenylist bool) *GASExtender {
 	return &GASExtender{
-		cache:     iCache.NewCache(clientset),
-		clientset: clientset,
+		cache:            iCache.NewCache(clientset),
+		clientset:        clientset,
+		allowlistEnabled: enableAllowlist,
+		denylistEnabled:  enableDenylist,
 	}
-}
-
-func addAnnotations(ts, annotation string, pod *v1.Pod) {
-	if pod.Annotations == nil {
-		pod.Annotations = map[string]string{}
-	}
-
-	pod.Annotations[tsAnnotationName] = ts
-	pod.Annotations[cardAnnotationName] = annotation
 }
 
 func (m *GASExtender) annotatePodBind(annotation string, pod *v1.Pod) error {
 	var err error
 
-	podCopy := pod.DeepCopy()
+	ts := strconv.FormatInt(time.Now().UnixNano(), base10)
 
-	ts := strconv.FormatInt(time.Now().UnixNano(), 10)
-	addAnnotations(ts, annotation, podCopy)
+	var payload []patchValue
 
-	for i := 0; i < updateRetryCount; i++ {
-		_, err = iClient.UpdatePod(m.clientset, podCopy)
-		if err != nil && strings.Contains(err.Error(), updateErrorStr) {
-			// retry
-			var err2 error
-			podCopy, err2 = iClient.GetPod(m.clientset, podCopy.Namespace, podCopy.Name)
+	if pod.Annotations == nil {
+		var empty struct{}
 
-			if err2 != nil {
-				klog.Error("pod refresh failed")
-
-				break // pod refresh failed, so bail
-			}
-
-			addAnnotations(ts, annotation, podCopy)
-			klog.Error("pod update failed, retrying with refreshed pod")
-
-			continue // the usual update error, try again with refreshed pod
-		}
-
-		break
+		payload = append(payload, patchValue{
+			Op:    "add",
+			Path:  "/metadata/annotations",
+			Value: empty,
+		})
 	}
 
-	if err != nil {
-		klog.Error("Failed to annotate POD with container cards:" + err.Error())
+	payload = append(payload, patchValue{
+		Op:    "add",
+		Path:  "/metadata/annotations/" + tsAnnotationName,
+		Value: ts,
+	})
+
+	payload = append(payload, patchValue{
+		Op:    "add",
+		Path:  "/metadata/annotations/" + cardAnnotationName,
+		Value: annotation,
+	})
+
+	payloadBytes, _ := json.Marshal(payload)
+
+	_, err = m.clientset.CoreV1().Pods(pod.GetNamespace()).Patch(
+		context.TODO(), pod.GetName(), types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+	if err == nil {
+		klog.V(L2).Infof("Annotated pod %v with annotation %v", pod.GetName(), annotation)
 	} else {
-		klog.V(L2).Infof("Annotated pod %v with annotation %v", pod.Name, annotation)
+		klog.Errorf("Pod %s annotating failed. Err %v", pod.GetName(), err.Error())
 	}
 
 	return err
@@ -197,14 +198,139 @@ func getNumI915(containerRequest resourceMap) int64 {
 	return 0
 }
 
+// isGPUUsable returns true, if the GPU is usable.
+func (m *GASExtender) isGPUUsable(gpuName string, node *v1.Node, pod *v1.Pod) bool {
+	return !isGPUDisabled(gpuName, node) && m.isGPUAllowed(gpuName, pod) && !m.isGPUDenied(gpuName, pod)
+}
+
+// isGPUAllowed returns true, if the given gpuName is allowed. A GPU is considered allowed, if:
+// 1) the allowlist-feature is not enabled in the first place - all gpus are allowed then
+// 2) there is no annotation in the POD (nil annotations, or missing annotation) - all gpus are allowed then
+// 3) there is an allowlist-annotation in the POD, and it contains the given GPU name -> true.
+func (m *GASExtender) isGPUAllowed(gpuName string, pod *v1.Pod) bool {
+	if !m.allowlistEnabled || pod.Annotations == nil {
+		klog.V(L5).InfoS("gpu allowed", "gpuName", gpuName, "podName", pod.Name, "allowlistEnabled", m.allowlistEnabled)
+
+		return true
+	}
+
+	allow := false
+
+	csvAllowlist, ok := pod.Annotations[allowlistAnnotationName]
+	if ok {
+		allowedGPUs := strings.Split(csvAllowlist, ",")
+		for _, allowedGPUName := range allowedGPUs {
+			if allowedGPUName == gpuName {
+				allow = true
+
+				break
+			}
+		}
+	} else {
+		allow = true
+	}
+
+	klog.V(L4).InfoS("gpu allow status",
+		"allow", allow, "gpuName", gpuName, "podName", pod.Name, "allowlist", csvAllowlist)
+
+	return allow
+}
+
+// isGPUDenied returns true, if the given gpuName is denied. A GPU is considered denied, if:
+// 1) the denylist-feature is enabled AND
+// 2) there is a denylist-annotation in the POD, and it contains the given GPU name
+// Otherwise, GPU is not considered denied. Usage of allowlist at the same time, might make it in practice denied.
+func (m *GASExtender) isGPUDenied(gpuName string, pod *v1.Pod) bool {
+	if !m.denylistEnabled || pod.Annotations == nil {
+		klog.V(L5).InfoS("gpu use not denied", "gpuName", gpuName, "podName", pod.Name, "denylistEnabled", m.denylistEnabled)
+
+		return false
+	}
+
+	deny := false
+
+	csvDenylist, ok := pod.Annotations[denylistAnnotationName]
+	if ok {
+		deniedGPUs := strings.Split(csvDenylist, ",")
+		for _, deniedGPUName := range deniedGPUs {
+			if deniedGPUName == gpuName {
+				deny = true
+
+				break
+			}
+		}
+	}
+
+	klog.V(L4).InfoS("gpu deny status", "deny", deny, "gpuName", gpuName, "podName", pod.Name, "denylist", csvDenylist)
+
+	return deny
+}
+
+// isGPUDisabled returns true if given gpuName should not be used based on node labels.
+func isGPUDisabled(gpuName string, node *v1.Node) bool {
+	// search labels that disable use of this gpu
+	for label, value := range node.Labels {
+		if strippedLabel, ok := labelWithoutTASNS(label); ok {
+			if strings.HasPrefix(strippedLabel, gpuDisableLabelPrefix) {
+				if strings.HasSuffix(label, gpuName) ||
+					(value == pciGroupValue && isGPUInPCIGroup(gpuName, strippedLabel[len(gpuDisableLabelPrefix):], node)) {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+func (m *GASExtender) arrangeGPUNames(node *v1.Node, gpuNames []string) bool {
+	// sort keys to iterate always in same order
+	sort.Strings(gpuNames)
+
+	// find first preferred GPU from any policy
+	for label, value := range node.Labels {
+		if strings.HasSuffix(label, gpuPreferenceLabel) && strings.HasPrefix(label, tasNSPrefix) {
+			parts := strings.Split(label, "/")
+			if len(parts) == maxLabelParts && parts[1] == gpuPreferenceLabel {
+				preferredGpu := value
+				for i := range gpuNames {
+					if gpuNames[i] == preferredGpu {
+						tmp := gpuNames[0]
+						gpuNames[0] = preferredGpu
+						gpuNames[i] = tmp
+
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+func (m *GASExtender) getGPUNamesAndPreference(node *v1.Node, nodeResourcesUsed nodeResources) ([]string, bool) {
+	gpuNames := make([]string, len(nodeResourcesUsed))
+	i := 0
+
+	for gpuName := range nodeResourcesUsed {
+		gpuNames[i] = gpuName
+		i++
+	}
+
+	preferredWanted := m.arrangeGPUNames(node, gpuNames)
+
+	return gpuNames, preferredWanted
+}
+
 func (m *GASExtender) getCardsForContainerGPURequest(containerRequest, perGPUCapacity resourceMap,
-	nodeName, podName string,
+	node *v1.Node, pod *v1.Pod,
 	nodeResourcesUsed nodeResources,
-	gpuMap map[string]bool) (cards []string, err error) {
+	gpuMap map[string]bool) (cards []string, preferred bool, err error) {
 	cards = []string{}
 
 	if len(containerRequest) == 0 {
-		return []string{}, nil
+		return []string{}, false, nil
 	}
 
 	// figure out container resources per gpu
@@ -212,23 +338,21 @@ func (m *GASExtender) getCardsForContainerGPURequest(containerRequest, perGPUCap
 
 	for gpuNum := int64(0); gpuNum < numI915; gpuNum++ {
 		fitted := false
-		// sort keys to iterate always in same order
-		gpuNames := make([]string, len(nodeResourcesUsed))
-		i := 0
+		gpuNames, preferredWanted := m.getGPUNamesAndPreference(node, nodeResourcesUsed)
 
-		for gpuName := range nodeResourcesUsed {
-			gpuNames[i] = gpuName
-			i++
-		}
-
-		sort.Strings(gpuNames)
-
-		for _, gpuName := range gpuNames {
+		for i, gpuName := range gpuNames {
 			usedResMap := nodeResourcesUsed[gpuName]
 			klog.V(L4).Info("Checking gpu ", gpuName)
 
 			if !gpuMap[gpuName] {
-				klog.Warningf("node %v gpu %v has vanished", nodeName, gpuName)
+				klog.Warningf("node %v gpu %v has vanished", node.Name, gpuName)
+
+				continue
+			}
+
+			// skip GPUs which are not usable and continue to next if need be
+			if !m.isGPUUsable(gpuName, node, pod) {
+				klog.V(L4).Infof("node %v gpu %v is not usable, skipping it", node.Name, gpuName)
 
 				continue
 			}
@@ -239,6 +363,10 @@ func (m *GASExtender) getCardsForContainerGPURequest(containerRequest, perGPUCap
 				if err == nil {
 					fitted = true
 
+					if i == 0 && preferredWanted {
+						preferred = true
+					}
+
 					cards = append(cards, gpuName)
 				}
 
@@ -247,13 +375,13 @@ func (m *GASExtender) getCardsForContainerGPURequest(containerRequest, perGPUCap
 		}
 
 		if !fitted {
-			klog.V(L4).Infof("pod %v will not fit node %v", podName, nodeName)
+			klog.V(L4).Infof("pod %v will not fit node %v", pod.Name, node.Name)
 
-			return nil, errWontFit
+			return nil, false, errWontFit
 		}
 	}
 
-	return cards, nil
+	return cards, preferred, nil
 }
 
 func createGPUMap(gpus []string) map[string]bool {
@@ -277,14 +405,13 @@ func addEmptyResourceMaps(gpus []string, nodeResourcesUsed nodeResources) {
 // runSchedulingLogic searches for the cards for a given pod from a given node. The cards are returned as an annotation
 // string. If the pod can't be scheduled in the given node, an error is returned. Note that calling this does not change
 // node resource status yet by any means.
-func (m *GASExtender) runSchedulingLogic(pod *v1.Pod, nodeName string) (annotation string, err error) {
-	podName := pod.Name
+func (m *GASExtender) runSchedulingLogic(pod *v1.Pod, nodeName string) (annotation string, preferred bool, err error) {
 	node, err := iCache.FetchNode(m.cache, nodeName)
 	// gofumpt: do not delete this line
 	if err != nil {
 		klog.Warningf("Node %s couldn't be read or node vanished", nodeName)
 
-		return "", err
+		return "", false, err
 	}
 
 	gpus := getNodeGPUList(node)
@@ -294,7 +421,7 @@ func (m *GASExtender) runSchedulingLogic(pod *v1.Pod, nodeName string) (annotati
 	if gpuCount == 0 {
 		klog.Warningf("Node %s GPUs have vanished", nodeName)
 
-		return "", errWontFit
+		return "", false, errWontFit
 	}
 
 	perGPUCapacity := getPerGPUResourceCapacity(node, gpuCount)
@@ -303,7 +430,7 @@ func (m *GASExtender) runSchedulingLogic(pod *v1.Pod, nodeName string) (annotati
 	if err != nil {
 		klog.Warningf("Node %s resources couldn't be read or node vanished", nodeName)
 
-		return "", err
+		return "", false, err
 	}
 
 	gpuMap := createGPUMap(gpus)
@@ -315,12 +442,12 @@ func (m *GASExtender) runSchedulingLogic(pod *v1.Pod, nodeName string) (annotati
 	containerDelimeter := ""
 
 	for i, containerRequest := range containerRequests {
-		cards, err := m.getCardsForContainerGPURequest(containerRequest,
-			perGPUCapacity, nodeName, podName, nodeResourcesUsed, gpuMap)
+		cards, pref, err := m.getCardsForContainerGPURequest(containerRequest,
+			perGPUCapacity, node, pod, nodeResourcesUsed, gpuMap)
 		if err != nil {
 			klog.Errorf("container %v out of %v did not fit", i+1, len(containerRequests))
 
-			return "", err
+			return "", false, err
 		}
 
 		annotation += containerDelimeter
@@ -332,9 +459,13 @@ func (m *GASExtender) runSchedulingLogic(pod *v1.Pod, nodeName string) (annotati
 		}
 
 		containerDelimeter = "|"
+
+		if pref {
+			preferred = true
+		}
 	}
 
-	return annotation, nil
+	return annotation, preferred, nil
 }
 
 // checkResourceCapacity returns true if the needed resources fit based on capacity and used resources.
@@ -361,8 +492,8 @@ func checkResourceCapacity(neededResources, capacity, used resourceMap) bool {
 			return false
 		}
 
-		klog.V(L4).Info(" resource ", resName, " capacity:", strconv.FormatInt(resCapacity, 10), " used:",
-			strconv.FormatInt(resUsed, 10), " need:", strconv.FormatInt(resNeed, 10))
+		klog.V(L4).Info(" resource ", resName, " capacity:", strconv.FormatInt(resCapacity, base10), " used:",
+			strconv.FormatInt(resUsed, base10), " need:", strconv.FormatInt(resNeed, base10))
 
 		if resUsed+resNeed < 0 {
 			klog.Error("resource request overflow error")
@@ -385,7 +516,7 @@ func checkResourceCapacity(neededResources, capacity, used resourceMap) bool {
 func (m *GASExtender) bindNode(args *extender.BindingArgs) *extender.BindingResult {
 	result := extender.BindingResult{}
 
-	pod, err := m.cache.fetchPod(args.PodNamespace, args.PodName)
+	pod, err := iCache.FetchPod(m.cache, args.PodNamespace, args.PodName)
 	if err != nil {
 		klog.Warningf("Pod %s couldn't be read or pod vanished", args.PodName)
 
@@ -408,20 +539,20 @@ func (m *GASExtender) bindNode(args *extender.BindingArgs) *extender.BindingResu
 
 			if resourcesAdjusted {
 				// Restore resources to cache. Removing resources should not fail if adding was ok.
-				_ = m.cache.adjustPodResourcesL(pod, remove, annotation, args.Node)
+				_ = iCache.AdjustPodResourcesL(m.cache, pod, remove, annotation, args.Node)
 			}
 		}
 	}()
 
 	// pod should always fit, but one never knows if something bad happens between filtering and binding
-	annotation, err = m.runSchedulingLogic(pod, args.Node)
+	annotation, _, err = m.runSchedulingLogic(pod, args.Node)
 
 	if err != nil {
 		return &result
 	}
 
 	klog.V(L3).Infof("bind %v:%v to node %v annotation %v", args.PodNamespace, args.PodName, args.Node, annotation)
-	err = m.cache.adjustPodResourcesL(pod, add, annotation, args.Node)
+	err = iCache.AdjustPodResourcesL(m.cache, pod, add, annotation, args.Node)
 
 	if err != nil {
 		return &result
@@ -449,6 +580,8 @@ func (m *GASExtender) bindNode(args *extender.BindingArgs) *extender.BindingResu
 func (m *GASExtender) filterNodes(args *extender.Args) *extender.FilterResult {
 	var nodeNames []string
 
+	var preferredNodeNames []string
+
 	failedNodes := extender.FailedNodesMap{}
 	result := extender.FilterResult{}
 
@@ -465,8 +598,12 @@ func (m *GASExtender) filterNodes(args *extender.Args) *extender.FilterResult {
 	defer m.rwmutex.Unlock()
 
 	for _, nodeName := range *args.NodeNames {
-		if _, err := m.runSchedulingLogic(&args.Pod, nodeName); err == nil {
-			nodeNames = append(nodeNames, nodeName)
+		if _, preferred, err := m.runSchedulingLogic(&args.Pod, nodeName); err == nil {
+			if preferred {
+				preferredNodeNames = append(preferredNodeNames, nodeName)
+			} else {
+				nodeNames = append(nodeNames, nodeName)
+			}
 		} else {
 			failedNodes[nodeName] = "Not enough GPU-resources for deployment"
 		}
@@ -476,6 +613,10 @@ func (m *GASExtender) filterNodes(args *extender.Args) *extender.FilterResult {
 		NodeNames:   &nodeNames,
 		FailedNodes: failedNodes,
 		Error:       "",
+	}
+
+	if len(preferredNodeNames) > 0 {
+		result.NodeNames = &preferredNodeNames
 	}
 
 	return &result
@@ -540,6 +681,7 @@ func (m *GASExtender) Filter(w http.ResponseWriter, r *http.Request) {
 	}
 
 	m.writeResponse(w, filteredNodes)
+	klog.V(L4).Info("filter function done, responded")
 }
 
 // Bind binds the pod to the node.
@@ -563,6 +705,7 @@ func (m *GASExtender) Bind(w http.ResponseWriter, r *http.Request) {
 	}
 
 	m.writeResponse(w, result)
+	klog.V(L4).Info("bind function done, responded")
 }
 
 // error handler deals with requests sent to an invalid endpoint and returns a 404.

@@ -7,19 +7,19 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-//Scheduler has the capabilities needed to prioritize and filter nodes based on http requests.
+// Scheduler has the capabilities needed to prioritize and filter nodes based on http requests.
 type Scheduler interface {
 	Bind(w http.ResponseWriter, r *http.Request)
 	Prioritize(w http.ResponseWriter, r *http.Request)
 	Filter(w http.ResponseWriter, r *http.Request)
 }
 
-//Server type wraps the implementation of the extender.
+// Server type wraps the implementation of the extender.
 type Server struct {
 	Scheduler
 }
 
-//TODO: These types are in the k8s.io/kubernetes/extender/api package
+// TODO: These types are in the k8s.io/kubernetes/extender/api package
 // Some import issue is making them tough to access, so they are reimplemented here pending a solution.
 
 // HostPriority represents the priority of scheduling to a particular host, higher priority is better.
