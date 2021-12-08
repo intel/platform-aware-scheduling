@@ -5,7 +5,7 @@ endif
 .PHONY: test all build gpu-extender images format clean
 
 test:
-		go test ./...  -v *_test.go
+	go test ./...  -v *_test.go
 
 all: format build
 
@@ -16,9 +16,14 @@ image: gpu-extender
 	docker build -f deploy/images/Dockerfile_gpu-extender ../ -t $(IMAGE_PATH)gpu-extender$(IMAGE_TAG)
 
 format:
-		gofmt -w -s .
+	gofmt -w -s .
 
 clean:
-		rm -f ./bin/*
+	rm -f ./bin/*
+
+mock:
+	mockery --name=CacheAPI --dir=pkg/gpuscheduler --inpkg --note="+build !validation\nre-generate with 'make mock'"
+	mockery --name=InternalCacheAPI --dir=pkg/gpuscheduler --inpkg --note="+build !validation\nre-generate with 'make mock'"
+
 e2e:
 

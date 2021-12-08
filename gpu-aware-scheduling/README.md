@@ -128,6 +128,8 @@ name |type | description| usage | default|
 |key| string | location of the key file for the TLS endpoint| --key=/root/key.txt | /etc/kubernetes/pki/ca.key
 |cacert| string | location of the ca certificate for the TLS endpoint| --key=/root/cacert.txt | /etc/kubernetes/pki/ca.crt
 |unsafe| bool | whether or not to listen on a TLS endpoint with the scheduler extender | --unsafe=true| false
+|enableAllowlist| bool | enable POD-annotation based GPU allowlist feature | --enableAllowlist| false
+|enableDenylist| bool | enable POD-annotation based GPU denylist feature | --enableDenylist| false
 
 ## Adding the resource to make a deployment use GAS Scheduler Extender
 

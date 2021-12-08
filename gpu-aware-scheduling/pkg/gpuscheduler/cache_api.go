@@ -15,6 +15,14 @@ func (r *cacheAPI) FetchNode(cache *Cache, nodeName string) (*v1.Node, error) {
 	return cache.fetchNode(nodeName)
 }
 
+func (r *cacheAPI) FetchPod(cache *Cache, podNs, podName string) (*v1.Pod, error) {
+	return cache.fetchPod(podNs, podName)
+}
+
 func (r *cacheAPI) GetNodeResourceStatus(cache *Cache, nodeName string) nodeResources {
 	return cache.getNodeResourceStatus(nodeName)
+}
+
+func (r *cacheAPI) AdjustPodResourcesL(cache *Cache, pod *v1.Pod, adj bool, annotation, nodeName string) error {
+	return cache.adjustPodResourcesL(pod, adj, annotation, nodeName)
 }
