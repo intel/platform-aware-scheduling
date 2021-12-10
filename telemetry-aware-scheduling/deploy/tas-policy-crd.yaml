@@ -45,6 +45,10 @@ spec:
                            target:
                              format: int64
                              type: integer
+                           labels:
+                             type: array
+                             items:
+                               type: string
                          required:
                            - metricname
                            - operator
