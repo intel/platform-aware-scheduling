@@ -93,11 +93,14 @@ A secret can be created with:
 ``
 kubectl create secret tls extender-secret --cert /etc/kubernetes/<PATH_TO_CERT> --key /etc/kubernetes/<PATH_TO_KEY> 
 ``
-In order to build and deploy run:
+In order to deploy run:
 
-``make build && make image && kubectl apply -f deploy/``
+``kubectl apply -f deploy/``
 
 After this is run TAS should be operable in the cluster and should be visible after running ``kubectl get pods``
+
+Note: If you want to create the build and the image you can still do it by running ``make build && make image`` 
+This will build locally the image ``tasextender``. Once created you may replace it into the deployment [file](https://github.com/intel/platform-aware-scheduling/blob/master/telemetry-aware-scheduling/deploy/tas-deployment.yaml#L28).
 
 #### Descheduling workloads
 Where there is a descheduling strategy in a policy, TAS will label nodes as violators if they break any of the associated rules. In order to deschedule these workloads the [Kubernetes Descheduler](https://github.com/kubernetes-sigs/descheduler) should be used.
