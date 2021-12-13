@@ -2,7 +2,7 @@
 set -o errexit
 
 root="$(dirname "$0")/../../"
-VERSION="v0.10.0"
+VERSION="v0.11.1"
 KIND_BINARY_URL="https://github.com/kubernetes-sigs/kind/releases/download/${VERSION}/kind-$(uname)-amd64"
 K8_STABLE_RELEASE_URL="https://storage.googleapis.com/kubernetes-release/release/stable.txt"
 

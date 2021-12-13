@@ -26,7 +26,7 @@ generate_k8_scheduler_config_data() {
 create_cluster() {
   [ -z "${mount_dir}" ] && echo "### no mount directory set" && exit 1
   # deploy cluster with kind
-  cat <<EOF | kind create cluster --config=-
+  cat <<EOF | kind create cluster --image kindest/node:v1.22.0@sha256:b8bda84bb3a190e6e028b1760d277454a72267a5454b57db34437c34a588d047 --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 kubeadmConfigPatches:
@@ -156,4 +156,5 @@ docker cp kind-control-plane:/etc/kubernetes/pki/ca.key "${mount_dir}/certs/clie
 
 
 kubectl create secret tls extender-secret --cert "${mount_dir}/certs/client.crt" --key "${mount_dir}/certs/client.key"
+sed "s/intel\/telemetry-aware-scheduling/tasextender/g" "${root}/telemetry-aware-scheduling/deploy/tas-deployment.yaml" -i
 kubectl apply -f "${root}/telemetry-aware-scheduling/deploy/"
