@@ -26,6 +26,13 @@ spec:
         - "--v=4"
         image: intel/gpu-extender
         imagePullPolicy: IfNotPresent
+        securityContext:
+          capabilities:
+            drop:
+              - all
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
         volumeMounts:
         - name: certs
           mountPath: /gas/cert
