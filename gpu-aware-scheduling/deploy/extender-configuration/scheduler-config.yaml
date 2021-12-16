@@ -1,0 +1,20 @@
+apiVersion: kubescheduler.config.k8s.io/XVERSIONX
+kind: KubeSchedulerConfiguration
+clientConnection:
+  kubeconfig: /etc/kubernetes/scheduler.conf
+extenders:
+  - urlPrefix: "https://gas-service.default.svc.cluster.local:9001"
+    filterVerb: "scheduler/filter"
+    bindVerb: "scheduler/bind"
+    weight: 1
+    enableHTTPS: true
+    managedResources:
+      - name: "gpu.intel.com/i915"
+        ignoredByScheduler: false
+    ignorable: true
+    tlsConfig:
+      insecure: false
+      certFile: "/host/certs/client.crt"
+      keyFile: "/host/certs/client.key"
+    nodeCacheCapable: true
+
