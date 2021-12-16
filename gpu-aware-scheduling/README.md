@@ -32,61 +32,9 @@ A worked example for GAS is available [here](docs/usage.md)
 The deploy folder has all of the yaml files necessary to get GPU Aware Scheduling running in a Kubernetes cluster. Some additional steps are required to configure the generic scheduler.
 
 #### Extender configuration
-Note: a shell script that shows these steps can be found [here](deploy/extender-configuration). This script should be seen as a guide only, and will not work on most Kubernetes installations.
-
-The extender configuration files can be found under deploy/extender-configuration.
-GAS Scheduler Extender needs to be registered with the Kubernetes Scheduler. In order to do this a configmap should be created like the below:
-```
-apiVersion: v1alpha1
-kind: ConfigMap
-metadata:
-  name: scheduler-extender-policy
-  namespace: kube-system
-data:
-  policy.cfg: |
-    {
-        "kind" : "Policy",
-        "apiVersion" : "v1",
-        "extenders" : [
-            {
-              "urlPrefix": "https://gpu-service.default.svc.cluster.local:9001",
-              "apiVersion": "v1",
-              "filterVerb": "scheduler/filter",
-              "bindVerb": "scheduler/bind",
-              "weight": 1,
-              "enableHttps": true,
-              "managedResources": [
-                   {
-                     "name": "gpu.intel.com/i915",
-                     "ignoredByScheduler": false
-                   }
-              ],
-              "ignorable": true,
-              "nodeCacheCapable": true
-              "tlsConfig": {
-                     "insecure": false,
-                     "certFile": "/host/certs/client.crt",
-                     "keyFile" : "/host/certs/client.key"
-              }
-          }
-         ]
-    }
-
-```
-
-A similar file can be found [in the deploy folder](./deploy/extender-configuration/scheduler-extender-configmap.yaml). This configmap can be created with ``kubectl apply -f ./deploy/scheduler-extender-configmap.yaml``
-The scheduler requires flags passed to it in order to know the location of this config map. The flags are:
-```
-    - --policy-configmap=scheduler-extender-policy
-    - --policy-configmap-namespace=kube-system
-```
-
-If scheduler is running as a service these can be added as flags to the binary. If scheduler is running as a container - as in kubeadm - these args can be passed in the deployment file.
-Note: For Kubeadm set ups some additional steps may be needed.
-1) Add the ability to get configmaps to the kubeadm scheduler config map. (A cluster role binding for this is at deploy/extender-configuration/configmap-getter.yaml)
-2) Add the ``dnsPolicy: ClusterFirstWithHostNet`` in order to access the scheduler extender by service name.
-
-After these steps the scheduler extender should be registered with the Kubernetes Scheduler.
+You should follow extender configuration instructions from the
+[Telemetry Aware Scheduling](../telemetry-aware-scheduling/README.md#Extender-configuration) and adapt those instructions to
+use GPU Aware Scheduling configurations, which can be found in the [deploy/extender-configuration](deploy/extender-configuration) folder.
 
 #### Deploy GAS
 GPU Aware Scheduling uses go modules. It requires Go 1.13+ with modules enabled in order to build. GAS has been tested with Kubernetes 1.15+.

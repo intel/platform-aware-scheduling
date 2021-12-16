@@ -65,6 +65,52 @@ Your PODs then, needs to ask for some GPU-resources. Like this:
 
 A complete example pod yaml is located in [docs/example](./example)
 
+## Node Label support
+
+GAS supports certain node labels as a means to allow telemetry based GPU selection decisions and
+descheduling of PODs using a certain GPU. You can create node labels with the
+[Telemetry Aware Scheduling](../../telemetry-aware-scheduling/README.md) labeling strategy,
+which puts them in its own namespace. In practice the supported labels need to be in the
+`telemetry.aware.scheduling.POLICYNAME/` namespace, where the POLICYNAME may be anything.
+
+The node label `gas-deschedule-pods-GPUNAME` where the GPUNAME can be e.g. card0, card1, card2...
+which corresponds to the gpu names under /dev/dri, will result in GAS labeling the PODs which
+use the named GPU with the `gpu.aware.scheduling/deschedule-pod=gpu` label. You may then
+use with a kubernetes descheduler to pick the pods for descheduling. So TAS labels the node, and
+based on the node label GAS finds and labels the PODs. Descheduler can be configured to
+deschedule the pods based on pod labels.
+
+The node label `gas-disable-GPUNAME` where the GPUNAME can be e.g. card0, card1, card2... which
+corresponds to the gpu names under /dev/dri, will result in GAS stopping the use of the named
+GPU for new allocations.
+
+The node label `gas-prefer-gpu=GPUNAME` where the GPUNAME can be e.g. card0, card1, card2...
+which corresponds to the gpu names under /dev/dri, will result in GAS trying to use the named
+GPU for new allocations before other GPUs of the same node.
+
+Note that the value of the labels starting with gas-deschedule-pods-GPUNAME and
+gas-disable-GPUNAME doesn't matter. You may use e.g. "true" as the value. The only exception to
+the rule is `PCI_GROUP` which has a special meaning, explained separately. Example:
+`gas-disable-card0=PCI_GROUP`.
+
+### PCI Groups
+
+If GAS finds a node label `gas-disable-GPUNAME=PCI_GROUP` where the GPUNAME can be e.g. card0,
+card1, card2... which corresponds to the gpu names under /dev/dri, the disabling will impact a
+group of GPUs which is defined in the node label `gpu.intel.com/pci-groups`. The syntax of the
+pci group node label is easiest to explain with an example: `gpu.intel.com/pci-groups=0.1_2.3.4`
+would indicate there are two pci-groups in the node separated with an underscore, in which card0
+and card1 form the first group, and card2, card3 and card4 form the second group. If GAS would
+find the node label `gas-disable-card3=PCI_GROUP` in a node with the previous example PCI-group
+label, GAS would stop using card2, card3 and card4 for new allocations, as card3 belongs in that
+group.
+
+`gas-deschedule-pods-GPUNAME` supports the PCI-GROUP value similarly, the whole group in which
+the named gpu belongs, will end up descheduled.
+
+The PCI group feature allows for e.g. having a telemetry action to operate on all GPUs which
+share the same physical card.
+
 ## Allowlist and Denylist
 
 You can use POD-annotations in your POD-templates to list the GPU names which you allow, or deny for your deployment. The values for the annotations are comma separated value lists of the form "card0,card1,card2", and the names of the annotations are:
