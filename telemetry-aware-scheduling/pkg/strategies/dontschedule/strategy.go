@@ -24,22 +24,40 @@ const (
 //If any single rule is violated the method returns a set of nodes that are currently in violation.
 func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
 	violatingNodes := map[string]interface{}{}
+	nodeMetricViol := map[string]int{}
+
 	for _, rule := range d.Rules {
 		nodeMetrics, err := cache.ReadMetric(rule.Metricname)
 		if err != nil {
 			klog.V(2).InfoS(err.Error(), "component", "controller")
+
 			continue
 		}
+
 		for nodeName, nodeMetric := range nodeMetrics {
 			msg := fmt.Sprint(nodeName+" "+rule.Metricname, " = ", nodeMetric.Value.AsDec())
 			klog.V(2).InfoS(msg, "component", "controller")
+
 			if core.EvaluateRule(nodeMetric.Value, rule) {
-				msg := fmt.Sprint(nodeName + " violating " + d.PolicyName + ": " + ruleToString(rule))
-				klog.V(2).InfoS(msg, "component", "controller")
-				violatingNodes[nodeName] = nil
+				nodeMetricViol[nodeName]++
+
+				if d.LogicalOperator == "allOf" {
+					if nodeMetricViol[nodeName] == len(d.Rules) {
+						msg := fmt.Sprint(nodeName + " violating all the rules in " + d.StrategyType() + " strategy")
+						klog.V(2).InfoS(msg, "component", "controller")
+
+						violatingNodes[nodeName] = nil
+					}
+				} else {
+					msg := fmt.Sprint(nodeName + " violating " + d.PolicyName + ": " + ruleToString(rule))
+					klog.V(2).InfoS(msg, "component", "controller")
+
+					violatingNodes[nodeName] = nil
+				}
 			}
 		}
 	}
+
 	return violatingNodes
 }
 
@@ -56,6 +74,7 @@ func (d *Strategy) StrategyType() string {
 //Equals implementation which checks to see if all rules and the policy name are equal for this strategy and another.
 //Used to avoid duplications and to find the correct strategy for deletions in the index.
 func (d *Strategy) Equals(other core.Interface) bool {
+
 	OtherDontScheduleStrategy, ok := other.(*Strategy)
 	sameName := other.GetPolicyName() == d.GetPolicyName()
 	if ok && sameName && len(d.Rules) > 0 && len(d.Rules) == len(OtherDontScheduleStrategy.Rules) {

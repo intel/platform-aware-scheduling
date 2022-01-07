@@ -23,8 +23,9 @@ type TASPolicy struct {
 
 // TASPolicyStrategy contains a set of TASPolicyRule which define the strategy.
 type TASPolicyStrategy struct {
-	PolicyName string          `json:"policyName"`
-	Rules      []TASPolicyRule `json:"rules"`
+	PolicyName      string          `json:"policyName"`
+	LogicalOperator string          `json:"logicalOperator,omitempty"`
+	Rules           []TASPolicyRule `json:"rules"`
 }
 
 // TASPolicyRule contains the parameters for the strategy rule.
