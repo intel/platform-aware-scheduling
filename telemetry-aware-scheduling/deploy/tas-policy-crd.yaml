@@ -35,13 +35,18 @@ spec:
                    properties:
                      policyName:
                        type: string
+                     logicalOperator:
+                       type: string
+                       enum: ["allOf", "anyOf"]
                      rules:
                        items:
+                         description: Set rules parameters per strategy
                          properties:
                            metricname:
                              type: string
                            operator:
                              type: string
+                             enum: ["Equals","LessThan","GreaterThan"]
                            target:
                              format: int64
                              type: integer

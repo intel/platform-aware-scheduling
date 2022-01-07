@@ -30,22 +30,42 @@ func (d *Strategy) StrategyType() string {
 //Returns a map of nodeNames as key with an empty value associated with each.
 func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
 	violatingNodes := map[string]interface{}{}
+	nodeMetricViol := map[string]int{}
+
 	for _, rule := range d.Rules {
 		nodeMetrics, err := cache.ReadMetric(rule.Metricname)
+
 		if err != nil {
 			klog.V(2).InfoS(err.Error(), "component", "controller")
+
 			continue
 		}
+
 		for nodeName, nodeMetric := range nodeMetrics {
 			msg := fmt.Sprint(nodeName+" "+rule.Metricname, " = ", nodeMetric.Value.AsDec())
 			klog.V(4).InfoS(msg, "component", "controller")
+
 			if core.EvaluateRule(nodeMetric.Value, rule) {
-				msg := fmt.Sprintf(nodeName + " violating " + d.PolicyName + ": " + ruleToString(rule))
-				klog.V(2).InfoS(msg, "component", "controller")
-				violatingNodes[nodeName] = nil
+				klog.V(2).Infof("%v violated in node %v", rule.Metricname, nodeName)
+				nodeMetricViol[nodeName]++
+
+				if d.LogicalOperator == "allOf" {
+					if nodeMetricViol[nodeName] == len(d.Rules) {
+						msg := fmt.Sprint(nodeName + " violating all the rules in " + d.StrategyType() + " strategy")
+						klog.V(2).InfoS(msg, "component", "controller")
+
+						violatingNodes[nodeName] = nil
+					}
+				} else {
+					msg := fmt.Sprintf(nodeName + " violating " + d.PolicyName + ": " + ruleToString(rule))
+					klog.V(2).InfoS(msg, "component", "controller")
+
+					violatingNodes[nodeName] = nil
+				}
 			}
 		}
 	}
+
 	return violatingNodes
 }
 

@@ -78,6 +78,18 @@ func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
 		}
 	}
 
+	if d.LogicalOperator == "allOf" {
+		for nodeName := range violatingNodes {
+			if _, ok := violatingNodes[nodeName]; ok {
+				if res, ok := violatingNodes[nodeName].(*violationResultType); ok {
+					if len(res.ruleResults) != len(d.Rules) {
+						delete(violatingNodes, nodeName)
+					}
+				}
+			}
+		}
+	}
+
 	return violatingNodes
 }
 
