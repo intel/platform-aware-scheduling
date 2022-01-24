@@ -182,7 +182,7 @@ There can be four strategy types in a policy file and rules associated with each
      The above rules would create label `telemetry.aware.scheduling.scheduling-policy/foo=1` when `node_metric_1` is greater than `node_metric_2` and also greater than 100.
      If instead `node_metric_2` would be greater than `node_metric_1` and also greater than 100, the produced label would be `telemetry.aware.scheduling.scheduling-policy/foo=2`.
      If neither metric would be greater than 100, no label would be created. When there are multiple candidates with equal values, the resulting label is
-     random among the equal candidates. Label cleanup happens automatically.
+     random among the equal candidates. Label cleanup happens automatically. An example of the labeling strategy can be found in [here](docs/strategy-labeling-example.md)
 
 dontschedule and deschedule - which incorporate multiple rules - function with an OR operator. That is if any single rule is broken the strategy is considered violated.
 Telemetry policies are namespaced, meaning that under normal circumstances a workload can only be associated with a pod in the same namespaces.
