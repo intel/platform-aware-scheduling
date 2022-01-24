@@ -37,7 +37,7 @@ You should follow extender configuration instructions from the
 use GPU Aware Scheduling configurations, which can be found in the [deploy/extender-configuration](deploy/extender-configuration) folder.
 
 #### Deploy GAS
-GPU Aware Scheduling uses go modules. It requires Go 1.13+ with modules enabled in order to build. GAS has been tested with Kubernetes 1.15+.
+GPU Aware Scheduling uses go modules. It requires Go 1.16 with modules enabled in order to build. GAS has been tested with Kubernetes 1.22.
 A yaml file for GAS is contained in the deploy folder along with its service and RBAC roles and permissions.
 
 **Note:** If run without the unsafe flag a secret called extender-secret will need to be created with the cert and key for the TLS endpoint.

@@ -308,7 +308,7 @@ func (c *Cache) checkPodResourceAdjustment(containerRequests []resourceMap,
 }
 
 // This must be called with rwmutex locked
-// set add=true to add, false to remove resources.
+// set adj=true to add, false to remove resources.
 func (c *Cache) adjustPodResources(pod *v1.Pod, adj bool, annotation, nodeName string) error {
 	// get slice of resource maps, one map per container
 	containerRequests := containerRequests(pod)
