@@ -1,3 +1,4 @@
+//go:build validation
 // +build validation
 
 // this test exists for running the scheduler extender with code coverage enabled in a real cluster with

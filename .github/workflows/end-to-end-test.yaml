@@ -11,10 +11,12 @@ jobs:
       - name: Set up Go version
         uses: actions/setup-go@v1
         with:
-         go-version: 1.16
+         go-version: 1.17
       - name: Get tools for cluster installation
         run: ./.github/scripts/e2e_get_tools.sh
       - name: Set up cluster with TAS and custom metrics
         run: ./.github/scripts/e2e_setup_cluster.sh
       - name: Run end to end tests
         run: cd .github/e2e/&& go test -v e2e_test.go
+      - name: Clean up
+        run: ./.github/scripts/e2e_teardown_cluster.sh && ./.github/scripts/e2e_cleanup.sh

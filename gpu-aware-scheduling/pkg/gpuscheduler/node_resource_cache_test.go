@@ -1,16 +1,21 @@
+//go:build !validation
 // +build !validation
 
 // nolint:testpackage
 package gpuscheduler
 
 import (
+	"strings"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/stretchr/testify/mock"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 	cache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -18,6 +23,7 @@ import (
 const (
 	properName       = "proper name"
 	properAnnotation = "proper annotation"
+	trueValueString  = "true"
 )
 
 func TestNewCache(t *testing.T) {
@@ -43,9 +49,30 @@ func TestNewCache(t *testing.T) {
 	})
 }
 
+//nolint: gochecknoglobals // only test resource
+var dummyCache *Cache
+
+func (c *Cache) reset() {
+	c.annotatedPods = map[string]string{}
+	c.nodeStatuses = map[string]nodeResources{}
+	c.nodeTileStatuses = map[string]nodeTiles{}
+	c.previousDeschedCards = map[string][]string{}
+	c.previousDeschedTiles = map[string][]string{}
+	c.podDeschedStatuses = map[string]bool{}
+}
+
+func getDummyCache() *Cache {
+	if dummyCache == nil {
+		dummyCache = NewCache(fake.NewSimpleClientset())
+	}
+
+	dummyCache.reset()
+
+	return dummyCache
+}
+
 func TestCacheFilters(t *testing.T) {
-	clientset := fake.NewSimpleClientset()
-	c := NewCache(clientset)
+	c := getDummyCache()
 
 	Convey("When the object is wrong type", t, func() {
 		s := "wrong object"
@@ -68,8 +95,8 @@ func TestCacheFilters(t *testing.T) {
 }
 
 func TestPodCacheEventFunctions(t *testing.T) {
-	clientset := fake.NewSimpleClientset()
-	c := NewCache(clientset)
+	// we need a mock cache which doesn't call work() itself to avoid race conditions at work queue length checks
+	c := createMockCache()
 	badType := "bad type"
 
 	Convey("When trying to add a non-pod object to cache", t, func() {
@@ -121,8 +148,8 @@ func TestPodCacheEventFunctions(t *testing.T) {
 }
 
 func TestNodeCacheEventFunctions(t *testing.T) {
-	clientset := fake.NewSimpleClientset()
-	c := NewCache(clientset)
+	// we need a mock cache which doesn't call work() itself to avoid race conditions at work queue length checks
+	c := createMockCache()
 	badType := "bad type"
 
 	Convey("When trying to add a non-node object to cache", t, func() {
@@ -162,8 +189,7 @@ func TestNodeCacheEventFunctions(t *testing.T) {
 }
 
 func TestHandlePodError(t *testing.T) {
-	clientset := fake.NewSimpleClientset()
-	c := NewCache(clientset)
+	c := getDummyCache()
 	item := podWorkQueueItem{
 		action: -1,
 		pod: &v1.Pod{
@@ -206,6 +232,7 @@ func createMockCache() *Cache {
 		podLister:             nil,
 		annotatedPods:         make(map[string]string),
 		nodeStatuses:          make(map[string]nodeResources),
+		nodeTileStatuses:      make(map[string]nodeTiles),
 	}
 }
 
@@ -254,5 +281,347 @@ func TestNodeWork(t *testing.T) {
 		c.nodeWorkQueue.ShutDown()
 		ret := c.nodeWork()
 		So(ret, ShouldBeFalse)
+	})
+}
+
+func TestAdjustTiles(t *testing.T) {
+	c := getDummyCache()
+
+	Convey("When node's tile statuses doesn't exist yet", t, func() {
+		c.nodeTileStatuses = make(map[string]nodeTiles)
+		c.adjustTiles(true, "node1", "card0:gt0+gt1")
+
+		statuses, ok := c.nodeTileStatuses["node1"]
+		So(ok, ShouldEqual, true)
+
+		tileInfo, ok := statuses["card0"]
+		So(ok, ShouldEqual, true)
+
+		So(0, ShouldBeIn, tileInfo)
+		So(1, ShouldBeIn, tileInfo)
+	})
+
+	Convey("When node's tile statuses are updated", t, func() {
+		c.nodeTileStatuses = make(map[string]nodeTiles)
+		c.adjustTiles(true, "node1", "card0:gt0+gt1")
+		c.adjustTiles(true, "node1", "card0:gt0+gt1+gt3")
+
+		statuses := c.nodeTileStatuses["node1"]
+		tileInfo := statuses["card0"]
+		So(0, ShouldBeIn, tileInfo)
+		So(1, ShouldBeIn, tileInfo)
+		So(3, ShouldBeIn, tileInfo)
+		So(4, ShouldNotBeIn, tileInfo)
+	})
+
+	Convey("When node's tile statuses are removed", t, func() {
+		c.nodeTileStatuses = make(map[string]nodeTiles)
+		c.adjustTiles(true, "node1", "card0:gt0+gt1")
+		c.adjustTiles(false, "node1", "card0:gt0")
+
+		statuses := c.nodeTileStatuses["node1"]
+		tileInfo := statuses["card0"]
+		So(0, ShouldNotBeIn, tileInfo)
+		So(1, ShouldBeIn, tileInfo)
+	})
+
+	Convey("When second gpu's tiles are reserved", t, func() {
+		c.nodeTileStatuses = make(map[string]nodeTiles)
+		c.adjustTiles(true, "node1", "card0:gt0+gt1")
+		c.adjustTiles(true, "node1", "card1:gt3+gt4")
+
+		statuses := c.nodeTileStatuses["node1"]
+
+		_, ok := statuses["card0"]
+		So(ok, ShouldEqual, true)
+
+		_, ok = statuses["card1"]
+		So(ok, ShouldEqual, true)
+
+		tiles := statuses["card1"]
+		So(3, ShouldBeIn, tiles)
+		So(4, ShouldBeIn, tiles)
+	})
+
+	Convey("When everything is reserved and released", t, func() {
+		c.nodeTileStatuses = make(map[string]nodeTiles)
+		c.adjustTiles(true, "node1", "card0:gt0+gt1")
+		c.adjustTiles(true, "node1", "card1:gt3+gt4")
+
+		c.adjustTiles(false, "node1", "card1:gt3+gt4")
+		c.adjustTiles(false, "node1", "card0:gt0+gt1")
+
+		statuses := c.nodeTileStatuses["node1"]
+
+		tiles, ok := statuses["card0"]
+		So(ok, ShouldEqual, true)
+		So(len(tiles), ShouldEqual, 0)
+
+		tiles, ok = statuses["card1"]
+		So(ok, ShouldEqual, true)
+		So(len(tiles), ShouldEqual, 0)
+	})
+}
+
+func TestAdjustPodResources(t *testing.T) {
+	c := getDummyCache()
+
+	pod := v1.Pod{}
+	podContainer := v1.Container{Name: "foobarContainer"}
+	podRequests := v1.ResourceRequirements{Requests: v1.ResourceList{
+		"gpu.intel.com/tiles": resource.MustParse("1"),
+		"gpu.intel.com/i915":  resource.MustParse("1")},
+	}
+	podContainer.Resources = podRequests
+	pod.Spec.Containers = append(pod.Spec.Containers, podContainer)
+
+	Convey("When adjusting pod resources with pod with one container", t, func() {
+		c.nodeTileStatuses = make(map[string]nodeTiles)
+		err := c.adjustPodResources(&pod, true, "card0", "card0:gt0", "node1")
+
+		So(err, ShouldEqual, nil)
+
+		statuses, ok := c.nodeTileStatuses["node1"]
+		So(ok, ShouldEqual, true)
+
+		tiles, ok := statuses["card0"]
+		So(ok, ShouldEqual, true)
+		So(len(tiles), ShouldEqual, 1)
+		So(0, ShouldBeIn, tiles)
+	})
+
+	Convey("When adjusting pod resources back and forth", t, func() {
+		c.nodeTileStatuses = make(map[string]nodeTiles)
+		err1 := c.adjustPodResources(&pod, true, "card0", "card0:gt0", "node1")
+		err2 := c.adjustPodResources(&pod, false, "card0", "card0:gt0", "node1")
+
+		statuses := c.nodeTileStatuses["node1"]
+
+		tiles, ok := statuses["card0"]
+		So(ok, ShouldEqual, true)
+		So(len(tiles), ShouldEqual, 0)
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+	})
+
+	Convey("When adjusting pod resources via L", t, func() {
+		c.nodeTileStatuses = make(map[string]nodeTiles)
+		err := c.adjustPodResourcesL(&pod, true, "card0", "card0:gt0", "node1")
+
+		So(err, ShouldEqual, nil)
+
+		statuses, ok := c.nodeTileStatuses["node1"]
+		So(ok, ShouldEqual, true)
+
+		tiles, ok := statuses["card0"]
+		So(ok, ShouldEqual, true)
+		So(len(tiles), ShouldEqual, 1)
+		So(0, ShouldBeIn, tiles)
+	})
+}
+
+func TestGetTileIndices(t *testing.T) {
+	Convey("When ok tiles are converted into indices", t, func() {
+		tileStrings := []string{
+			"gt0", "gt1",
+		}
+
+		ret := getTileIndices(tileStrings)
+
+		So(len(ret), ShouldEqual, 2)
+		So(0, ShouldBeIn, ret)
+		So(1, ShouldBeIn, ret)
+	})
+
+	Convey("When bad tiles are converted into indices", t, func() {
+		tileStrings := []string{
+			"gt", "gtX",
+		}
+
+		ret := getTileIndices(tileStrings)
+
+		So(len(ret), ShouldEqual, 0)
+	})
+}
+
+func GetNewDummyNode(name string) *v1.Node {
+	return &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				// group cards 0 and 1 together
+				"gpu.intel.com/pci-groups": "0.1",
+			},
+			Name: name,
+		},
+		Status: v1.NodeStatus{
+			Capacity:    v1.ResourceList{},
+			Allocatable: v1.ResourceList{},
+		},
+	}
+}
+
+func TestDeschedulingCards(t *testing.T) {
+	clientset := fake.NewSimpleClientset(&v1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "pod1",
+			Annotations: map[string]string{
+				"gas-container-cards": "card0",
+				"gas-container-tiles": "card0:gt0",
+			},
+			Labels: map[string]string{},
+		},
+	})
+
+	applied := 0
+	//nolint: unparam
+	applyCheck := func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		patchAction, ok := action.(k8stesting.PatchAction)
+		if !ok {
+			return false, nil, nil
+		}
+
+		requiredStr := "\"value\":\"gpu\",\"op\":\"add\",\"path\""
+		patch := patchAction.GetPatch()
+		patchStr := string(patch)
+
+		if !strings.Contains(patchStr, requiredStr) {
+			return true, nil, errNotFound
+		}
+
+		applied++
+
+		return true, nil, nil
+	}
+
+	removed := 0
+	//nolint: unparam
+	removeCheck := func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		patchAction, ok := action.(k8stesting.PatchAction)
+		if !ok {
+			return false, nil, nil
+		}
+
+		requiredStr := "\"value\":\"\",\"op\":\"remove\",\"path\""
+		patch := patchAction.GetPatch()
+		patchStr := string(patch)
+
+		if !strings.Contains(patchStr, requiredStr) {
+			return true, nil, errNotFound
+		}
+
+		removed++
+
+		return true, nil, nil
+	}
+
+	cach := NewCache(clientset)
+
+	mockInternalCacheAPI := MockInternalCacheAPI{}
+
+	defer func() {
+		internCacheAPI = &internalCacheAPI{}
+	}()
+
+	internCacheAPI = &mockInternalCacheAPI
+
+	var item nodeWorkQueueItem
+	item.action = nodeUpdated
+	item.nodeName = "foobarNode"
+	item.node = GetNewDummyNode(item.nodeName)
+
+	testLabels := map[string]string{
+		"telemetry.aware.scheduling.foo/gas-deschedule-pods-card0":     trueValueString,
+		"telemetry.aware.scheduling.foo/gas-deschedule-pods-card1":     "PCI_GROUP",
+		"telemetry.aware.scheduling.foo/gas-tile-deschedule-card0_gt0": trueValueString,
+	}
+
+	for labelName, labelValue := range testLabels {
+		Convey("When node updates with descheduling labels", t, func() {
+			// simulate TAS labeling node with descheduling need
+			item.node.Labels[labelName] = labelValue
+
+			applied = 0
+			clientset.Fake.PrependReactor("patch", "pods", applyCheck)
+			err := cach.handleNode(item)
+			clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
+
+			So(err, ShouldBeNil)
+			So(applied, ShouldEqual, 1)
+
+			// simulate TAS removing the previous descheduling need
+			delete(item.node.Labels, labelName)
+
+			removed = 0
+			clientset.Fake.PrependReactor("patch", "pods", removeCheck)
+			err = cach.handleNode(item)
+			clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
+
+			So(err, ShouldBeNil)
+			So(removed, ShouldEqual, 1)
+		})
+	}
+
+	Convey("When node doesn't get descheduled due to other tile's deschedule", t, func() {
+		// simulate TAS labeling node with descheduling need
+		item.node.Labels["telemetry.aware.scheduling.foo/gas-tile-disable-card0_gt1"] = trueValueString
+
+		applied = 0
+		clientset.Fake.PrependReactor("patch", "pods", applyCheck)
+		err := cach.handleNode(item)
+		clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
+
+		So(err, ShouldBeNil)
+		So(applied, ShouldEqual, 0)
+
+		// simulate TAS removing the previous descheduling need
+		delete(item.node.Labels, "telemetry.aware.scheduling.foo/gas-tile-disable-card0_gt1")
+
+		removed = 0
+		clientset.Fake.PrependReactor("patch", "pods", removeCheck)
+		err = cach.handleNode(item)
+		clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
+
+		So(err, ShouldBeNil)
+		So(removed, ShouldEqual, 0)
+	})
+
+	Convey("When node remains descheduled until all labels are removed", t, func() {
+		// simulate TAS labeling node with descheduling needs
+		item.node.Labels["telemetry.aware.scheduling.foo/gas-deschedule-pods-card0"] = trueValueString
+		item.node.Labels["telemetry.aware.scheduling.foo/gas-tile-deschedule-card0_gt0"] = trueValueString
+
+		applied = 0
+		clientset.Fake.PrependReactor("patch", "pods", applyCheck)
+		err := cach.handleNode(item)
+		clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
+
+		So(err, ShouldBeNil)
+		So(applied, ShouldEqual, 1)
+
+		// simulate TAS removing one of the descheduling needs
+		delete(item.node.Labels, "telemetry.aware.scheduling.foo/gas-deschedule-pods-card0")
+
+		removed = 0
+		clientset.Fake.PrependReactor("patch", "pods", removeCheck)
+		err = cach.handleNode(item)
+		clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
+
+		So(err, ShouldBeNil)
+		So(removed, ShouldEqual, 0)
+
+		// simulate TAS removing the last descheduling need
+		delete(item.node.Labels, "telemetry.aware.scheduling.foo/gas-tile-deschedule-card0_gt0")
+
+		removed = 0
+		clientset.Fake.PrependReactor("patch", "pods", removeCheck)
+		err = cach.handleNode(item)
+		clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
+
+		So(err, ShouldBeNil)
+		So(removed, ShouldEqual, 1)
 	})
 }

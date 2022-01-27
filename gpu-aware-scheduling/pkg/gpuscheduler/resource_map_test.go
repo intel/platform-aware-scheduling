@@ -1,3 +1,4 @@
+//go:build !validation
 // +build !validation
 
 // nolint:testpackage
@@ -14,21 +15,21 @@ const (
 )
 
 func TestDivision(t *testing.T) {
-	rm := resourceMap{"foo": 2}
+	rm := resourceMap{key: 2}
 
 	Convey("When I divide a rm with -1", t, func() {
 		err := rm.divide(-1)
-		So(rm["foo"], ShouldEqual, 2)
+		So(rm[key], ShouldEqual, 2)
 		So(err, ShouldNotBeNil)
 	})
 	Convey("When I divide a rm with 1", t, func() {
 		err := rm.divide(1)
-		So(rm["foo"], ShouldEqual, 2)
+		So(rm[key], ShouldEqual, 2)
 		So(err, ShouldBeNil)
 	})
 	Convey("When I divide a rm with 2", t, func() {
 		err := rm.divide(2)
-		So(rm["foo"], ShouldEqual, 1)
+		So(rm[key], ShouldEqual, 1)
 		So(err, ShouldBeNil)
 	})
 }
@@ -95,7 +96,6 @@ func TestAddRM(t *testing.T) {
 
 func TestSubtractRM(t *testing.T) {
 	int64Max := int64(9223372036854775807)
-	key := "foo"
 	key2 := "foo2"
 	key3 := "foo3"
 	rm := resourceMap{"unknown": 2, key2: 3}
