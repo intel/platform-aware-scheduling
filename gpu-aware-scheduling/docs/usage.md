@@ -16,10 +16,10 @@ Basically all versions starting with [v0.6.0](https://github.com/kubernetes-sigs
 
 For picking up the labels printed by the hook installed by the GPU-plugin initcontainer, deploy nfd master with this kind of command in its yaml:
 ```
-command: ["nfd-master", "--resource-labels=gpu.intel.com/memory.max,gpu.intel.com/millicores", "--extra-label-ns=gpu.intel.com"]
+command: ["nfd-master", "--resource-labels=gpu.intel.com/memory.max,gpu.intel.com/millicores,gpu.intel.com/tiles", "--extra-label-ns=gpu.intel.com"]
 ```
 
-The above would promote two labels, "memory.max" and "millicores" to extended resources of the node that produces the labels.
+The above would promote three labels, "memory.max", "millicores" and "tiles" to extended resources of the node that produces the labels.
 
 If you want to enable i915 capability scanning, the nfd worker needs to read debugfs, and therefore it needs to run as privileged, like this:
 ```
@@ -61,6 +61,14 @@ Your PODs then, needs to ask for some GPU-resources. Like this:
             gpu.intel.com/i915: 1
             gpu.intel.com/millicores: 10
             gpu.intel.com/memory.max: 10M
+```
+
+Or like this for tiles:
+```
+        resources:
+          limits:
+            gpu.intel.com/i915: 1
+            gpu.intel.com/tiles: 2
 ```
 
 A complete example pod yaml is located in [docs/example](./example)

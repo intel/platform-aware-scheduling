@@ -1,7 +1,7 @@
 # GPU Aware Scheduling
 GPU Aware Scheduling (GAS) allows using GPU resources such as memory amount for scheduling decisions in Kubernetes. It is used to optimize scheduling decisions when the POD resource requirements include the use of several GPUS or fragments of GPUs on a node, instead of traditionally mapping a GPU to a pod.
 
-GPU Aware Scheduling is deployed in a single pod on a Kubernetes Cluster. 
+GPU Aware Scheduling is deployed in a single pod on a Kubernetes Cluster.
 
 **This software is a pre-production alpha version and should not be deployed to production servers.**
 
@@ -22,8 +22,9 @@ GAS tries to be agnostic about resource types. It doesn't try to have an underst
 
 GAS heavily utilizes annotations. It itself annotates PODs after making filtering decisions on them, with a precise timestamp at annotation named "gas-ts". The timestamp can then be used for figuring out the time-order of the GAS-made scheduling decision for example during the GPU-plugin resource allocation phase, if the GPU-plugin wants to know the order of GPU-resource consuming POD deploying inside the node. Another annotation which GAS adds is "gas-container-cards". It will have the names of the cards selected for the containers. Containers are separated by "|", and card names are separated by ",". Thus a two-container POD in which both containers use 2 GPUs, could get an annotation "card0,card1|card2,card3". These annotations are then consumed by the Intel GPU device plugin.
 
-GAS also expects labels to be in place for the nodes, in order to be able to keep book of the cluster GPU resource status. Nodes with GPUs shall be labeled with label name "gpu.intel.com/cards" and value shall be in form "card0.card1.card2.card3"... where the card names match with the intel GPUs which are currently found under /sys/class/drm folder, and the dot serves as separator. GAS expects all GPUs of the same node to be homogeneous in their resource capacity, and calculates the GPU extended resource capacity as evenly distributed to the GPUs listed by that label.
+Along with the "gas-container-cards" annotation there can be a "gas-container-tiles" annotation. This annotation is created when a container requests tile resources (gpu.intel.com/tiles). The gtX marking for tiles follows the sysfs entries under /sys/class/drm/cardX/gt/ where the "cardX" can be any card in the system. "gas-container-tiles" annotation marks the card+tile combos assigned to each container. For example a two container pod's annotation could be "card0:gt0+gt1|card0:gt2+gt3" where each container gets two tiles from the same GPU. The tile annotation is then converted to corresponding environment variables by the GPU plugin.
 
+GAS also expects labels to be in place for the nodes, in order to be able to keep book of the cluster GPU resource status. Nodes with GPUs shall be labeled with label name "gpu.intel.com/cards" and value shall be in form "card0.card1.card2.card3"... where the card names match with the intel GPUs which are currently found under /sys/class/drm folder, and the dot serves as separator. GAS expects all GPUs of the same node to be homogeneous in their resource capacity, and calculates the GPU extended resource capacity as evenly distributed to the GPUs listed by that label.
 
 ## Usage with NFD and the GPU-plugin
 A worked example for GAS is available [here](docs/usage.md)
@@ -37,17 +38,18 @@ You should follow extender configuration instructions from the
 use GPU Aware Scheduling configurations, which can be found in the [deploy/extender-configuration](deploy/extender-configuration) folder.
 
 #### Deploy GAS
-GPU Aware Scheduling uses go modules. It requires Go 1.16 with modules enabled in order to build. GAS has been tested with Kubernetes 1.22.
+GPU Aware Scheduling uses go modules. It requires Go 1.17 with modules enabled in order to build. GAS has been tested with Kubernetes 1.22.
 A yaml file for GAS is contained in the deploy folder along with its service and RBAC roles and permissions.
 
-**Note:** If run without the unsafe flag a secret called extender-secret will need to be created with the cert and key for the TLS endpoint.
-GAS will not deploy if there is no secret available with the given deployment file.
+A secret called extender-secret will need to be created with the cert and key for the TLS endpoint. GAS will not deploy if there is no
+secret available with the given deployment file.
 
 A secret can be created with:
 
 ``
-kubectl create secret tls extender-secret --cert /etc/kubernetes/<PATH_TO_CERT> --key /etc/kubernetes/<PATH_TO_KEY> 
+kubectl create secret tls extender-secret --cert /etc/kubernetes/<PATH_TO_CERT> --key /etc/kubernetes/<PATH_TO_KEY>
 ``
+
 In order to build in your host:
 
 ``make build``
@@ -75,15 +77,18 @@ name |type | description| usage | default|
 |cert| string | location of the cert file for the TLS endpoint | --cert=/root/cert.txt| /etc/kubernetes/pki/ca.key
 |key| string | location of the key file for the TLS endpoint| --key=/root/key.txt | /etc/kubernetes/pki/ca.key
 |cacert| string | location of the ca certificate for the TLS endpoint| --key=/root/cacert.txt | /etc/kubernetes/pki/ca.crt
-|unsafe| bool | whether or not to listen on a TLS endpoint with the scheduler extender | --unsafe=true| false
 |enableAllowlist| bool | enable POD-annotation based GPU allowlist feature | --enableAllowlist| false
 |enableDenylist| bool | enable POD-annotation based GPU denylist feature | --enableDenylist| false
+|balancedResource| string | enable named resource balancing between GPUs | --balancedResource| ""
+
+#### Balanced resource (optional)
+GAS can be configured to balance named resources so that the resource requests are distributed as evenly as possible between the GPUs. For example if the balanced resource is set to "tiles" and the containers request 1 tile each, the first container could get tile from "card0", the second from "card1", the third again from "card0" and so on.
 
 ## Adding the resource to make a deployment use GAS Scheduler Extender
 
-For example,  in a deployment file: 
+For example, in a deployment file:
 ```
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: demo-app
@@ -93,7 +98,7 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: demo 
+      app: demo
   template:
     metadata:
       labels:
@@ -122,6 +127,12 @@ GAS Scheduler Extender is set up to use in-Cluster config in order to access the
 
 Additionally GAS Scheduler Extender listens on a TLS endpoint which requires a cert and a key to be supplied.
 These are passed to the executable using command line flags. In the provided deployment these certs are added in a Kubernetes secret which is mounted in the pod and passed as flags to the executable from there.
+
+## License
+
+[Apache License, Version 2.0](./LICENSE). All of the source code required to build the GPU Aware Scheduling is available under Open Source
+licenses. The source code files identify external Go modules used. The binary is distributed as a container image on
+[DockerHub](https://hub.docker.com/r/intel/gpu-extender). The container image contains license texts under folder `/licenses`.
 
 ## Communication and contribution
 

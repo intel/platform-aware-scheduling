@@ -1,16 +1,27 @@
 package gpuscheduler
 
 import (
+	"regexp"
+	"strconv"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/klog/v2"
 )
 
 const (
 	// resourcePrefix is the intel resource prefix.
-	resourcePrefix = "gpu.intel.com/"
-	pciGroupLabel  = "gpu.intel.com/pci-groups"
+	resourcePrefix    = "gpu.intel.com/"
+	pciGroupLabel     = "gpu.intel.com/pci-groups"
+	regexCardTile     = "^card([0-9]+)_gt([0-9]+)$"
+	digitBase         = 10
+	desiredIntBits    = 16
+	regexDesiredCount = 3
 )
+
+type DisabledTilesMap map[string][]int
+type DescheduledTilesMap map[string][]int
+type PreferredTilesMap map[string][]int
 
 func containerRequests(pod *v1.Pod) []resourceMap {
 	allResources := []resourceMap{}
@@ -32,26 +43,129 @@ func containerRequests(pod *v1.Pod) []resourceMap {
 	return allResources
 }
 
-// addPCIGroupGPUs goes through the given cards map and if they are requested to be handled as groups, the
-// group is added to the given cards map with value "grouped".
-func addPCIGroupGPUs(node *v1.Node, cards map[string]string) {
-	groupedCardsToAdd := map[string]string{}
+// addPCIGroupGPUs processes the given card and if it is requested to be handled as groups, the
+// card's group is added to the cards slice.
+func addPCIGroupGPUs(node *v1.Node, card string, cards []string) []string {
+	pciGroupGPUNums := getPCIGroup(node, card)
+	for _, gpuNum := range pciGroupGPUNums {
+		groupedCard := "card" + gpuNum
+		if found := containsString(cards, groupedCard); !found {
+			cards = append(cards, groupedCard)
+		}
+	}
 
-	for cardName, value := range cards {
-		// if whole pci group is wanted to be impacted, add the whole group to podGPUs
-		if value == pciGroupValue {
-			pciGroupGPUNums := getPCIGroup(node, cardName)
-			for _, gpuNum := range pciGroupGPUNums {
-				groupedCardsToAdd["card"+gpuNum] = "grouped"
+	return cards
+}
+
+func createTileMapping(labels map[string]string) (
+	DisabledTilesMap, DescheduledTilesMap, PreferredTilesMap) {
+	disabled := DisabledTilesMap{}
+	descheduled := DescheduledTilesMap{}
+	preferred := PreferredTilesMap{}
+
+	extractCardAndTile := func(cardTileCombo string) (card string, tile int, err error) {
+		card = ""
+		tile = -1
+
+		re := regexp.MustCompile(regexCardTile)
+
+		values := re.FindStringSubmatch(cardTileCombo)
+		if len(values) != regexDesiredCount {
+			return card, tile, errExtractFail
+		}
+
+		card = "card" + values[1]
+		tile, _ = strconv.Atoi(values[2])
+
+		return card, tile, nil
+	}
+
+	for label, value := range labels {
+		stripped, ok := labelWithoutTASNS(label)
+		if !ok {
+			continue
+		}
+
+		switch {
+		case strings.HasPrefix(stripped, tileDisableLabelPrefix):
+			{
+				cardTileCombo := strings.TrimPrefix(stripped, tileDisableLabelPrefix)
+
+				card, tile, err := extractCardAndTile(cardTileCombo)
+				if err == nil {
+					disabled[card] = append(disabled[card], tile)
+				}
+			}
+		case strings.HasPrefix(stripped, tileDeschedLabelPrefix):
+			{
+				cardTileCombo := strings.TrimPrefix(stripped, tileDeschedLabelPrefix)
+
+				card, tile, err := extractCardAndTile(cardTileCombo)
+				if err == nil {
+					descheduled[card] = append(descheduled[card], tile)
+				}
+			}
+		case strings.HasPrefix(stripped, tilePrefLabelPrefix):
+			{
+				cardWithoutTile := strings.TrimPrefix(stripped, tilePrefLabelPrefix)
+				cardWithTile := cardWithoutTile + "_" + value
+
+				card, tile, err := extractCardAndTile(cardWithTile)
+				if err == nil {
+					preferred[card] = append(preferred[card], tile)
+				}
+			}
+		default:
+			continue
+		}
+	}
+
+	return disabled, descheduled, preferred
+}
+
+func combineMappings(source map[string][]int, dest map[string][]int) {
+	for card, tiles := range source {
+		dest[card] = append(dest[card], tiles...)
+	}
+}
+
+// creates a card to tile-index map which are in either state "disabled" or "descheduled".
+func createDisabledTileMapping(labels map[string]string) map[string][]int {
+	dis, des, _ := createTileMapping(labels)
+
+	combineMappings(des, dis)
+
+	return dis
+}
+
+// creates two card to tile-index maps where first is disabled and second is preferred mapping.
+func createDisabledAndPreferredTileMapping(labels map[string]string) (
+	DisabledTilesMap, PreferredTilesMap) {
+	dis, des, pref := createTileMapping(labels)
+
+	combineMappings(des, dis)
+
+	return dis, pref
+}
+
+func sanitizeTiles(tilesMap DisabledTilesMap, tilesPerGpu int) DisabledTilesMap {
+	sanitized := DisabledTilesMap{}
+
+	for card, tiles := range tilesMap {
+		stiles := []int{}
+
+		for _, tile := range tiles {
+			if tile < tilesPerGpu {
+				stiles = append(stiles, tile)
+			} else {
+				klog.Warningf("skipping a non existing tile: %s, tile %d", card, tile)
 			}
 		}
+
+		sanitized[card] = stiles
 	}
 
-	for cardName, value := range groupedCardsToAdd {
-		if _, ok := cards[cardName]; !ok {
-			cards[cardName] = value
-		}
-	}
+	return sanitized
 }
 
 func labelWithoutTASNS(label string) (string, bool) {
@@ -76,9 +190,24 @@ func isGPUInPCIGroup(gpuName, pciGroupGPUName string, node *v1.Node) bool {
 	return false
 }
 
+// concatenateSplitLabel returns the given label value and concatenates any
+// additional values for label names with a running number postfix starting with "2".
+func concatenateSplitLabel(node *v1.Node, labelName string) string {
+	postFix := 2
+	value := node.Labels[labelName]
+
+	for continuingLabelValue, ok := node.Labels[labelName+strconv.Itoa(postFix)]; ok; {
+		value += continuingLabelValue
+		postFix++
+		continuingLabelValue, ok = node.Labels[labelName+strconv.Itoa(postFix)]
+	}
+
+	return value
+}
+
 // getPCIGroup returns the pci group as slice, for the given gpu name.
 func getPCIGroup(node *v1.Node, gpuName string) []string {
-	if pciGroups, ok := node.Labels[pciGroupLabel]; ok {
+	if pciGroups := concatenateSplitLabel(node, pciGroupLabel); pciGroups != "" {
 		slicedGroups := strings.Split(pciGroups, "_")
 		for _, group := range slicedGroups {
 			gpuNums := strings.Split(group, ".")
@@ -145,4 +274,79 @@ func isCompletedPod(pod *v1.Pod) bool {
 	default:
 		return false
 	}
+}
+
+func containsInt(slice []int, value int) (bool, int) {
+	for index, v := range slice {
+		if v == value {
+			return true, index
+		}
+	}
+
+	return false, -1
+}
+
+func containsString(slice []string, value string) bool {
+	for _, v := range slice {
+		if v == value {
+			return true
+		}
+	}
+
+	return false
+}
+
+func reorderPreferredTilesFirst(tiles []int, preferred []int) []int {
+	indexNow := 0
+
+	for _, pref := range preferred {
+		if found, index := containsInt(tiles, pref); found {
+			if index > indexNow {
+				old := tiles[indexNow]
+				tiles[indexNow] = pref
+				tiles[index] = old
+			}
+
+			indexNow++
+		}
+	}
+
+	return tiles
+}
+
+func convertPodTileAnnotationToCardTileMap(podTileAnnotation string) map[string]bool {
+	cardTileIndices := make(map[string]bool)
+
+	containerCardList := strings.Split(podTileAnnotation, "|")
+
+	for _, contAnnotation := range containerCardList {
+		cardTileList := strings.Split(contAnnotation, ",")
+
+		for _, cardTileCombos := range cardTileList {
+			cardTileSplit := strings.Split(cardTileCombos, ":")
+			if len(cardTileSplit) != maxLabelParts {
+				continue
+			}
+
+			// extract card index by moving forward in slice
+			cardIndexStr := cardTileSplit[0][len("card"):]
+
+			_, err := strconv.ParseInt(cardIndexStr, digitBase, desiredIntBits)
+			if err != nil {
+				continue
+			}
+
+			tiles := strings.Split(cardTileSplit[1], "+")
+			for _, tile := range tiles {
+				tileNoStr := strings.TrimPrefix(tile, "gt")
+
+				_, err := strconv.ParseInt(tileNoStr, digitBase, desiredIntBits)
+				if err == nil {
+					cardTileIndices[cardIndexStr+"."+tileNoStr] = true
+				}
+			}
+		}
+	}
+
+	return cardTileIndices
 }

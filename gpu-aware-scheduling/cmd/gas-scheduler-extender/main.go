@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"os"
 
 	"github.com/intel/platform-aware-scheduling/extender"
 	"github.com/intel/platform-aware-scheduling/gpu-aware-scheduling/pkg/gpuscheduler"
@@ -10,8 +11,8 @@ import (
 
 func main() {
 	var (
-		kubeConfig, port, certFile, keyFile, caFile string
-		unsafe, enableAllowlist, enableDenylist     bool
+		kubeConfig, port, certFile, keyFile, caFile, balancedRes string
+		enableAllowlist, enableDenylist                          bool
 	)
 
 	flag.StringVar(&kubeConfig, "kubeConfig", "/root/.kube/config", "location of kubernetes config file")
@@ -19,19 +20,20 @@ func main() {
 	flag.StringVar(&certFile, "cert", "/etc/kubernetes/pki/ca.crt", "cert file extender will use for authentication")
 	flag.StringVar(&keyFile, "key", "/etc/kubernetes/pki/ca.key", "key file extender will use for authentication")
 	flag.StringVar(&caFile, "cacert", "/etc/kubernetes/pki/ca.crt", "ca file extender will use for authentication")
-	flag.BoolVar(&unsafe, "unsafe", false, "unsafe instances of GPU aware scheduler will be served over simple http.")
 	flag.BoolVar(&enableAllowlist, "enableAllowlist", false, "enable allowed GPUs annotation (csv list of names)")
 	flag.BoolVar(&enableDenylist, "enableDenylist", false, "enable denied GPUs annotation (csv list of names)")
+	flag.StringVar(&balancedRes, "balancedResource", "", "enable resource balacing within a node")
 	klog.InitFlags(nil)
 	flag.Parse()
 
 	kubeClient, _, err := extender.GetKubeClient(kubeConfig)
 	if err != nil {
-		panic(err)
+		klog.Error("couldn't get kube client, cannot continue: ", err.Error())
+		os.Exit(1)
 	}
 
-	gasscheduler := gpuscheduler.NewGASExtender(kubeClient, enableAllowlist, enableDenylist)
+	gasscheduler := gpuscheduler.NewGASExtender(kubeClient, enableAllowlist, enableDenylist, balancedRes)
 	sch := extender.Server{Scheduler: gasscheduler}
-	sch.StartServer(port, certFile, keyFile, caFile, unsafe)
+	sch.StartServer(port, certFile, keyFile, caFile, false)
 	klog.Flush()
 }

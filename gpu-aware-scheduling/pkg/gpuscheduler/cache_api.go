@@ -23,6 +23,11 @@ func (r *cacheAPI) GetNodeResourceStatus(cache *Cache, nodeName string) nodeReso
 	return cache.getNodeResourceStatus(nodeName)
 }
 
-func (r *cacheAPI) AdjustPodResourcesL(cache *Cache, pod *v1.Pod, adj bool, annotation, nodeName string) error {
-	return cache.adjustPodResourcesL(pod, adj, annotation, nodeName)
+func (r *cacheAPI) AdjustPodResourcesL(cache *Cache, pod *v1.Pod, adj bool, annotation,
+	tileAnnotation, nodeName string) error {
+	return cache.adjustPodResourcesL(pod, adj, annotation, tileAnnotation, nodeName)
+}
+
+func (r *cacheAPI) GetNodeTileStatus(cache *Cache, nodeName string) nodeTiles {
+	return cache.getNodeTileStatus(nodeName)
 }
