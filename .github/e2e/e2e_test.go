@@ -307,15 +307,6 @@ func getTASPolicy(name string, str string, metric string, operator string, targe
 			},
 		},
 	}
-	if str != dontschedule.StrategyType {
-		pol.Spec.Strategies[dontschedule.StrategyType] =
-			api.TASPolicyStrategy{
-				PolicyName: "filter1",
-				Rules: []api.TASPolicyRule{
-					{Metricname: "filter1_metric", Operator: "Equals", Target: 2000000},
-				},
-			}
-	}
 	return pol
 }
 

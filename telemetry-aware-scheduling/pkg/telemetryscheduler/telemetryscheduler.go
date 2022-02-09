@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"strings"
 
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/klog/v2"
+
 	"github.com/intel/platform-aware-scheduling/extender"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
@@ -15,8 +18,6 @@ import (
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/dontschedule"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
 	telemetrypolicy "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/klog/v2"
 )
 
 var tasPolicy = "telemetry-policy"
@@ -193,8 +194,10 @@ func (m MetricsExtender) filterNodes(args extender.Args) *extender.FilterResult 
 	}
 	dontscheduleStrategy, err := m.getDontScheduleStrategy(policy)
 	if err != nil {
-		klog.V(2).InfoS("Don't scheduler strategy failed "+err.Error(), "component", "extender")
-		return nil
+		klog.V(4).InfoS("Returning all nodes "+err.Error(), "component", "extender")
+		return &extender.FilterResult{
+			Nodes: args.Nodes,
+		}
 	}
 	violatingNodes := dontscheduleStrategy.Violated(m.cache)
 	if len(args.Nodes.Items) == 0 {
