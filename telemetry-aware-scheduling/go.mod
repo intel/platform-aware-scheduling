@@ -11,7 +11,4 @@ require (
 	k8s.io/metrics v0.22.2
 )
 
-replace (
-	github.com/intel/platform-aware-scheduling/extender => ../extender
-	github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling => ../telemetry-aware-scheduling
-)
+replace github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling => ../telemetry-aware-scheduling
