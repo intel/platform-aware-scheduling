@@ -8,24 +8,27 @@ import (
 	"io"
 	"log"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/deschedule"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/dontschedule"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/labeling"
+	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"k8s.io/klog/v2"
 
 	"github.com/pkg/errors"
 
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
-	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/deschedule"
-	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/dontschedule"
-	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
 	api "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
 	tasclient "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/client/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
@@ -79,10 +82,19 @@ func init() {
 }
 
 var (
-	prioritize1Policy = getTASPolicy("prioritize1", scheduleonmetric.StrategyType, "prioritize1_metric", "GreaterThan", 0)
-	filter1Policy     = getTASPolicy("filter1", dontschedule.StrategyType, "filter1_metric", "LessThan", 20)
-	filter2Policy     = getTASPolicy("filter2", dontschedule.StrategyType, "filter2_metric", "Equals", 0)
-	deschedule1Policy = getTASPolicy("deschedule1", deschedule.StrategyType, "deschedule1_metric", "GreaterThan", 8)
+	prioritize1Policy = getTASPolicy("prioritize1", scheduleonmetric.StrategyType, []api.TASPolicyRule{{Metricname: "prioritize1_metric", Operator: "GreaterThan", Labels: []string{}}})
+	filter1Policy     = getTASPolicy("filter1", dontschedule.StrategyType, []api.TASPolicyRule{{Metricname: "filter1_metric", Operator: "LessThan", Target: 20, Labels: []string{}}})
+	filter2Policy     = getTASPolicy("filter2", dontschedule.StrategyType, []api.TASPolicyRule{{Metricname: "filter2_metric", Operator: "Equals", Labels: []string{}}})
+	deschedule1Policy = getTASPolicy("deschedule1", deschedule.StrategyType, []api.TASPolicyRule{{Metricname: "deschedule1_metric", Operator: "GreaterThan", Target: 8, Labels: []string{}}})
+	labeling1Policy   = getTASPolicy("labeling1", labeling.StrategyType, []api.TASPolicyRule{{Metricname: "labeling1_metric", Operator: "LessThan", Target: 8, Labels: []string{"card0=true"}}})
+	labeling2Policy   = getTASPolicy("labeling2", labeling.StrategyType, []api.TASPolicyRule{{Metricname: "labeling2_metric", Operator: "LessThan", Target: 8, Labels: []string{"card1=true"}}})
+	labeling3Policy   = getTASPolicy("labeling3", labeling.StrategyType, []api.TASPolicyRule{{Metricname: "labeling2_metric", Operator: "Equals", Target: 71, Labels: []string{"card0=false"}}})
+	labeling4Policy   = getTASPolicy("labeling4", labeling.StrategyType, []api.TASPolicyRule{{Metricname: "labeling2_metric", Operator: "Equals", Target: 10, Labels: []string{"card1=true"}}})
+	labeling5Policy   = getTASPolicy("labeling5", labeling.StrategyType, []api.TASPolicyRule{{Metricname: "labeling1_metric", Operator: "GreaterThan", Target: 8, Labels: []string{"card0=true"}}, {Metricname: "labeling2_metric", Operator: "Equals", Target: -10, Labels: []string{"card1=true"}}})
+	labeling6Policy   = getTASPolicy("labeling6", labeling.StrategyType, []api.TASPolicyRule{{Metricname: "labeling2_metric", Operator: "GreaterThan", Target: -12, Labels: []string{"card1=true"}}})
+	labeling7Policy   = getTASPolicy("labeling7", labeling.StrategyType, []api.TASPolicyRule{{Metricname: "labeling2_metric", Operator: "GreaterThan", Target: 70, Labels: []string{"card0=false", "card1=true"}}})
+	labeling8Policy   = getTASPolicy("labeling8", labeling.StrategyType, []api.TASPolicyRule{{Metricname: "labeling1_metric", Operator: "LessThan", Target: 8, Labels: []string{"foo=1"}}, {Metricname: "labeling2_metric", Operator: "LessThan", Target: 8, Labels: []string{"foo=2"}}})
+	labeling9Policy   = getTASPolicy("labeling9", labeling.StrategyType, []api.TASPolicyRule{{Metricname: "labeling1_metric", Operator: "GreaterThan", Target: 8, Labels: []string{"foo=1"}}, {Metricname: "labeling2_metric", Operator: "GreaterThan", Target: 8, Labels: []string{"foo=2"}}})
 )
 
 // TestTASFilter will test the behaviour of a pod with a listed filter/dontschedule policy in TAS
@@ -199,6 +211,77 @@ func TestTASDeschedule(t *testing.T) {
 	}
 }
 
+// TestTASLabeling will test the behaviour of a pod with a listed labling policy in TAS
+func TestTASLabeling(t *testing.T) {
+	const lbPrefix = "telemetry.aware.scheduling."
+	//	var nodeLabel string
+	tests := map[string]struct {
+		policy *api.TASPolicy
+		want   map[string]string
+	}{
+		"No label node for labeling":           {policy: labeling1Policy, want: map[string]string{}},
+		"Single Label on node worker":          {policy: labeling2Policy, want: map[string]string{"kind-worker": "true"}},
+		"Single Label on node worker2":         {policy: labeling3Policy, want: map[string]string{"kind-worker2": "true"}},
+		"Single Label on node worker3":         {policy: labeling4Policy, want: map[string]string{"kind-worker3": "true"}},
+		"Labels on two nodes":                  {policy: labeling5Policy, want: map[string]string{"kind-worker": "true", "kind-worker2": "true"}},
+		"Labels on three nodes":                {policy: labeling6Policy, want: map[string]string{"kind-worker": "true", "kind-worker2": "true", "kind-worker3": "true"}},
+		"Double label on node worker2":         {policy: labeling7Policy, want: map[string]string{"kind-worker2": "true"}},
+		"Single same label on node worker":     {policy: labeling8Policy, want: map[string]string{"kind-worker": "true"}},
+		"Single same label on all node worker": {policy: labeling9Policy, want: map[string]string{"kind-worker": "true", "kind-worker2": "true", "kind-worker3": "true"}},
+	}
+	for name, tc := range tests {
+		var violNodeLabel = []string{}
+		t.Run(name, func(t *testing.T) {
+			res := map[string]string{}
+			log.Printf("Running: %v\n", name)
+			//defer the running of a cleanup function to remove the policy and pod after the test case
+			defer cleanup("", tc.policy.Name)
+			_, err := tascl.Create(tc.policy)
+			if err != nil {
+				log.Print(err)
+			}
+			time.Sleep(time.Second * 10)
+			log.Printf("policy strategy rules: %v", tc.policy.Spec.Strategies)
+			for _, str_rule := range tc.policy.Spec.Strategies {
+				for _, rule := range str_rule.Rules {
+					for _, lb := range rule.Labels {
+						nameValuePair := strings.Split(lb, "=")
+						if len(nameValuePair) != 2 {
+							log.Fatal(errors.New("Invalid label, parsing failed for: " + lb))
+						}
+						nodeLabel := lbPrefix + tc.policy.Name + "/" + nameValuePair[0] + ":" + nameValuePair[1]
+						violNodeLabel = append(violNodeLabel, nodeLabel)
+					}
+				}
+			}
+			for _, violabel := range violNodeLabel {
+				key, value := getKeyValue(violabel)
+				lbls := metav1.LabelSelector{MatchLabels: map[string]string{key: value}}
+				nodes, err := cl.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: labels.Set(lbls.MatchLabels).String()})
+				if err != nil {
+					log.Print(err)
+				}
+				for _, n := range nodes.Items {
+					res[n.Name] = "true"
+				}
+			}
+			if !reflect.DeepEqual(tc.want, res) {
+				//Log full node specs and TAS Pod log if the test fails
+				nodes, _ := cl.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+				log.Print(tasLog())
+				for _, n := range nodes.Items {
+					log.Printf("%v labels: %v", n.Name, n.ObjectMeta.Labels)
+				}
+				t.Errorf("expected: %v, got: %v", tc.want, res)
+			}
+		})
+	}
+}
+
+func getKeyValue(nodeLabel string) (key, value string) {
+	return strings.Split(nodeLabel, ":")[0], strings.Split(nodeLabel, ":")[1]
+}
+
 //TestAddAndDeletePolicy repeats a test to show an issue in repeatedly adding and deleting policies
 func TestAddAndDeletePolicy(t *testing.T) {
 	repeatTest(TestTASFilter, t, 5)
@@ -245,10 +328,10 @@ func waitForMetrics(timeout time.Duration) error {
 	for time.Now().Before(t) {
 		m, err := cm.GetNodeMetric("filter1_metric")
 		if len(m) > 0 {
-			log.Printf("Metrics returned after %v: %v", t.Sub(time.Now()), m)
+			log.Printf("Metrics returned after %v: %v", time.Until(t), m)
 			return nil
 		}
-		time.Sleep(2)
+		time.Sleep(time.Second * 2)
 		failureMessage = err
 	}
 	return errors.Wrap(failureMessage, "Request for custom metrics has timed out.")
@@ -290,7 +373,7 @@ func tasLog() string {
 
 }
 
-func getTASPolicy(name string, str string, metric string, operator string, target int64) *api.TASPolicy {
+func getTASPolicy(name string, str string, metricRule []api.TASPolicyRule) *api.TASPolicy {
 	pol := &api.TASPolicy{
 		TypeMeta:   metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
@@ -300,9 +383,7 @@ func getTASPolicy(name string, str string, metric string, operator string, targe
 				//TODO: This should be considered a bug.
 				str: {
 					PolicyName: name,
-					Rules: []api.TASPolicyRule{
-						{Metricname: metric, Operator: operator, Target: target},
-					},
+					Rules:      metricRule,
 				},
 			},
 		},
