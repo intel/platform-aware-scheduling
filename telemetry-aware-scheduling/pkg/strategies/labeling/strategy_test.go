@@ -108,11 +108,192 @@ func TestLabelingStrategy_Violated(t *testing.T) {
 		args args
 		want map[string]interface{}
 	}{
-		{name: "One node violating", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 9, Labels: []string{"card0=false"}}}}, args: args{cache.MockEmptySelfUpdatingCache()}, want: map[string]interface{}{"node-1": v1.TASPolicyRule{Metricname: "memory", Operator: "GreaterThan", Target: 9, Labels: []string{"card0=false"}}}},
-		{name: "No nodes violating", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 11, Labels: []string{"card0=false"}}}}, args: args{cache.MockEmptySelfUpdatingCache()}, want: map[string]interface{}{}},
-		{name: "No metric found", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "", Operator: "GreaterThan", Target: 9, Labels: []string{"card0=false"}}}}, args: args{cache.MockEmptySelfUpdatingCache()}, want: map[string]interface{}{}},
-		{name: "No labels found", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 9, Labels: []string{}}}}, args: args{cache.MockEmptySelfUpdatingCache()}, want: map[string]interface{}{"node-1": v1.TASPolicyRule{Metricname: "memory", Operator: "GreaterThan", Target: 9, Labels: []string{}}}},
-		{name: "No metrics and labels found", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "", Operator: "GreaterThan", Target: 9, Labels: []string{}}}}, args: args{cache.MockEmptySelfUpdatingCache()}, want: map[string]interface{}{}},
+		{name: "One node violating",
+			d:    strategyRuleDefault("test name", "memory", "GreaterThan", 9, []string{"card0=false"}),
+			args: args{cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"})}}},
+		{name: "No nodes violating",
+			d:    strategyRuleDefault("test name", "memory", "GreaterThan", 11, []string{"card0=false"}),
+			args: args{cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{}},
+		{name: "No metric found",
+			d:    strategyRuleDefault("test name", "", "GreaterThan", 9, []string{"card0=false"}),
+			args: args{cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{}},
+		{name: "No labels found",
+			d:    strategyRuleDefault("test name", "memory", "GreaterThan", 9, []string{}),
+			args: args{cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{})}}},
+		{name: "No metrics and labels found",
+			d:    strategyRuleDefault("test name", "", "GreaterThan", 9, []string{}),
+			args: args{cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{}},
+		{name: "One node violating w/ a blank logical operator and one metric",
+			d:    strategyRule("test-logic-1", "", "memory", "GreaterThan", 9, []string{"card0=false"}),
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"})}}},
+		{name: "One node violating w/ anyOf and one metric",
+			d:    strategyRule("test-logic-2", "anyOf", "memory", "GreaterThan", 9, []string{"card0=false"}),
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"})}}},
+		{name: "One node violating w/ allOf and one metric",
+			d:    strategyRule("test-logic-3", "allOf", "memory", "GreaterThan", 9, []string{"card0=false"}),
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"})}}},
+		{name: "no metric w/ blank logic operator and one metric",
+			d:    strategyRule("test-logic-4", "", "mem", "GreaterThan", 9, []string{"card0=false"}),
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{}},
+		{name: "no metric w/ anyOf and one metric",
+			d:    strategyRule("test-logic-5", "anyOf", "mem", "GreaterThan", 9, []string{"card0=false"}),
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{}},
+		{name: "no metric w/ allOf and one metric",
+			d:    strategyRule("test-logic-6", "allOf", "mem", "GreaterThan", 9, []string{"card0=false"}),
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{}},
+		{name: "One node violating the 1st rule w/o logical operator",
+			d: &Strategy{PolicyName: "test-logic-7", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 900, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"})}}},
+		{name: "One node violating the 2nd rule w/o logical operator",
+			d: &Strategy{PolicyName: "test-logic-8", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 90, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 90, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("cpu", "GreaterThan", 90, []string{"card1=true"})}}},
+		{name: "One node violating the 1st and 2nd rules w/o logical operator",
+			d: &Strategy{PolicyName: "test-logic-9", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 90, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 90, []string{"card1=true"})}}},
+		{name: "One node violating the 1st and no metric found for 2nd w/o logical operator",
+			d: &Strategy{PolicyName: "test-logic-10", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"}),
+				metricRules("cpu-x", "GreaterThan", 90, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"})}}},
+		{name: "No node violating without logical operator",
+			d: &Strategy{PolicyName: "test-logic-11", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 90, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 900, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{}},
+		{name: "One node violating the first rule w/ blank logical operator",
+			d: &Strategy{PolicyName: "test-logic-12", LogicalOperator: "", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 900, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"})}}},
+		{name: "One node violating the second rule w/ blank logical operator",
+			d: &Strategy{PolicyName: "test-logic-13", LogicalOperator: "", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 90, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 90, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("cpu", "GreaterThan", 90, []string{"card1=true"})}}},
+		{name: "One node violating the 1s and 2nd rules w/ blank logical operator",
+			d: &Strategy{PolicyName: "test-logic-14", LogicalOperator: "", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 90, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 90, []string{"card1=true"})}}},
+		{name: "One node violating the 1st and no metric found for 2nd w/ blank logical operator",
+			d: &Strategy{PolicyName: "test-logic-15", LogicalOperator: "", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"}),
+				metricRules("cpu-x", "GreaterThan", 90, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"})}}},
+		{name: "No nodes violating w/ blank logical operator",
+			d: &Strategy{PolicyName: "test-logic-16", LogicalOperator: "", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 90, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 900, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{}},
+		{name: "One node violating the first rule with anyOf",
+			d: &Strategy{PolicyName: "test-logic-17", LogicalOperator: "anyOf", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 900, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"})}}},
+		{name: "One node violating the second rule with anyOf",
+			d: &Strategy{PolicyName: "test-logic-18", LogicalOperator: "anyOf", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 90, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 90, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("cpu", "GreaterThan", 90, []string{"card1=true"})}}},
+		{name: "One node violating the 1s and 2nd rules with anyOf",
+			d: &Strategy{PolicyName: "test-logic-19", LogicalOperator: "anyOf", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 90, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 90, []string{"card1=true"})}}},
+		{name: "One node violating the 1st and no metric found for 2nd w/ anyOf",
+			d: &Strategy{PolicyName: "test-logic-20", LogicalOperator: "anyOf", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"}),
+				metricRules("cpu-x", "GreaterThan", 90, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"})}}},
+		{name: "No nodes violating with anyOf",
+			d: &Strategy{PolicyName: "test-logic-21", LogicalOperator: "anyOf", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 90, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 900, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{}},
+		{name: "One node violating the first rule with allOf",
+			d: &Strategy{PolicyName: "test-logic-22", LogicalOperator: "allOf", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 900, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{}},
+		{name: "One node violating the second rule with allOf",
+			d: &Strategy{PolicyName: "test-logic-23", LogicalOperator: "allOf", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 90, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 90, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{}},
+		{name: "One node violating the 1s and 2nd rules with allOf",
+			d: &Strategy{PolicyName: "test-logic-24", LogicalOperator: "allOf", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 90, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{"node-1": []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 90, []string{"card1=true"})}}},
+		{name: "One node violating the 1st and no metric found for 2nd w/ anyOf",
+			d: &Strategy{PolicyName: "test-logic-25", LogicalOperator: "allOf", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 9, []string{"card0=false"}),
+				metricRules("cpu-x", "GreaterThan", 90, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{}},
+		{name: "No nodes violating with allOf",
+			d: &Strategy{PolicyName: "test-logic-26", LogicalOperator: "allOf", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 90, []string{"card0=false"}),
+				metricRules("cpu", "GreaterThan", 900, []string{"card1=true"})}},
+			args: args{cache: cache.MockEmptySelfUpdatingCache()},
+			want: map[string]interface{}{}},
 	}
 
 	for _, tt := range tests {
@@ -122,16 +303,47 @@ func TestLabelingStrategy_Violated(t *testing.T) {
 			if err != nil {
 				klog.InfoS("testing metric write on cache failed"+err.Error(), "component", "testing")
 			}
+			err = tt.args.cache.WriteMetric("cpu", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1,
+				Value: *resource.NewQuantity(200, resource.DecimalSI)}})
+			if err != nil {
+				t.Errorf("Cannot write metric to mock cache for test: %v", err)
+			}
 			tmp := map[string]interface{}{}
+			var violRules []v1.TASPolicyRule
 			for node, t1 := range tt.d.Violated(tt.args.cache) {
 				for _, t2 := range t1.(*violationResultType).ruleResults {
-					tmp[node] = t2.rule
+					violRules = append(violRules, t2.rule)
 				}
+				tmp[node] = violRules
 			}
 			if got := tmp; !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Strategy.Violated() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func strategyRuleDefault(policyname, metricname, operator string, target int64, labels []string) *Strategy {
+	return &Strategy{
+		PolicyName: policyname,
+		Rules: []v1.TASPolicyRule{
+			metricRules(metricname, operator, target, labels)}}
+}
+
+func strategyRule(policyname, logicalOp, metricname, operator string, target int64, labels []string) *Strategy {
+	return &Strategy{
+		PolicyName:      policyname,
+		LogicalOperator: logicalOp,
+		Rules: []v1.TASPolicyRule{
+			metricRules(metricname, operator, target, labels)}}
+}
+
+func metricRules(metricname string, operator string, target int64, labels []string) v1.TASPolicyRule {
+	return v1.TASPolicyRule{
+		Metricname: metricname,
+		Operator:   operator,
+		Target:     target,
+		Labels:     labels,
 	}
 }
 
