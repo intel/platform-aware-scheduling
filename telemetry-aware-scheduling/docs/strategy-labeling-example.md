@@ -30,20 +30,20 @@ cat <<EOF | kubectl create -f  -
 apiVersion: telemetry.intel.com/v1alpha1
 kind: TASPolicy
 metadata:
-name: labeling-policy
-namespace: default
+  name: labeling-policy
+  namespace: default
 spec:
-strategies:
-labeling:
-rules:
-- metricname: metric_card0
-operator: GreaterThan
-target: 100
-labels: ["card0=true"]
-- metricname: metric_card1
-operator: GreaterThan
-target: 200
-labels: ["card1=true"]
+  strategies:
+    labeling:
+      rules:
+      - metricname: metric_card0
+        operator: GreaterThan
+        target: 100
+        labels: ["card0=true"]
+      - metricname: metric_card1
+        operator: GreaterThan
+        target: 200
+        labels: ["card1=true"]
 EOF
 ````
 
@@ -70,19 +70,19 @@ The output should display:
 
 ````
 [
-{
-"label": {
-"beta.kubernetes.io/arch": "amd64",
-"beta.kubernetes.io/os": "linux",
-"kubernetes.io/arch": "amd64",
-"kubernetes.io/hostname": "node1",
-"kubernetes.io/os": "linux",
-"node-role.kubernetes.io/control-plane": "",
-"node-role.kubernetes.io/master": "",
-"node.kubernetes.io/exclude-from-external-load-balancers": "",
-"telemetry.aware.scheduling.labeling-policy/card0": "true"
-}
-}
+  {
+    "label": {
+      "beta.kubernetes.io/arch": "amd64",
+      "beta.kubernetes.io/os": "linux",
+      "kubernetes.io/arch": "amd64",
+      "kubernetes.io/hostname": "node1",
+      "kubernetes.io/os": "linux",
+      "node-role.kubernetes.io/control-plane": "",
+      "node-role.kubernetes.io/master": "",
+      "node.kubernetes.io/exclude-from-external-load-balancers": "",
+      "telemetry.aware.scheduling.labeling-policy/card0": "true"
+    }
+  }
 ]
 ````
 
@@ -106,40 +106,40 @@ cat <<EOF | kubectl create -f  -
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-name: demo-app-label
-labels:
-app: demo-label
+  name: demo-app-label
+  labels:
+    app: demo-label
 spec:
-replicas: 1
-selector:
-matchLabels:
-app: demo-label
-template:
-metadata:
-labels:
-app: demo-label
-telemetry-policy: labeling-policy
-spec:
-containers:
-- name: nginx
-image: nginx:latest
-imagePullPolicy: IfNotPresent
-resources:
-limits:
-telemetry/scheduling: 1
-affinity:
-nodeAffinity:
-requiredDuringSchedulingIgnoredDuringExecution:
-nodeSelectorTerms:
-- matchExpressions:
-- key:  telemetry.aware.scheduling.labeling-policy/card0
-operator: NotIn
-values:
-- "true"
-- key:  telemetry.aware.scheduling.labeling-policy/card1
-operator: NotIn
-values:
-- "true"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo-label
+  template:
+    metadata:
+      labels:
+        app: demo-label
+        telemetry-policy: labeling-policy
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            telemetry/scheduling: 1
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key:  telemetry.aware.scheduling.labeling-policy/card0
+                    operator: NotIn
+                    values:
+                      - "true"
+                  - key:  telemetry.aware.scheduling.labeling-policy/card1
+                    operator: NotIn
+                    values:
+                      - "true"
 EOF
 ````
 
@@ -192,16 +192,16 @@ The output should display:
 
 ````
 [
-{
-"label": {
-"beta.kubernetes.io/arch": "amd64",
-"beta.kubernetes.io/os": "linux",
-"kubernetes.io/arch": "amd64",
-"kubernetes.io/hostname": "node2",
-"kubernetes.io/os": "linux",
-"telemetry.aware.scheduling.labeling-policy/card1": "true"
-}
-}
+  {
+    "label": {
+      "beta.kubernetes.io/arch": "amd64",
+      "beta.kubernetes.io/os": "linux",
+      "kubernetes.io/arch": "amd64",
+      "kubernetes.io/hostname": "node2",
+      "kubernetes.io/os": "linux",
+      "telemetry.aware.scheduling.labeling-policy/card1": "true"
+    }
+  }
 ]
 ````
 
@@ -272,18 +272,18 @@ cat <<EOF | kubectl create -f  -
 apiVersion: v1
 kind: ConfigMap
 metadata:
-name: descheduler-policy-configmap
-namespace: kube-system
+  name: descheduler-policy-configmap
+  namespace: kube-system
 data:
-policy.yaml: |
-apiVersion: "descheduler/v1alpha1"
-kind: "DeschedulerPolicy"
-strategies:
-"RemovePodsViolatingNodeAffinity":
-enabled: true
-params:
-nodeAffinityType:
-- "requiredDuringSchedulingIgnoredDuringExecution"
+  policy.yaml: |
+    apiVersion: "descheduler/v1alpha1"
+    kind: "DeschedulerPolicy"
+    strategies:
+      "RemovePodsViolatingNodeAffinity":
+        enabled: true
+        params:
+          nodeAffinityType:
+            - "requiredDuringSchedulingIgnoredDuringExecution"
 EOF
 ````
 
