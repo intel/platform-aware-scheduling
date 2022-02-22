@@ -129,6 +129,7 @@ func (controller *TelemetryPolicyController) onUpdate(old, new interface{}) {
 			klog.V(2).InfoS(err.Error(), "component", "controller")
 			return
 		}
+		oldStrat.SetPolicyName(polCopy.ObjectMeta.Name)
 		controller.Enforcer.RemoveStrategy(oldStrat, oldStrat.StrategyType())
 		for _, rule := range oldPol.Spec.Strategies[oldStrat.StrategyType()].Rules {
 			err := controller.DeleteMetric(rule.Metricname)
