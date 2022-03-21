@@ -183,8 +183,42 @@ There can be four strategy types in a policy file and rules associated with each
      If neither metric would be greater than 100, no label would be created. When there are multiple candidates with equal values, the resulting label is
      random among the equal candidates. Label cleanup happens automatically. An example of the labeling strategy can be found in [here](docs/strategy-labeling-example.md)
 
-dontschedule and deschedule - which incorporate multiple rules - function with an OR operator. That is if any single rule is broken the strategy is considered violated.
-Telemetry policies are namespaced, meaning that under normal circumstances a workload can only be associated with a pod in the same namespaces.
+Telemetry policies are namespaced, meaning that under normal circumstances a workload can only be associated with a pod in the same namespaces.   
+dontschedule and deschedule strategies - which incorporate multiple rules - works with an OR operator (default value). That is if any single rule is broken the strategy is considered violated.
+For the user-cases that request the use of other operators, the policy allows more descriptive operators such as `anyOf` and `allOf` which are equivalent to OR and AND operators, respectively. For example:
+
+````
+apiVersion: telemetry.intel.com/v1alpha1
+kind: TASPolicy
+metadata:
+  name: multirules-policy
+  namespace: default
+spec:
+  strategies:
+    deschedule:
+      logicalOperator: allOf
+      rules:
+      - metricname: temperature
+        operator: GreaterThan
+        target: 80
+      - metricname: freeRAM
+        operator: LessThan
+        target: 200  
+    dontschedule:
+      logicalOperator: anyOf
+      rules:
+      - metricname: temperature
+        operator: GreaterThan
+        target: 80
+      - metricname: freeRAM
+        operator: LessThan
+        target: 200  
+    scheduleonmetric:
+      rules:
+      - metricname: freeRAM
+        operator: LessThan
+````
+The deschedule strategy rule will be violated only if both metric rules are violated, while for dontschedule the violation will occur if one of the rules are broken. Note that the key:value map for the logicalOperator `anyOf` can be omitted, i.e., it has the same effect of the previous policy example (OR as default operator).  
 
 ### Configuration flags
 The below flags can be passed to the binary at run time.
