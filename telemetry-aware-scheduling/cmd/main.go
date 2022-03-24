@@ -31,20 +31,18 @@ import (
 
 func main() {
 	var kubeConfig, port, certFile, keyFile, caFile, syncPeriod string
-	var unsafe bool
 	klog.InitFlags(nil)
 	flag.StringVar(&kubeConfig, "kubeConfig", "/root/.kube/config", "location of kubernetes config file")
 	flag.StringVar(&port, "port", "9001", "port on which the scheduler extender will listen")
 	flag.StringVar(&certFile, "cert", "/etc/kubernetes/pki/ca.crt", "cert file extender will use for authentication")
 	flag.StringVar(&keyFile, "key", "/etc/kubernetes/pki/ca.key", "key file extender will use for authentication")
 	flag.StringVar(&caFile, "cacert", "/etc/kubernetes/pki/ca.crt", "ca file extender will use for authentication")
-	flag.BoolVar(&unsafe, "unsafe", false, "unsafe instances of telemetry aware extender will be served over simple http.")
 	flag.StringVar(&syncPeriod, "syncPeriod", "5s", "length of time in seconds between metrics updates")
 	flag.Parse()
 	cache := tascache.NewAutoUpdatingCache()
 	tscheduler := telemetryscheduler.NewMetricsExtender(cache)
 	sch := extender.Server{Scheduler: tscheduler}
-	go sch.StartServer(port, certFile, keyFile, caFile, unsafe)
+	go sch.StartServer(port, certFile, keyFile, caFile, false)
 	tasController(kubeConfig, syncPeriod, cache)
 	klog.Flush()
 }
