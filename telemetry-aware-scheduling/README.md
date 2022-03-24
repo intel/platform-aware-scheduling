@@ -85,10 +85,9 @@ After these steps the scheduler extender should be registered with the Kubernete
 Telemetry Aware Scheduling uses go modules. It requires Go 1.16+ with modules enabled in order to build. TAS has been tested with Kubernetes 1.20+. TAS was tested on Intel® Server Board S2600WF-Based Systems (Wolf Pass).
 A yaml file for TAS is contained in the deploy folder along with its service and RBAC roles and permissions.
 
-**Note:** If run without the unsafe flag ([described in the table below](#tas-scheduler-extender)) a secret called extender-secret will need to be created with the cert and key for the TLS endpoint.
-TAS will not deploy if there is no secret available with the given deployment file.
+A secret called extender-secret will need to be created with the cert and key for the TLS endpoint. TAS will not deploy if there is no secret available with the given deployment file.
 
-A secret can be created with:
+The secret can be created with:
 
 ``
 kubectl create secret tls extender-secret --cert /etc/kubernetes/<PATH_TO_CERT> --key /etc/kubernetes/<PATH_TO_KEY> 
@@ -194,13 +193,11 @@ The below flags can be passed to the binary at run time.
 name |type | description| usage | default|
 -----|------|-----|-------|-----|
 |kubeConfig| string |location of kubernetes configuration file | -kubeConfig /root/filename|~/.kube/config
-|cachePort | string | port number at which the cache server will listen for requests | --cachePort 9999 | 8111
 |syncPeriod|duration string| interval between refresh of telemetry data|-syncPeriod 1m| 1s
 |port| int | port number on which the scheduler extender will listen| -port 32000 | 9001
 |cert| string | location of the cert file for the TLS endpoint | --cert=/root/cert.txt| /etc/kubernetes/pki/ca.crt
 |key| string | location of the key file for the TLS endpoint| --key=/root/key.txt | /etc/kubernetes/pki/ca.key
 |cacert| string | location of the ca certificate for the TLS endpoint| --key=/root/cacert.txt | /etc/kubernetes/pki/ca.crt
-|unsafe| bool | whether or not to listen on a TLS endpoint with the scheduler extender | --unsafe=true| false
 
 ## Linking a workload to a policy 
 Pods can be linked with policies by adding a label of the form ``telemetry-policy=<POLICY-NAME>``
