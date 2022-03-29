@@ -12,6 +12,9 @@ K8_ADDITIONS_PATH="${root}/.github/scripts/policies"
 TMP_DIR="${root}/tmp"
 CNIS_DAEMONSET_URL="https://raw.githubusercontent.com/intel/multus-cni/master/e2e/cni-install.yml"
 CNIS_NAME="cni-plugins"
+# running the latest available image my default, unless instructured to
+KIND_IMAGE="kindest/node:v1.23.0@sha256:49824ab1727c04e56a21a5d8372a402fcd32ea51ac96a2706a12af38934f81ac"
+[ -n "$1" ] && KIND_IMAGE=$1
 
 # create cluster CA and policy for Kubernetes Scheduler
 # CA cert & key along with will be mounted to control plane
@@ -26,7 +29,7 @@ generate_k8_scheduler_config_data() {
 create_cluster() {
   [ -z "${mount_dir}" ] && echo "### no mount directory set" && exit 1
   # deploy cluster with kind
-  cat <<EOF | kind create cluster --image kindest/node:v1.22.0@sha256:b8bda84bb3a190e6e028b1760d277454a72267a5454b57db34437c34a588d047 --config=-
+  cat <<EOF | kind create cluster --image="$KIND_IMAGE"  --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 kubeadmConfigPatches:
