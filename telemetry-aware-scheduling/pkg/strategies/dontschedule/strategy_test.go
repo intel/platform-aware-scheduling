@@ -204,6 +204,7 @@ func strategyRuleDefault(policyname, metricname, operator string, target int64) 
 		Rules: []v1.TASPolicyRule{
 			metricRules(metricname, operator, target)}}
 }
+
 func strategyRule(policyname, logicalOp, metricname, operator string, target int64) Strategy {
 	return Strategy{
 		PolicyName:      policyname,

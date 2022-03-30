@@ -74,7 +74,6 @@ func (d *Strategy) StrategyType() string {
 //Equals implementation which checks to see if all rules and the policy name are equal for this strategy and another.
 //Used to avoid duplications and to find the correct strategy for deletions in the index.
 func (d *Strategy) Equals(other core.Interface) bool {
-
 	OtherDontScheduleStrategy, ok := other.(*Strategy)
 	sameName := other.GetPolicyName() == d.GetPolicyName()
 	if ok && sameName && len(d.Rules) > 0 && len(d.Rules) == len(OtherDontScheduleStrategy.Rules) {
