@@ -1,0 +1,41 @@
+name: Pull TAS code required for BM E2E tests
+
+on:
+  workflow_call:
+    inputs:
+      runson:
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+      ci-cno-tas-ansible-folder:
+        required: true
+        type: string
+
+jobs:
+  pull-tas:
+    name: Pull TAS code
+    runs-on: ${{ inputs.runson }}
+    steps:
+      # based on https://pwgen88.medium.com/getting-branch-name-in-github-actions-based-on-workflow-trigger-1d10b8515d37
+      - name: Fetch current repo branch for this run
+        id: extract_branch
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            echo "::set-output name=BRANCH::$(echo ${GITHUB_REF#refs/heads/})"
+          elif [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            echo "::set-output name=BRANCH::$(echo ${GITHUB_HEAD_REF})"
+          elif [[ "${GITHUB_EVENT_NAME}" == "schedule" ]]; then
+            echo "::set-output name=BRANCH::$(echo ${GITHUB_REF#refs/heads/})"
+          else
+            echo "::set-output name=BRANCH::INVALID_EVENT_BRANCH_UNKNOWN"
+          fi
+      - name: Clean up TAS script folder
+        run: rm -rvf ${{ inputs.ci-cno-tas-ansible-folder }} && mkdir ${{ inputs.ci-cno-tas-ansible-folder  }}
+      - name: Check branch name
+        run: echo ${{ steps.extract_branch.outputs.branch }}
+      - name: Checkout PAS repo
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ steps.extract_branch.outputs.branch }} # repo branch to pickup the code to run on the tests
+      - name: Copy PAS repo to ${{ inputs.ci-cno-tas-ansible-folder   }}
+        run: cp -r ./*  ${{ inputs.ci-cno-tas-ansible-folder   }}
