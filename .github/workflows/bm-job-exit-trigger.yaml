@@ -1,0 +1,54 @@
+name: BM exit trigger reusable job
+
+on:
+  workflow_call:
+    inputs:
+      runson:
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+    outputs:
+      ansible-dir:
+        description: "Location of ansible"
+        value: ${{ jobs.exit-trigger.outputs.ansible-dir  }}
+      cno-ci-repo-name:
+        description: "CNO-CI repo name"
+        value: ${{ jobs.exit-trigger.outputs.cno-ci-repo-name  }}
+      cno-ci-branch-name:
+        description: "CNO-CI branch name"
+        value: ${{ jobs.exit-trigger.outputs.cno-ci-branch-name  }}
+
+
+jobs:
+  exit-trigger:
+    runs-on: ${{ inputs.runson }}
+    outputs:
+      ansible-dir: ${{steps.check-ansible.outputs.ansible-dir}}
+      cno-ci-repo-name: ${{steps.check-cno-ci-params.outputs.cno-ci-repo-name}}
+      cno-ci-branch-name: ${{steps.check-cno-ci-params.outputs.cno-ci-branch-name}}
+    steps:
+      - name: Check ansible is installed
+        id: check-ansible
+        run: |
+          ANSIBLE_DIR=$(which ansible)
+          if [[ -n "$ANSIBLE_DIR" ]]; then
+            echo $ANSIBLE_DIR
+            echo "::set-output name=ANSIBLE-DIR::$(echo $ANSIBLE_DIR)"            
+          fi
+      - name: Check CNO-CI repo name and branch
+        id: check-cno-ci-params
+        env:
+          CNO_CI_CONFIG_FOLDER: "../../cno-ci-config/ci_repo_parameters.cfg"
+        run: |
+          echo "$(pwd)"
+          CNO_CI_REPO=$(grep 'repo=' $CNO_CI_CONFIG_FOLDER  | cut -d '=' -f 2)
+          echo $CNO_CI_REPO
+          CNO_CI_BRANCH=$(grep 'branch=' $CNO_CI_CONFIG_FOLDER | cut -d '=' -f 2)
+          echo $CNO_CI_BRANCH
+          if [[ -n "$CNO_CI_REPO" ]]; then
+            echo "::set-output name=CNO-CI-REPO-NAME::$(echo $CNO_CI_REPO)"
+          fi
+          if [[ -n "$CNO_CI_BRANCH" ]]; then
+            echo "::set-output name=CNO-CI-BRANCH-NAME::$(echo $CNO_CI_BRANCH)"
+          fi
+

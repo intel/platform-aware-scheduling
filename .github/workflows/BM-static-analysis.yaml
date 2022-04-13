@@ -1,0 +1,57 @@
+name: BM Ansible Script SCA Test
+
+on:
+  # This workflow would run at 1 AM every day
+  schedule:
+    - cron: '0 1 * * *'
+  push:
+    branches: [ '**' ]
+
+env:
+  CI_CNO_ANSIBLE_FOLDER: /usr/src/ci_cno_ansible_telemetry_scheduler
+  CI_CNO_TAS_FOLDER: /usr/src/telemetry-scheduler-sca
+
+jobs:
+  exit-trigger:
+    if: ( !contains(github.repository, '/platform-aware-scheduling') )
+    uses: ./.github/workflows/bm-job-exit-trigger.yaml
+    with:
+      runson: self-hosted-ansible
+  pull-ci:
+    needs: [ exit-trigger ]
+    if: ${{ needs.exit-trigger.outputs.ansible-dir != '' &&  needs.exit-trigger.outputs.cno-ci-repo-name != '' &&  needs.exit-trigger.outputs.cno-ci-branch-name != '' }}
+    uses: ./.github/workflows/checkout-cno-ci-repo-job.yaml
+    with:
+      runson: self-hosted-ansible
+      ci-cno-repo-name: ${{ needs.exit-trigger.outputs.cno-ci-repo-name }}
+      ci-cno-branch-name: ${{ needs.exit-trigger.outputs.cno-ci-branch-name }}
+      ci-cno-ansible-folder: /usr/src/ci_cno_ansible_telemetry_scheduler 
+    secrets:
+      CNO_CI_TOKEN: ${{ secrets.PASSWORD_PAT_CNO_CI }}
+  pull-tas:
+    needs: [ pull-ci ]
+    uses: ./.github/workflows/checkout-tas-repo-job.yaml
+    with:
+      runson: self-hosted-ansible
+      ci-cno-tas-ansible-folder: /usr/src/telemetry-scheduler-sca
+  runscripts:
+    name: Run ansible scripts for SCA, Build & Test, mtls test
+    needs: [ pull-ci, pull-tas ]
+    runs-on: self-hosted-ansible
+    defaults:
+      run:
+        working-directory: ${{ env.CI_CNO_ANSIBLE_FOLDER }}
+    env:
+      CI_CNO_PLAYBOOK_COMMON_FOLDER: /usr/src/ci_cno_ansible_telemetry_scheduler/playbooks/common
+      CI_CNO_PLAYBOOK_TAS_FOLDER: /usr/src/ci_cno_ansible_telemetry_scheduler/playbooks/tas
+      ANSIBLE_TELEMETRY_FOLDER_DESTINATION_PARAM: "destination_dir=/usr/src/telemetry-scheduler-sca"
+      ANSIBLE_TAS_FOLDER_DESTINATION_PARAM: "destination_dir=/usr/src/telemetry-scheduler-sca/telemetry-aware-scheduling/"
+    steps:
+      - name: BM Build & test TAS
+        run: ansible-playbook -i ${{ env.CI_CNO_ANSIBLE_FOLDER }}/inventory_cni.ini ${{ env.CI_CNO_PLAYBOOK_TAS_FOLDER }}/build.yml -e ${{ env.ANSIBLE_TAS_FOLDER_DESTINATION_PARAM }}
+      - name: BM Static Analysis
+        run: ansible-playbook -i  ${{ env.CI_CNO_ANSIBLE_FOLDER }}/inventory_cni.ini ${{ env.CI_CNO_PLAYBOOK_COMMON_FOLDER }}/commonTest.yml -e ${{ env.ANSIBLE_TELEMETRY_FOLDER_DESTINATION_PARAM }}
+      - name: BM mtlsTest
+        run: ansible-playbook -i  ${{ env.CI_CNO_ANSIBLE_FOLDER }}/inventory_cni.ini /${{ env.CI_CNO_PLAYBOOK_TAS_FOLDER }}/mtlsTest.yml -e ${{ env.ANSIBLE_TAS_FOLDER_DESTINATION_PARAM }}
+      - name: BM Clean-up
+        run: ansible-playbook -i  ${{ env.CI_CNO_ANSIBLE_FOLDER }}/inventory_cni.ini ${{ env.CI_CNO_PLAYBOOK_COMMON_FOLDER }}/commonCleanup.yml -e ${{ env.ANSIBLE_TELEMETRY_FOLDER_DESTINATION_PARAM }}

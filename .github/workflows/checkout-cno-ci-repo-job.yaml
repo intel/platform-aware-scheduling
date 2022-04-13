@@ -1,0 +1,42 @@
+name: Pull repo branch that contains the required files for our BM tests
+
+on:
+  workflow_call:
+    inputs:
+      runson:
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+      ci-cno-ansible-folder:
+        required: true
+        type: string
+      ci-cno-repo-name:
+        required: true
+        type: string
+      ci-cno-branch-name:
+        required: true
+        type: string
+    secrets: 
+      CNO_CI_TOKEN:
+        required: true
+        description: 'Token required to access the CNO-CI repo'
+
+jobs:
+  pull-ci:
+    name: Pull ansible based scripts
+    runs-on: ${{ inputs.runson }}
+    env:
+      CI_CNO_INTERIM_PATH: ./cno-ci
+    steps:
+      - name: Clean-up Ansible script folder
+        run: rm -rvf ${{ inputs.ci-cno-ansible-folder }} && mkdir  ${{ inputs.ci-cno-ansible-folder  }}
+      - name: Checkout ansible script repo
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ inputs.ci-cno-repo-name }}
+          ref: ${{ inputs.ci-cno-branch-name }}
+          token: ${{ secrets.CNO_CI_TOKEN }}
+          path: ${{ env.CI_CNO_INTERIM_PATH }}
+      # This step is needed as the runner will move the content of its working  directory before pulling files from another repo
+      - name: Copy Ansible scripts folder to ${{ inputs.ci-cno-ansible-folder  }} and clean-up intermediary dir
+        run: mv ${{ env.CI_CNO_INTERIM_PATH }}/*  ${{ inputs.ci-cno-ansible-folder  }}  && rm -rf ${{ env.CI_CNO_INTERIM_PATH }}
