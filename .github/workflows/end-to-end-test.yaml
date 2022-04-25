@@ -23,6 +23,10 @@ on:
         required: false
         type: string
         default: 'false'
+      isLocal:
+        required: false
+        type: string
+        default: 'false'
 
 jobs:
   docker-image-cleanup:
@@ -49,9 +53,9 @@ jobs:
         with:
           go-version: ${{ inputs.goVersion}}
       - name: Get tools for cluster installation
-        run: ./.github/scripts/e2e_get_tools.sh ${{ inputs.kindversion }}
+        run: ./.github/scripts/e2e_get_tools.sh ${{ inputs.kindversion }} ${{ inputs.isLocal }}
       - name: Set up cluster with TAS and custom metrics
-        run: ./.github/scripts/e2e_setup_cluster.sh
+        run: ./.github/scripts/e2e_setup_cluster.sh ${{ inputs.imagehash }} ${{ inputs.isLocal }}
       - name: Run end to end tests
         run: cd .github/e2e/&& go test -v e2e_test.go
       - name: Clean up Kind cluster

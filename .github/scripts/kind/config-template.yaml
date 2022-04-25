@@ -1,0 +1,40 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    scheduler:
+      dnsPolicy: ClusterFirstWithHostNet
+      extraArgs:
+        config: /etc/kubernetes/policy/policy.yaml
+      extraVolumes:
+      - name: kubeconfig
+        hostPath: /etc/kubernetes/scheduler.conf
+        mountPath: /etc/kubernetes/scheduler.conf
+      - name: certs
+        hostPath: /etc/kubernetes/pki/
+        mountPath: /etc/kubernetes/pki/
+      - name: schedulerconfig
+        hostPath: /etc/kubernetes/policy/policy.yaml
+        mountPath: /etc/kubernetes/policy/policy.yaml
+nodes:
+  - role: control-plane
+    extraMounts:
+      - hostPath: "CP_MOUNT_DIR"
+        containerPath: "/etc/kubernetes/policy/"
+  - role: worker
+    extraMounts:
+      - hostPath: "WORKER_MOUNT_DIR/node1"
+        containerPath: "/tmp/node-metrics/node1.prom"
+        propagation: HostToContainer
+  - role: worker
+    extraMounts:
+      - hostPath: "WORKER_MOUNT_DIR/node2"
+        containerPath: "/tmp/node-metrics/node2.prom"
+        propagation: HostToContainer
+  - role: worker
+    extraMounts:
+      - hostPath: "WORKER_MOUNT_DIR/node3"
+        containerPath: "/tmp/node-metrics/node3.prom"
+        propagation: HostToContainer
+
