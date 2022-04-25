@@ -16,6 +16,16 @@ CNIS_NAME="cni-plugins"
 KIND_IMAGE="kindest/node:v1.23.0@sha256:49824ab1727c04e56a21a5d8372a402fcd32ea51ac96a2706a12af38934f81ac"
 [ -n "$1" ] && KIND_IMAGE=$1
 
+# private registry set-up variables
+CHANGE_MIRROR_REPO="false"
+[ -n "$2" ] && CHANGE_MIRROR_REPO=$2
+# private registry set-up directories and files
+KIND_INTERNAL_CERTS_DIR="${root}/../../kind-e2e/ca-certificates"
+REGISTRY_MIRROR_CONFIG_FILE="${root}/../../kind-e2e/registry-mirror.config"
+KIND_SET_UP_CONFIG_TEMPLATE="${root}/.github/scripts/kind/config-template.yaml"
+KIND_SET_UP_CONFIG_FILE="${root}/.github/scripts/kind/config.yaml"
+UBUNTU_CERTS_DIR="/usr/local/share/ca-certificates/"
+
 # create cluster CA and policy for Kubernetes Scheduler
 # CA cert & key along with will be mounted to control plane
 # path /etc/kubernetes/pki. Kubeadm will utilise generated CA cert/key as root
@@ -28,49 +38,75 @@ generate_k8_scheduler_config_data() {
 
 create_cluster() {
   [ -z "${mount_dir}" ] && echo "### no mount directory set" && exit 1
-  # deploy cluster with kind
-  cat <<EOF | kind create cluster --image="$KIND_IMAGE"  --config=-
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-kubeadmConfigPatches:
-- |
-  kind: ClusterConfiguration
-  scheduler:
-    dnsPolicy: ClusterFirstWithHostNet
-    extraArgs:
-      config: /etc/kubernetes/policy/policy.yaml
-    extraVolumes:
-    - name: kubeconfig
-      hostPath: /etc/kubernetes/scheduler.conf
-      mountPath: /etc/kubernetes/scheduler.conf 
-    - name: certs 
-      hostPath: /etc/kubernetes/pki/
-      mountPath: /etc/kubernetes/pki/
-    - name: schedulerconfig
-      hostPath: /etc/kubernetes/policy/policy.yaml
-      mountPath: /etc/kubernetes/policy/policy.yaml
-nodes:
-  - role: control-plane
-    extraMounts:
-    - hostPath: "${mount_dir:?}"
-      containerPath: "/etc/kubernetes/policy/"
-  - role: worker
-    extraMounts:
-    - hostPath: "${mount_dir}/node1"
-      containerPath: "/tmp/node-metrics/node1.prom"
-      propagation: HostToContainer
-  - role: worker
-    extraMounts:
-    - hostPath: "${mount_dir}/node2"
-      containerPath: "/tmp/node-metrics/node2.prom"
-      propagation: HostToContainer
-  - role: worker
-    extraMounts:
-    - hostPath: "${mount_dir}/node3"
-      containerPath: "/tmp/node-metrics/node3.prom"
-      propagation: HostToContainer
 
-EOF
+  # copy and fill in values in the template config file
+  echo "Duplicating Kind cluster config template..."
+  cp "$KIND_SET_UP_CONFIG_TEMPLATE" "$KIND_SET_UP_CONFIG_FILE"
+  if [ ! -f "$KIND_SET_UP_CONFIG_FILE" ]; then
+    echo "$KIND_SET_UP_CONFIG_FILE doesn't exist; Copy command above failed unexpectedly. Exiting..."
+    exit 1
+  fi
+  echo "Done."
+  echo "Updating Kind cluster config template with the corresponding parameters..."
+  # update the mount_dir expressions. Using | for sed expecting mount_dir contains /
+  sed -i "s|CP_MOUNT_DIR|${mount_dir:?}|g" "$KIND_SET_UP_CONFIG_FILE"
+  sed -i "s|WORKER_MOUNT_DIR|$mount_dir|g" "$KIND_SET_UP_CONFIG_FILE"
+ echo "Done."
+
+  if [ "$CHANGE_MIRROR_REPO" == "true" ]; then
+    echo "Update Kind cluster's containerd configuration with new mirror. This is for testing/CI purposes and is not meant for production."
+
+    if [ ! -f "$REGISTRY_MIRROR_CONFIG_FILE" ]; then
+      echo "$REGISTRY_MIRROR_CONFIG_FILE doesn't exist; this is needed for cluster containerd private registry config. Exiting..."
+      exit 1
+    fi
+    MIRROR_ENDPOINT=$(< "$REGISTRY_MIRROR_CONFIG_FILE" cut -d "=" -f 2)
+    {
+      # adds new line
+      echo ""
+      echo 'containerdConfigPatches:'
+      echo '  - |-'
+      echo '    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]'
+      echo "      endpoint = [$MIRROR_ENDPOINT]"
+    } >> "$KIND_SET_UP_CONFIG_FILE"
+  fi
+
+  # deploy cluster with kind
+  kind create cluster --image="$KIND_IMAGE"  --config="$KIND_SET_UP_CONFIG_FILE"
+
+  # clean-up
+  if [ -f "$KIND_SET_UP_CONFIG_FILE" ]; then
+    echo "$KIND_SET_UP_CONFIG_FILE should be temporary. Will proceed to remove it..."
+    rm "$KIND_SET_UP_CONFIG_FILE"
+    echo "Removal complete."
+  fi
+}
+
+install_certs_in_kind() {
+  if [ "$CHANGE_MIRROR_REPO" == "true" ]; then
+    # install the required certificates to access the internal image registry
+    # the first kind is the default name of the cluster if you don't provide one, and -kind is appended afterwards by Kind
+    echo "Will proceed to install the required certs in Kind for the private registry..."
+    kind_cluster_name="kind-kind"
+    kind_node_names="$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')"
+    if [ -z "$kind_node_names" ]; then
+       echo "No nodes found for the $kind_cluster_name  Kind cluster. Instead found: $kind_node_names. Exit..."
+       exit 1
+    fi
+
+    read -ra kind_node_names_array <<< "$kind_node_names"
+
+    for kind_node in "${kind_node_names_array[@]}"
+    do
+      echo "$kind_node"
+      docker cp "$KIND_INTERNAL_CERTS_DIR/." "$kind_node:$UBUNTU_CERTS_DIR"
+      # we need to run the remaining certificate install commands
+      echo "Installing the necessary certificates for node $kind_node..."
+      docker exec "$kind_node" update-ca-certificates
+      # restart containerd on the node
+      docker exec "$kind_node" systemctl restart containerd
+    done
+  fi
 }
 
 retry() {
@@ -118,8 +154,7 @@ cp "${K8_ADDITIONS_PATH}/node3" "${mount_dir}"
 
 echo "## start Kind cluster with precreated CA key/cert"
 create_cluster
-
-
+install_certs_in_kind
 
 kubectl create namespace monitoring;
 helm install node-exporter "${root}/telemetry-aware-scheduling/deploy/charts/prometheus_node_exporter_helm_chart/";
