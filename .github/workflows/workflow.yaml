@@ -1,0 +1,39 @@
+name: Tests
+
+on:
+  push:
+    branches: [ '**' ]
+  pull_request:
+    branches: [ '**' ]
+
+jobs:
+
+  static-analysis:
+    uses:  ./.github/workflows/static-analysis.yaml
+    if: ( contains(github.repository, '/platform-aware-scheduling') )
+
+  static-analysis-local:
+    uses: ./.github/workflows/static-analysis.yaml
+    if: ( !contains(github.repository, '/platform-aware-scheduling') && github.event_name == 'push' )
+    with:
+      runson: self-hosted
+
+  go-build-and-test:
+    uses:  ./.github/workflows/go-build-and-test.yml
+    if: ( contains(github.repository, '/platform-aware-scheduling') )
+
+  go-build-and-test-local:
+    uses: ./.github/workflows/go-build-and-test.yml
+    if: ( !contains(github.repository, '/platform-aware-scheduling') && github.event_name == 'push' )
+    with:
+      runson: self-hosted
+
+  end-to-end-test:
+    uses: ./.github/workflows/end-to-end-test.yaml
+    if: ( contains(github.repository, '/platform-aware-scheduling') && github.event_name == 'pull_request' )
+
+  end-to-end-test-local:
+    uses: ./.github/workflows/end-to-end-test.yaml
+    if: ( !contains(github.repository, '/platform-aware-scheduling') && github.event_name == 'pull_request' )
+    with:
+      runson: self-hosted-kind
