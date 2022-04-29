@@ -1,51 +1,99 @@
 name: Static Analysis
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-
+  workflow_call:
+    inputs:
+      runsOn:
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+      scanDir:
+        required: false
+        type: string
+        default: '.'
+      ignoreDir:
+        required: false
+        type: string
+        default: ''
+      workingDir:
+        required: false
+        default: '.'
+        type: string
+      goVersion:
+        required: false
+        type: string
+        default: 1.17
+      hadolintVersion:
+        required: false
+        type: string
+        default: v2.8.0
+      goLangCIVersion:
+        required: false
+        type: string
+        default: v1.42.1
+      goImportsVersion:
+        required: false
+        type: string
+        default: v0.1.9
 jobs:
   shellcheck:
     name: Shellcheck
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runsOn }}
     steps:
-    - uses: actions/checkout@v2
-    - name: Run ShellCheck
-      uses: ludeeus/action-shellcheck@master
+      - uses: actions/checkout@v2
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: ${{ inputs.scanDir }}
+          ignore_paths: ${{ inputs.ignoreDir }}
+
   hadolint:
-    runs-on: ubuntu-latest
     name: Hadolint
+    runs-on: ${{ inputs.runsOn }}
     steps:
-    - uses: actions/checkout@v2
-    - run: wget -q https://github.com/hadolint/hadolint/releases/download/v2.8.0/hadolint-Linux-x86_64 -O hadolint; chmod +x hadolint ; find . -type f \( -name "Dockerfile*" \) -print0 | xargs -n 1 -0 ./hadolint ;
+      - uses: actions/checkout@v2
+      - run: wget -q https://github.com/hadolint/hadolint/releases/download/${{ inputs.hadolintVersion  }}/hadolint-Linux-x86_64 -O hadolint; chmod +x hadolint ; find ${{ inputs.scanDir }}  -type f \( -name "Dockerfile*" \) -print0 | xargs -n 1 -0 ./hadolint ;
+
+  job-process-input:
+    name: Process workflow input parameters
+    runs-on: ${{ inputs.runsOn }}
+    outputs:
+      modules: ${{ steps.get-modules.outputs.value  }}
+    steps:
+      - id: get-modules
+        run: |
+          echo ${{ inputs.workingDir }} | echo "::set-output name=value::[\"$(sed -r 's/,/","/g')\"]"
+
   gofmt-imports:
-    runs-on: ubuntu-latest
-    name: Go Fmt and Go Import
+    name: Gofmt & imports
+    needs: job-process-input
+    runs-on: ${{ inputs.runsOn }}
+    strategy:
+      matrix:
+        modulename: ${{ fromJson(needs.job-process-input.outputs.modules)  }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: 1.17
-      - run: go install golang.org/x/tools/cmd/goimports@v0.1.9; test -z $(goimports -l .) && test -z $(gofmt -l .)
+          go-version: ${{ inputs.goVersion  }}
+      - run: go install golang.org/x/tools/cmd/goimports@${{ inputs.goImportsVersion  }}; test -z $(goimports -l ${{ matrix.modulename }}) && test -z $(gofmt -l ${{ matrix.modulename }})
 
-  golangci-TAS:
+  golangci-run:
+    name: Golang CI
+    runs-on: ${{ inputs.runsOn }}
     strategy:
       matrix:
         workingdir: [extender, telemetry-aware-scheduling, gpu-aware-scheduling]
-    name: lint
-    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:
-          go-version: 1.17
-      - name: golangci-lint-TAS
+          go-version: ${{ inputs.goVersion  }}
+      - name: Running golang CI for ${{matrix.workingdir}}
         uses: golangci/golangci-lint-action@v2
         with:
-          version: v1.42.1
+          version: ${{ inputs.goLangCIVersion  }}
           skip-go-installation: true
           working-directory: ${{matrix.workingdir }}
-        # Additional linting tools can be added here
+          # Additional linting tools can be added here
           args: --enable=golint --timeout=5m
