@@ -24,7 +24,8 @@ import (
 func (controller *TelemetryPolicyController) Run(context context.Context) {
 	log.Print("Watching Telemetry Policies", "component", "controller")
 	defer func() {
-		if err := recover(); err != nil {
+		err := recover()
+		if err != nil {
 			log.Print("Recovered from runtime error", "component", "controller")
 		}
 	}()
@@ -118,8 +119,7 @@ func (controller *TelemetryPolicyController) onUpdate(old, new interface{}) {
 	polCopy := newPol.DeepCopy()
 	err := controller.WritePolicy(polCopy.Namespace, polCopy.Name, *polCopy)
 	if err != nil {
-		msg := fmt.Sprintf("cached policy not updated %v", err)
-		klog.V(2).InfoS(msg, "component", "controller")
+		klog.V(2).InfoS(fmt.Sprintf("cached policy not updated %v", err), "component", "controller")
 		return
 	}
 	klog.V(2).InfoS("Policy: "+polCopy.Name+" updated", "component", "controller")

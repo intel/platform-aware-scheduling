@@ -17,7 +17,8 @@ import (
 //DummyRestClientConfig  Mocks used for testing in the metrics and other packages
 func DummyRestClientConfig() *restclient.Config {
 	defer func() {
-		if err := recover(); err != nil {
+		err := recover()
+		if err != nil {
 			klog.InfoS("Recovered from runtime error", "component", "testing")
 		}
 	}()

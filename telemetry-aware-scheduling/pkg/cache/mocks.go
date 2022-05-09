@@ -2,6 +2,7 @@ package cache
 
 //This file contains mock methods and objects which are used to test across the TAS packages.
 import (
+	"fmt"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -11,6 +12,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// MockCache is used in the tests for the core and other packages.
+type MockCache struct {
+	MockCache interface{}
+}
 
 //MockEmptySelfUpdatingCache returns auto updating cache
 func MockEmptySelfUpdatingCache() ReaderWriter {
@@ -51,4 +57,50 @@ var mockPolicy = telemetrypolicy.TASPolicy{
 }
 var mockPolicy2 = telemetrypolicy.TASPolicy{
 	ObjectMeta: v1.ObjectMeta{Name: "not-mock-policy", Namespace: "default"},
+}
+
+// ReadMetric is a method implemented for Mock cache.
+func (n MockCache) ReadMetric(string) (metrics.NodeMetricsInfo, error) {
+	return metrics.NodeMetricsInfo{}, nil
+}
+
+// ReadPolicy is a method implemented for Mock cache.
+func (n MockCache) ReadPolicy(string, string) (telemetrypolicy.TASPolicy, error) {
+	return telemetrypolicy.TASPolicy{}, nil
+}
+
+// WriteMetric is a method implemented for Mock cache.
+func (n MockCache) WriteMetric(metricName string, _ metrics.NodeMetricsInfo) error {
+	if metricName != "" {
+		return nil
+	}
+
+	return fmt.Errorf("failed to write metric")
+}
+
+// WritePolicy is a method implemented for Mock cache.
+func (n MockCache) WritePolicy(namespace string, _ string, _ telemetrypolicy.TASPolicy) error {
+	if namespace != "default" {
+		return fmt.Errorf("failed to write policy")
+	}
+
+	return nil
+}
+
+// DeleteMetric is a method implemented for Mock cache.
+func (n MockCache) DeleteMetric(metricName string) error {
+	if metricName != "" {
+		return nil
+	}
+
+	return fmt.Errorf("no metric to delete")
+}
+
+// DeletePolicy is a method implemented for Mock cache.
+func (n MockCache) DeletePolicy(namespace string, policyName string) error {
+	if namespace != "default" || policyName == "" {
+		return fmt.Errorf("failed to delete policy")
+	}
+
+	return nil
 }
