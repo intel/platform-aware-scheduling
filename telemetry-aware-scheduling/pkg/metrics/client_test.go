@@ -30,7 +30,8 @@ var baseTimeStamp = time.Date(2019, time.May, 20, 12, 25, 00, 0, time.UTC)
 //Reproduced rather than referenced because of dependency issues.
 func dummyRestClientConfig() *restclient.Config {
 	defer func() {
-		if err := recover(); err != nil {
+		err := recover()
+		if err != nil {
 			klog.InfoS("Recovered from runtime error", "component", "testing")
 		}
 	}()
