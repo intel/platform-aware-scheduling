@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
-FROM golang:1.17-alpine as builder
+FROM golang:1.18 as builder
 COPY . /src_root
 WORKDIR /src_root/gpu-aware-scheduling
-RUN mkdir -p /install_root/etc && adduser -D -u 10001 gas && tail -1 /etc/passwd > /install_root/etc/passwd \
+RUN mkdir -p /install_root/etc && adduser --disabled-password --quiet --gecos "" -u 10001 gas && tail -1 /etc/passwd > /install_root/etc/passwd \
     && CGO_ENABLED=0 GO111MODULE=on go build -ldflags="-s -w" -o /install_root/extender ./cmd/gas-scheduler-extender \
-    && GO111MODULE=on go run github.com/google/go-licenses@v1.0.0 save "./cmd/gas-scheduler-extender" --save_path /install_root/licenses
+    && GO111MODULE=on go run github.com/google/go-licenses@v1.2.0 save "./cmd/gas-scheduler-extender" --save_path /install_root/licenses
 
 FROM scratch
 WORKDIR /
