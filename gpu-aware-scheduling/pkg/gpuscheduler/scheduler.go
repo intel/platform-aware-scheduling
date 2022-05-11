@@ -28,6 +28,9 @@ const (
 	tileAnnotationName      = "gas-container-tiles"
 	allowlistAnnotationName = "gas-allow"
 	denylistAnnotationName  = "gas-deny"
+	samegpuAnnotationName   = "gas-same-gpu"
+	samegpuMaxI915Request   = 1
+	samegpuMinContainers    = 2
 	tasNSPrefix             = "telemetry.aware.scheduling."
 	gpuDisableLabelPrefix   = "gas-disable-"
 	gpuPreferenceLabel      = "gas-prefer-gpu"
@@ -36,6 +39,7 @@ const (
 	tilePrefLabelPrefix     = "gas-tile-preferred-"
 	gpuPrefix               = "gpu.intel.com/"
 	gpuListLabel            = gpuPrefix + "cards"
+	gpuMonitoringResource   = gpuPrefix + "i915_monitoring"
 	gpuNumbersLabel         = gpuPrefix + "gpu-numbers"
 	gpuPluginResource       = gpuPrefix + "i915"
 	gpuTileResource         = gpuPrefix + "tiles"
@@ -61,6 +65,8 @@ var (
 	errWontFit     = errors.New("will not fit")
 	errExtractFail = errors.New("failed to extract value(s)")
 	errBadUID      = errors.New("provided UID is incorrect")
+	errAnnotation  = errors.New("malformed annotation")
+	errResConflict = errors.New("resources conflict")
 )
 
 //nolint: gochecknoinits // only mocked APIs are allowed in here
@@ -256,14 +262,8 @@ func (m *GASExtender) isGPUAllowed(gpuName string, pod *v1.Pod) bool {
 
 	csvAllowlist, ok := pod.Annotations[allowlistAnnotationName]
 	if ok {
-		allowedGPUs := strings.Split(csvAllowlist, ",")
-		for _, allowedGPUName := range allowedGPUs {
-			if allowedGPUName == gpuName {
-				allow = true
-
-				break
-			}
-		}
+		allowedGPUs := createSearchMapFromStrings(strings.Split(csvAllowlist, ","))
+		allow = allowedGPUs[gpuName]
 	} else {
 		allow = true
 	}
@@ -289,14 +289,8 @@ func (m *GASExtender) isGPUDenied(gpuName string, pod *v1.Pod) bool {
 
 	csvDenylist, ok := pod.Annotations[denylistAnnotationName]
 	if ok {
-		deniedGPUs := strings.Split(csvDenylist, ",")
-		for _, deniedGPUName := range deniedGPUs {
-			if deniedGPUName == gpuName {
-				deny = true
-
-				break
-			}
-		}
+		deniedGPUs := createSearchMapFromStrings(strings.Split(csvDenylist, ","))
+		deny = deniedGPUs[gpuName]
 	}
 
 	klog.V(l4).InfoS("gpu deny status", "deny", deny, "gpuName", gpuName, "podName", pod.Name, "denylist", csvDenylist)
@@ -536,14 +530,21 @@ func (m *GASExtender) getCardsForContainerGPURequest(containerRequest, perGPUCap
 	return cards, preferred, nil
 }
 
-func createGPUMap(gpus []string) map[string]bool {
-	gpuMap := map[string]bool{}
+func createSearchMapFromStrings(list []string) map[string]bool {
+	return createSearchMap(list, func(s *string) string { return *s })
+}
 
-	for _, gpu := range gpus {
-		gpuMap[gpu] = true
+func createSearchMapFromContainers(list []v1.Container) map[string]bool {
+	return createSearchMap(list, func(container *v1.Container) string { return container.Name })
+}
+
+func createSearchMap[Key string | v1.Container](keys []Key, getKey func(*Key) string) map[string]bool {
+	searchMap := make(map[string]bool, len(keys))
+	for idx := range keys {
+		searchMap[getKey(&keys[idx])] = true
 	}
 
-	return gpuMap
+	return searchMap
 }
 
 func addEmptyResourceMaps(gpus []string, nodeResourcesUsed nodeResources) {
@@ -561,6 +562,23 @@ func addUnavailableToUsedResourced(nodeResourcesUsed nodeResources, unavailableR
 			klog.Warningf("failed to add unavailable resources to used: %w", err)
 		}
 	}
+}
+
+func combineSamegpuResourceRequests(indexMap map[int]bool, resourceRequests []resourceMap) (resourceMap, error) {
+	combinedResources := resourceMap{}
+
+	for index := range indexMap {
+		err := combinedResources.addRM(resourceRequests[index])
+		if err != nil {
+			klog.Errorf("Could not sum up resources requests")
+
+			return combinedResources, err
+		}
+	}
+
+	combinedResources[gpuPluginResource] = 1
+
+	return combinedResources, nil
 }
 
 func (m *GASExtender) getNodeForName(name string) (*v1.Node, error) {
@@ -588,7 +606,7 @@ func (m *GASExtender) checkForSpaceAndRetrieveCards(pod *v1.Pod, node *v1.Node) 
 	}
 
 	gpus := getNodeGPUList(node)
-	klog.V(l4).Info("Node gpu list:", gpus)
+	klog.V(l4).Infof("Node %v gpu list: %v", node.Name, gpus)
 	gpuCount := len(gpus)
 
 	if gpuCount == 0 {
@@ -606,7 +624,7 @@ func (m *GASExtender) checkForSpaceAndRetrieveCards(pod *v1.Pod, node *v1.Node) 
 		return containerCards, preferred, err
 	}
 
-	gpuMap := createGPUMap(gpus)
+	gpuMap := createSearchMapFromStrings(gpus)
 	// add empty resourcemaps for cards which have no resources used yet
 	addEmptyResourceMaps(gpus, nodeResourcesUsed)
 
@@ -614,35 +632,106 @@ func (m *GASExtender) checkForSpaceAndRetrieveCards(pod *v1.Pod, node *v1.Node) 
 	tilesPerGpu := perGPUCapacity[gpuTileResource]
 	unavailableResources := m.createUnavailableNodeResources(node, tilesPerGpu)
 
-	klog.V(l4).Info("Unavailable resources: ", unavailableResources)
+	klog.V(l4).Infof("Node %v unavailable resources: %v", node.Name, unavailableResources)
 
 	// add unavailable resources as used, unavailable resources are
 	// (possible) unused resources but are marked as do-not-use externally
 	// e.g. too high temperature detected on a particular resource
 	addUnavailableToUsedResourced(nodeResourcesUsed, unavailableResources)
 
-	klog.V(l4).Info("Used resources: ", nodeResourcesUsed)
+	klog.V(l4).Infof("Node %v used resources: %v", node.Name, nodeResourcesUsed)
 
-	// select GPUs. Trivial implementation selects first suitable GPUs
-	containerRequests := containerRequests(pod)
+	containerCards, preferred, err = m.checkForSpaceResourceRequests(
+		perGPUCapacity, pod, node, nodeResourcesUsed, gpuMap)
 
-	for i, containerRequest := range containerRequests {
-		cards, pref, err := m.getCardsForContainerGPURequest(containerRequest, perGPUCapacity,
-			node, pod, nodeResourcesUsed, gpuMap)
+	return containerCards, preferred, err
+}
+
+func (m *GASExtender) checkForSpaceResourceRequests(perGPUCapacity resourceMap, pod *v1.Pod, node *v1.Node,
+	nodeResourcesUsed nodeResources, gpuMap map[string]bool) ([][]string, bool, error) {
+	var err error
+
+	var cards []string
+
+	var samegpuCard []string
+
+	containerCards := [][]string{}
+	preferred := false
+
+	samegpuNamesMap, err := m.containersRequestingSamegpu(pod)
+	if err != nil {
+		return containerCards, preferred, err
+	}
+
+	samegpuIndexMap, allContainerRequests := containerRequests(pod, samegpuNamesMap)
+
+	if len(samegpuIndexMap) > 0 {
+		samegpuCard, preferred, err = m.getCardForSamegpu(samegpuIndexMap, allContainerRequests,
+			perGPUCapacity, node, pod, nodeResourcesUsed, gpuMap)
 		if err != nil {
-			klog.V(l4).Info("container %v out of %v did not fit", i+1, len(containerRequests))
+			return containerCards, preferred, err
+		}
+	}
+
+	for i, containerRequest := range allContainerRequests {
+		klog.V(l4).Infof("getting cards for container %v", i)
+
+		if samegpuIndexMap[i] {
+			klog.V(l4).Infof("found container %v in same-gpu list", i)
+
+			containerCards = append(containerCards, samegpuCard)
+
+			continue
+		}
+
+		cards, preferred, err = m.getCardsForContainerGPURequest(containerRequest, perGPUCapacity,
+			node, pod, nodeResourcesUsed, gpuMap)
+
+		if err != nil {
+			klog.V(l4).Infof("Node %v container %v out of %v did not fit", node.Name, i+1, len(allContainerRequests))
 
 			return containerCards, preferred, err
 		}
 
 		containerCards = append(containerCards, cards)
-
-		if pref {
-			preferred = true
-		}
 	}
 
 	return containerCards, preferred, nil
+}
+
+func (m *GASExtender) getCardForSamegpu(samegpuIndexMap map[int]bool, allContainerRequests []resourceMap,
+	perGPUCapacity resourceMap, node *v1.Node, pod *v1.Pod, nodeResourcesUsed nodeResources,
+	gpuMap map[string]bool) ([]string, bool, error) {
+	if err := m.sanitizeSamegpuResourcesRequest(samegpuIndexMap, allContainerRequests); err != nil {
+		return []string{}, false, err
+	}
+
+	combinedResourcesRequest, fail := combineSamegpuResourceRequests(samegpuIndexMap, allContainerRequests)
+	if fail != nil {
+		return []string{}, false, fail
+	}
+
+	samegpuCard, preferred, err := m.getCardsForContainerGPURequest(
+		combinedResourcesRequest, perGPUCapacity, node, pod, nodeResourcesUsed, gpuMap)
+	if err != nil {
+		klog.V(l4).Infof("Node %v same-gpu containers of pod %v did not fit", node.Name, pod.Name)
+
+		return []string{}, false, err
+	}
+
+	bookKeepingRM := resourceMap{gpuPluginResource: int64(len(samegpuIndexMap) - 1)}
+
+	err = nodeResourcesUsed[samegpuCard[0]].addRM(bookKeepingRM)
+	if err != nil {
+		klog.Errorf("Node %v could not add-up resource for bookkeeping", node.Name)
+
+		return []string{}, false, err
+	}
+
+	klog.V(l4).Infof("Pod %v same-gpu containers fit to node %v", pod.Name, node.Name)
+	klog.V(l4).Infof("Node %v used resources: %v", node.Name, nodeResourcesUsed)
+
+	return samegpuCard, preferred, nil
 }
 
 // convertNodeCardsToAnnotations converts given container cards into card and tile
@@ -654,7 +743,7 @@ func (m *GASExtender) convertNodeCardsToAnnotations(pod *v1.Pod,
 
 	perGPUCapacity := getPerGPUResourceCapacity(node, gpuCount)
 
-	containerRequests := containerRequests(pod)
+	_, containerRequests := containerRequests(pod, map[string]bool{})
 	containerDelimeter := ""
 
 	if len(containerRequests) != len(containerCards) {
@@ -1036,4 +1125,81 @@ func (m *GASExtender) readNodeResources(nodeName string) (nodeResources, error) 
 	}
 
 	return resources, err
+}
+
+// return search map of container names that should have same GPU based on samegpuAnnotationName.
+// Return empty map if either there are duplicates or absent containers listed.
+func (m *GASExtender) containersRequestingSamegpu(pod *v1.Pod) (map[string]bool, error) {
+	csvSamegpulist, ok := pod.Annotations[samegpuAnnotationName]
+	if !ok {
+		return map[string]bool{}, nil
+	}
+
+	samegpuContainerNames := strings.Split(csvSamegpulist, ",")
+
+	if len(samegpuContainerNames) < samegpuMinContainers {
+		klog.Errorf("malformed annotation %v: minimum %v container names required",
+			samegpuAnnotationName, samegpuMinContainers)
+
+		return map[string]bool{}, errAnnotation
+	}
+
+	samegpuMap := map[string]bool{}
+	podContainerNames := createSearchMapFromContainers(pod.Spec.Containers)
+
+	// ensure there are no duplicates and all containers are in the Pod
+	for _, containerName := range samegpuContainerNames {
+		if samegpuMap[containerName] {
+			klog.Errorf("Malformed annotation %v: duplicate container name: %v",
+				samegpuAnnotationName, containerName)
+
+			return map[string]bool{}, errAnnotation
+		}
+
+		if !podContainerNames[containerName] {
+			klog.Errorf("Malformed annotation %v: no container %v in Pod %v",
+				samegpuAnnotationName, containerName, pod.Name)
+
+			return map[string]bool{}, errAnnotation
+		}
+
+		samegpuMap[containerName] = true
+	}
+
+	klog.V(l4).Infof("Successfully parsed %v annotation in pod %v",
+		samegpuAnnotationName, pod.Name)
+
+	return samegpuMap, nil
+}
+
+func (m *GASExtender) sanitizeSamegpuResourcesRequest(
+	samegpuIndexMap map[int]bool, allResourceRequests []resourceMap) error {
+	if len(samegpuIndexMap) == 0 {
+		return nil
+	}
+
+	samegpuProhibitedResources := []string{gpuTileResource, gpuMonitoringResource}
+
+	for idx := range samegpuIndexMap {
+		request := allResourceRequests[idx]
+		for _, prohibited := range samegpuProhibitedResources {
+			if _, ok := request[prohibited]; ok {
+				klog.Errorf(
+					"Requesting %v resource is unsupported for containers listed in %v annotation",
+					prohibited, samegpuAnnotationName)
+
+				return errResConflict
+			}
+		}
+
+		if getNumI915(request) != samegpuMaxI915Request {
+			klog.Errorf(
+				"Exactly one %v resource has to be requested for containers listed in %v annotation",
+				gpuPluginResource, samegpuAnnotationName)
+
+			return errResConflict
+		}
+	}
+
+	return nil
 }

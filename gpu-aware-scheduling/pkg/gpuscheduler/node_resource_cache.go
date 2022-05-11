@@ -398,7 +398,7 @@ func (c *Cache) adjustTiles(adj bool, nodeName, tileAnnotation string) {
 // set adj=true to add, false to remove resources.
 func (c *Cache) adjustPodResources(pod *v1.Pod, adj bool, annotation, tileAnnotation, nodeName string) error {
 	// get slice of resource maps, one map per container
-	containerRequests := containerRequests(pod)
+	_, containerRequests := containerRequests(pod, map[string]bool{})
 
 	// get slice of card name lists, one CSV list per container
 	containerCards := strings.Split(annotation, "|")

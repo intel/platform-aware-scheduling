@@ -5,7 +5,7 @@ To begin with, it will help a lot if you have been successful already using the 
 
 ## GPU-plugin
 Resource management enabled version of the GPU-plugin is currently necessary for running GAS. The resource management enabled GPU-plugin version can read the necessary annotations of the PODs, and without those annotations, GPU allocations will not work correctly. A copy of the plugin deployment kustomization can be found from [docs/gpu_plugin](./gpu_plugin). It can be deployed simply by issuing:
-```
+```Bash
 kubectl apply -k docs/gpu_plugin/overlays/fractional_resources
 ```
 
@@ -15,14 +15,14 @@ The GPU plugin initcontainer needs to be used in order to get the extended resou
 Basically all versions starting with [v0.6.0](https://github.com/kubernetes-sigs/node-feature-discovery/releases/tag/v0.6.0) should work. You can use it to publish the GPU extended resources and GPU-related labels printed by the hook installed by the GPU-plugin initcontainer.
 
 For picking up the labels printed by the hook installed by the GPU-plugin initcontainer, deploy nfd master with this kind of command in its yaml:
-```
+```YAML
 command: ["nfd-master", "--resource-labels=gpu.intel.com/memory.max,gpu.intel.com/millicores,gpu.intel.com/tiles", "--extra-label-ns=gpu.intel.com"]
 ```
 
 The above would promote three labels, "memory.max", "millicores" and "tiles" to extended resources of the node that produces the labels.
 
 If you want to enable i915 capability scanning, the nfd worker needs to read debugfs, and therefore it needs to run as privileged, like this:
-```
+```YAML
           securityContext:
             runAsNonRoot: null
             # Adding GPU info labels needs debugfs "915_capabilities" access
@@ -31,7 +31,7 @@ If you want to enable i915 capability scanning, the nfd worker needs to read deb
 ```
 
 In order to allow NFD to create extended resource, you will have to give it RBAC-rule to access nodes/status, like:
-```
+```YAML
 rules:
 - apiGroups:
   - ""
@@ -44,7 +44,7 @@ rules:
 
 A simple example of non-root NFD deployment kustomization can be found from [docs/nfd](./nfd). You can deploy it by running
 
-```
+```Bash
 kubectl apply -k docs/nfd
 ```
 
@@ -55,7 +55,7 @@ You need some i915 GPUs in the nodes. Internal GPUs work fine for testing GAS, m
 ## PODs
 
 Your PODs then, needs to ask for some GPU-resources. Like this:
-```
+```YAML
         resources:
           limits:
             gpu.intel.com/i915: 1
@@ -64,7 +64,7 @@ Your PODs then, needs to ask for some GPU-resources. Like this:
 ```
 
 Or like this for tiles:
-```
+```YAML
         resources:
           limits:
             gpu.intel.com/i915: 1
@@ -119,12 +119,83 @@ share the same physical card.
 
 ## Allowlist and Denylist
 
-You can use POD-annotations in your POD-templates to list the GPU names which you allow, or deny for your deployment. The values for the annotations are comma separated value lists of the form "card0,card1,card2", and the names of the annotations are:
+You can use POD-annotations in your POD-templates to list the GPU names which you allow, or deny
+for your deployment. The values for the annotations are comma separated value lists of the form
+"card0,card1,card2", and the names of the annotations are:
 
 - `gas-allow`
 - `gas-deny`
 
 Note that the feature is disabled by default. You need to enable allowlist and/or denylist via command line flags.
+
+## Enforcing same gpu to multiple containers within Pod
+
+By default when GAS checks if available Node resources are enough for Pod's resources requests,
+the containers of the Pod are processed sequentially and independently. In multi-gpu nodes in
+certain cases this may result (but not guaranteed) in container of the same Pod having different
+GPUs allocated to them.
+
+In case two or more containers of the same Pod require to use the same GPU, GAS supports
+`gas-same-gpu` Pod annotation (value is a list of container names) that tells GAS which containers
+should only be given the same GPU. In case if neither of the GPUs on the node have enough available
+resources for all containers listed in such annotation, the current node will not be used for
+scheduling.
+
+<details>
+<summary>Example Pod annotation</summary>
+
+```YAML
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-app
+  labels:
+    app: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo 
+  template:
+    metadata:
+      labels:
+        app: demo
+      annotations:
+        gas-same-gpu: busybox1,busybox2
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            gpu.intel.com/i915: 1
+            gpu.intel.com/millicores: 400
+      - name: busybox2
+        image: busybox:latest
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            gpu.intel.com/i915: 1
+            gpu.intel.com/millicores: 100
+        command: ["/bin/sh", "-c", "sleep 3600"]
+      - name: busybox1
+        image: busybox:latest
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            gpu.intel.com/i915: 1
+            gpu.intel.com/millicores: 100
+        command: ["/bin/sh", "-c", "sleep 3600"]
+```
+
+</details>
+
+### Restrictions
+
+- Containers listed in `gas-same-gpu` annotation have to request exactly one `gpu.intel.com/i915` resource
+- Containers listed in `gas-same-gpu` annotation cannot request `gpu.intel.com/i915_monitoring` resource
+- Containers listed in `gas-same-gpu` annotation cannot request `gpu.intel.com/tiles` resource
 
 ## Summary in a chronological order
 

@@ -70,7 +70,6 @@ func getMockPodSpec() *v1.PodSpec {
 	}
 }
 
-//nolint: unparam
 func getMockPodSpecWithTile(tileCount int) *v1.PodSpec {
 	return &v1.PodSpec{
 		Containers: []v1.Container{
@@ -102,6 +101,49 @@ func getMockPodSpecMultiCont() *v1.PodSpec {
 					Requests: v1.ResourceList{
 						"gpu.intel.com/i915":  resource.MustParse("1"),
 						"gpu.intel.com/tiles": resource.MustParse("1"),
+					},
+				},
+			},
+		},
+	}
+}
+
+func getMockPodSpecMultiContSamegpu() *v1.PodSpec {
+	return &v1.PodSpec{
+		Containers: []v1.Container{
+			{
+				Name: "container1",
+				Resources: v1.ResourceRequirements{
+					Requests: v1.ResourceList{
+						"gpu.intel.com/i915":  resource.MustParse("1"),
+						"gpu.intel.com/tiles": resource.MustParse("2"),
+					},
+				},
+			},
+			{
+				Name: "container2",
+				Resources: v1.ResourceRequirements{
+					Requests: v1.ResourceList{
+						"gpu.intel.com/i915":       resource.MustParse("1"),
+						"gpu.intel.com/memory.max": resource.MustParse("8589934592"), // 8Gi
+					},
+				},
+			},
+			{
+				Name: "container3",
+				Resources: v1.ResourceRequirements{
+					Requests: v1.ResourceList{
+						"gpu.intel.com/i915":       resource.MustParse("1"),
+						"gpu.intel.com/millicores": resource.MustParse("200"),
+					},
+				},
+			},
+			{
+				Name: "container4",
+				Resources: v1.ResourceRequirements{
+					Requests: v1.ResourceList{
+						"gpu.intel.com/i915":       resource.MustParse("1"),
+						"gpu.intel.com/millicores": resource.MustParse("200"),
 					},
 				},
 			},
@@ -1128,4 +1170,115 @@ func TestFilterWithDisabledTiles(t *testing.T) {
 	})
 
 	iCache = origCacheAPI
+}
+
+func TestSanitizeSamegpulist(t *testing.T) {
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{},
+		},
+		Spec: *getMockPodSpecMultiContSamegpu(),
+	}
+	clientset := fake.NewSimpleClientset(pod)
+	gas := NewGASExtender(clientset, false, false, "")
+
+	wrongValueReason := map[string]string{
+		"container1,container5":            "Listing absent containers makes gas-same-gpu ignored",
+		"container1":                       "Listing single container name makes gas-same-gpu ignored",
+		"":                                 "Empty gas-same-gpu annotation is ignored",
+		"container1,container2,container2": "gas-same-gpu with duplicates is ignored",
+	}
+
+	Convey("Ensure no gas-same-gpu annotation returns blank list with no error",
+		t, func() {
+			containerNames, err := gas.containersRequestingSamegpu(pod)
+			So(len(containerNames), ShouldEqual, 0)
+			So(err, ShouldEqual, nil)
+		})
+
+	for wrongValue, reason := range wrongValueReason {
+		pod.ObjectMeta.Annotations["gas-same-gpu"] = wrongValue
+
+		Convey(reason,
+			t, func() {
+				containerNames, err := gas.containersRequestingSamegpu(pod)
+				So(len(containerNames), ShouldEqual, 0)
+				So("malformed annotation", ShouldEqual, err.Error())
+			})
+	}
+
+	pod.ObjectMeta.Annotations["gas-same-gpu"] = "container2,container3"
+
+	Convey("Ensure correct annotation returns all listed container names with no error",
+		t, func() {
+			containerNames, err := gas.containersRequestingSamegpu(pod)
+			So(containerNames, ShouldResemble, map[string]bool{"container2": true, "container3": true})
+			So(err, ShouldEqual, nil)
+		})
+}
+
+func TestSanitizeSamegpuResourcesRequest(t *testing.T) {
+	pod := getFakePod()
+	clientset := fake.NewSimpleClientset(pod)
+	gas := NewGASExtender(clientset, false, false, "")
+
+	Convey("Tiles and monitoring resources are not allowed in same-gpu resourceRequests",
+		t, func() {
+			// fail because of tiles
+			samegpuIndexes := map[int]bool{0: true}
+			resourceRequests := []resourceMap{
+				{"gpu.intel.com/i915": 1, "gpu.intel.com/tiles": 2},
+			}
+			err := gas.sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+			So(err.Error(), ShouldEqual, "resources conflict")
+
+			// fail because of monitoring
+			samegpuIndexes = map[int]bool{0: true}
+			resourceRequests = []resourceMap{
+				{"gpu.intel.com/i915": 1, "gpu.intel.com/i915_monitoring": 1},
+			}
+			err = gas.sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+			So(err.Error(), ShouldEqual, "resources conflict")
+
+			// success
+			samegpuIndexes = map[int]bool{0: true}
+			resourceRequests = []resourceMap{
+				{"gpu.intel.com/i915": 1,
+					"gpu.intel.com/millicores": 100,
+					"gpu.intel.com/memory.max": 8589934592,
+				},
+			}
+			err = gas.sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+			So(err, ShouldEqual, nil)
+		})
+
+	Convey("Same-gpu containers should have exactly one device resource requested",
+		t, func() {
+			// failure heterogeneous
+			samegpuIndexes := map[int]bool{0: true, 1: true}
+			resourceRequests := []resourceMap{
+				{"gpu.intel.com/i915": 1, "gpu.intel.com/millicores": 200},
+				{"gpu.intel.com/i915": 2, "gpu.intel.com/millicores": 200},
+			}
+			err := gas.sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+			So(err.Error(), ShouldEqual, "resources conflict")
+
+			// Failure homogeneous
+			samegpuIndexes = map[int]bool{0: true, 1: true}
+			resourceRequests = []resourceMap{
+				{"gpu.intel.com/i915": 2, "gpu.intel.com/millicores": 200},
+				{"gpu.intel.com/i915": 2, "gpu.intel.com/millicores": 200},
+			}
+			err = gas.sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+			So(err.Error(), ShouldEqual, "resources conflict")
+
+			// Success
+			samegpuIndexes = map[int]bool{0: true, 1: true}
+			resourceRequests = []resourceMap{
+				{"gpu.intel.com/i915": 1, "gpu.intel.com/millicores": 200},
+				{"gpu.intel.com/i915": 1, "gpu.intel.com/millicores": 300},
+			}
+			err = gas.sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+			So(err, ShouldEqual, nil)
+		})
 }
