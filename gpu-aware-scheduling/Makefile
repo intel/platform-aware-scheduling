@@ -2,7 +2,18 @@ ifneq ($(TAG),)
 IMAGE_TAG=:$(TAG)
 endif
 
-.PHONY: test all build gpu-extender images format clean
+GOLICENSES_IN_GO_MOD=@$(shell grep "github.com/google/go-licenses" go.mod | cut -b 32-)
+ifneq ("$(wildcard vendor/)","")
+GOLICENCES_PREFIX=./vendor/
+else
+GOLICENSES_VERSION=$(GOLICENSES_IN_GO_MOD)
+endif
+
+ifneq ("$(wildcard licenses/)","")
+LOCAL_LICENSES=TRUE
+endif
+
+.PHONY: test all build image release-image format clean licenses mock e2e
 
 test:
 	go test ./...  -v *_test.go
@@ -12,14 +23,26 @@ all: format build
 build:
 	CGO_ENABLED=0 GO111MODULE=on go build -ldflags="-s -w" -o ./bin/extender ./cmd/gas-scheduler-extender
 
-image: gpu-extender
-	docker build -f deploy/images/Dockerfile_gpu-extender ../ -t $(IMAGE_PATH)gpu-extender$(IMAGE_TAG)
+#note: you can speed up subsequent docker builds by doing "go mod vendor"
+#note: you can further speed up subsequent docker builds by doing "make licenses"
+image:
+	docker build --build-arg GOLICENSES_PREFIX=$(GOLICENCES_PREFIX) --build-arg GOLICENSES_VERSION=$(GOLICENSES_VERSION) \
+	--build-arg LOCAL_LICENSES=$(LOCAL_LICENSES) -f deploy/images/Dockerfile_gpu-extender ../ -t $(IMAGE_PATH)gpu-extender$(IMAGE_TAG)
+
+release-image: clean
+	docker build --build-arg GOLICENSES_VERSION=$(GOLICENSES_IN_GO_MOD) -f deploy/images/Dockerfile_gpu-extender ../ \
+	-t $(IMAGE_PATH)gpu-extender$(IMAGE_TAG)
 
 format:
 	gofmt -w -s .
 
 clean:
 	rm -f ./bin/*
+	rm -rf vendor licenses
+
+licenses:
+	GO111MODULE=on go run ${GOLICENSES_PREFIX}github.com/google/go-licenses${GOLICENSES_VERSION} \
+	save "./cmd/gas-scheduler-extender" --save_path licenses
 
 mock:
 	mockery --name=CacheAPI --dir=pkg/gpuscheduler --inpkg --note="+build !validation\nre-generate with 'make mock'"
