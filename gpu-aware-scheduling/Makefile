@@ -8,12 +8,15 @@ ifneq ("$(wildcard licenses/)","")
 LOCAL_LICENSES=TRUE
 endif
 
-.PHONY: test all build image release-image format clean licenses mock e2e clean-licenses
+.PHONY: test all build image release-image format clean licenses mock e2e lint
 
 test:
 	go test ./...  -v *_test.go
 
-all: format build
+all: format build lint
+
+lint: format build
+	golangci-lint run
 
 build:
 	CGO_ENABLED=0 GO111MODULE=on go build -ldflags="-s -w" -o ./bin/extender ./cmd/gas-scheduler-extender

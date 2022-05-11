@@ -477,7 +477,6 @@ func TestDeschedulingCards(t *testing.T) {
 	})
 
 	applied := 0
-	//nolint: unparam
 	applyCheck := func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
 		patchAction, ok := action.(k8stesting.PatchAction)
 		if !ok {
@@ -498,7 +497,6 @@ func TestDeschedulingCards(t *testing.T) {
 	}
 
 	removed := 0
-	//nolint: unparam
 	removeCheck := func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
 		patchAction, ok := action.(k8stesting.PatchAction)
 		if !ok {

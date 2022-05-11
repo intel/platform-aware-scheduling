@@ -242,3 +242,28 @@ func TestConcatenateSplitLabel(t *testing.T) {
 		So(result, ShouldEqual, "foobarber")
 	})
 }
+
+func TestContainerRequestsNoSamegpu(t *testing.T) {
+	Convey(
+		"With empty same-gpu list, empty map and a full list of resource requests is expected",
+		t, func() {
+			pod := &v1.Pod{
+				Spec: *getMockPodSpecMultiContSamegpu(),
+			}
+			samegpuSearchmap, allResourceRequests := containerRequests(pod, map[string]bool{})
+			So(len(samegpuSearchmap), ShouldEqual, 0)
+			So(len(allResourceRequests), ShouldEqual, len(pod.Spec.Containers))
+		})
+	Convey(
+		"With same-gpu list, map of respective indexes should be returned and full list of resource requests",
+		t, func() {
+			pod := &v1.Pod{
+				Spec: *getMockPodSpecMultiContSamegpu(),
+			}
+			samegpuNames := map[string]bool{"container2": true, "container3": true}
+			samegpuSearchmap, allRequests := containerRequests(pod, samegpuNames)
+			So(len(samegpuSearchmap), ShouldEqual, len(samegpuNames))
+			So(len(allRequests), ShouldEqual, len(pod.Spec.Containers))
+			So(samegpuSearchmap, ShouldResemble, map[int]bool{1: true, 2: true})
+		})
+}

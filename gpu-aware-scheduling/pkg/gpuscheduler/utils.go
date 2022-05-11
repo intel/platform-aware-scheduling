@@ -23,24 +23,33 @@ type DisabledTilesMap map[string][]int
 type DescheduledTilesMap map[string][]int
 type PreferredTilesMap map[string][]int
 
-func containerRequests(pod *v1.Pod) []resourceMap {
+// Return all resources requests and samegpuSearchmap indicating which resourceRequests
+// should be counted together. samegpuSearchmap is same length as samegpuContainerNames arg,
+// Key is index of allResource item, value is true if container was listed in same-gpu annotation.
+func containerRequests(pod *v1.Pod, samegpuContainerNames map[string]bool) (
+	map[int]bool, []resourceMap) {
+	samegpuSearchMap := map[int]bool{}
 	allResources := []resourceMap{}
 
-	for _, container := range pod.Spec.Containers {
+	for idx, container := range pod.Spec.Containers {
 		rm := resourceMap{}
 
 		for name, quantity := range container.Resources.Requests {
 			resourceName := name.String()
-			if strings.HasPrefix(resourceName, resourcePrefix) {
+			if strings.HasPrefix(resourceName, gpuPrefix) {
 				value, _ := quantity.AsInt64()
 				rm[resourceName] = value
 			}
 		}
 
+		if samegpuContainerNames[container.Name] {
+			samegpuSearchMap[idx] = true
+		}
+
 		allResources = append(allResources, rm)
 	}
 
-	return allResources
+	return samegpuSearchMap, allResources
 }
 
 // addPCIGroupGPUs processes the given card and if it is requested to be handled as groups, the
