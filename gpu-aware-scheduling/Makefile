@@ -41,7 +41,8 @@ clean:
 	rm -rf vendor licenses
 
 licenses:
-	GO111MODULE=on go run ${GOLICENSES_PREFIX}github.com/google/go-licenses${GOLICENSES_VERSION} \
+	rm -rf licenses
+	GO111MODULE=on go run $(GOLICENSES_PREFIX)github.com/google/go-licenses$(GOLICENSES_VERSION) \
 	save "./cmd/gas-scheduler-extender" --save_path licenses
 
 mock:
