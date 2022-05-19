@@ -2,18 +2,13 @@ ifneq ($(TAG),)
 IMAGE_TAG=:$(TAG)
 endif
 
-GOLICENSES_IN_GO_MOD=@$(shell grep "github.com/google/go-licenses" go.mod | cut -b 32-)
-ifneq ("$(wildcard vendor/)","")
-GOLICENCES_PREFIX=./vendor/
-else
-GOLICENSES_VERSION=$(GOLICENSES_IN_GO_MOD)
-endif
+GOLICENSES_VERSION?=v1.2.0
 
 ifneq ("$(wildcard licenses/)","")
 LOCAL_LICENSES=TRUE
 endif
 
-.PHONY: test all build image release-image format clean licenses mock e2e
+.PHONY: test all build image release-image format clean licenses mock e2e clean-licenses
 
 test:
 	go test ./...  -v *_test.go
@@ -36,13 +31,15 @@ release-image: clean
 format:
 	gofmt -w -s .
 
-clean:
+clean: clean-licenses
 	rm -f ./bin/*
-	rm -rf vendor licenses
+	rm -rf vendor
 
-licenses:
+clean-licenses:
 	rm -rf licenses
-	GO111MODULE=on go run $(GOLICENSES_PREFIX)github.com/google/go-licenses$(GOLICENSES_VERSION) \
+
+licenses: clean-licenses
+	GO111MODULE=on go run github.com/google/go-licenses@$(GOLICENSES_VERSION) \
 	save "./cmd/gas-scheduler-extender" --save_path licenses
 
 mock:
