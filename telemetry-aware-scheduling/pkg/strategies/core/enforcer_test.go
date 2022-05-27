@@ -16,6 +16,7 @@ func TestNewEnforcer(t *testing.T) {
 	type args struct {
 		kubeClient kubernetes.Interface
 	}
+
 	tests := []struct {
 		name string
 		args args
@@ -39,16 +40,23 @@ func TestMetricEnforcer_RegisterStrategyType(t *testing.T) {
 		PodViolatingLabel string
 		KubeClient        kubernetes.Interface
 	}
+
 	type args struct {
 		str Interface
 	}
+
 	tests := []struct {
 		name   string
 		fields fields
 		args   args
 		wanted []string
 	}{
-		{"RegisterStrategyType one strategy", fields{make(map[string]map[Interface]interface{}), "violates", testclient.NewSimpleClientset()}, args{str: mockedStrategy}, []string{"mocko"}},
+		{"RegisterStrategyType one strategy",
+			fields{make(map[string]map[Interface]interface{}),
+				"violates",
+				testclient.NewSimpleClientset()},
+			args{str: mockedStrategy},
+			[]string{"mocko"}},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -76,16 +84,23 @@ func TestMetricEnforcer_UnregisterStrategyType(t *testing.T) {
 		PodViolatingLabel string
 		KubeClient        kubernetes.Interface
 	}
+
 	type args struct {
 		str Interface
 	}
+
 	tests := []struct {
 		name   string
 		fields fields
 		args   args
 		wanted []string
 	}{
-		{"RegisterStrategyType working", fields{make(map[string]map[Interface]interface{}), "violates", testclient.NewSimpleClientset()}, args{str: mockedStrategy}, []string{}},
+		{"RegisterStrategyType working",
+			fields{make(map[string]map[Interface]interface{}),
+				"violates",
+				testclient.NewSimpleClientset()},
+			args{str: mockedStrategy},
+			[]string{}},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -114,13 +129,22 @@ func TestMetricEnforcer_RegisteredStrategyTypes(t *testing.T) {
 		PodViolatingLabel string
 		KubeClient        kubernetes.Interface
 	}
+
 	tests := []struct {
 		name   string
 		fields fields
 		want   []string
 	}{
-		{"single strategy", fields{RegisteredTypes: map[string]map[Interface]interface{}{"toughStrategy": nil}, PodViolatingLabel: "", KubeClient: testclient.NewSimpleClientset()}, []string{"toughStrategy"}},
-		{"no strategies", fields{RegisteredTypes: map[string]map[Interface]interface{}{}, PodViolatingLabel: "", KubeClient: testclient.NewSimpleClientset()}, []string{}},
+		{"single strategy",
+			fields{RegisteredTypes: map[string]map[Interface]interface{}{"toughStrategy": nil},
+				PodViolatingLabel: "",
+				KubeClient:        testclient.NewSimpleClientset()},
+			[]string{"toughStrategy"}},
+		{"no strategies",
+			fields{RegisteredTypes: map[string]map[Interface]interface{}{},
+				PodViolatingLabel: "",
+				KubeClient:        testclient.NewSimpleClientset()},
+			[]string{}},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -141,10 +165,12 @@ func TestMetricEnforcer_AddStrategy(t *testing.T) {
 		RegisteredStrategies map[string]map[Interface]interface{}
 		KubeClient           kubernetes.Interface
 	}
+
 	type args struct {
 		str          Interface
 		strategyType string
 	}
+
 	tests := []struct {
 		name   string
 		fields fields
@@ -183,7 +209,7 @@ func TestMetricEnforcer_AddStrategy(t *testing.T) {
 	}
 }
 
-//func TestMetricEnforcer_EnforceRegisteredStrategies(t *testing.T) {
+// func TestMetricEnforcer_EnforceRegisteredStrategies(t *testing.T) {
 //	type fields struct {
 //		RegisteredStrategies   map[string]map[Interface]interface{}
 //		KubeClient        kubernetes.Interface
@@ -223,9 +249,11 @@ func TestMetricEnforcer_IsRegistered(t *testing.T) {
 		RegisteredStrategies map[string]map[Interface]interface{}
 		KubeClient           kubernetes.Interface
 	}
+
 	type args struct {
 		str string
 	}
+
 	tests := []struct {
 		name   string
 		fields fields
@@ -260,10 +288,12 @@ func TestMetricEnforcer_RemoveStrategy(t *testing.T) {
 		RegisteredStrategies map[string]map[Interface]interface{}
 		KubeClient           kubernetes.Interface
 	}
+
 	type args struct {
 		str          Interface
 		strategyType string
 	}
+
 	tests := []struct {
 		name   string
 		fields fields

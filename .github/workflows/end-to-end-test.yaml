@@ -6,15 +6,15 @@ on:
       goVersion:
         required: false
         type: string
-        default: 1.17
+        default: 1.18
       kindversion:
         required: false
         type: string
-        default: v0.11.1
+        default: v0.14.0
       imagehash:
         required: false
         type: string
-        default: kindest/node:v1.23.0@sha256:49824ab1727c04e56a21a5d8372a402fcd32ea51ac96a2706a12af38934f81ac
+        default: kindest/node:v1.24.0@sha256:0866296e693efe1fed79d5e6c7af8df71fc73ae45e3679af05342239cdc5bc8e
       runson:
         required: false
         type: string

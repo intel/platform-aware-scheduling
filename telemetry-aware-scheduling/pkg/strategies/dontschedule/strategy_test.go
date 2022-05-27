@@ -18,6 +18,7 @@ func TestDontScheduleStrategy_Violated(t *testing.T) {
 	type args struct {
 		cache cache.ReaderWriter
 	}
+
 	tests := []struct {
 		name string
 		d    Strategy
@@ -183,7 +184,7 @@ func TestDontScheduleStrategy_Violated(t *testing.T) {
 			err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1,
 				Value: *resource.NewQuantity(10, resource.DecimalSI)}})
 			if err != nil {
-				klog.V(4).InfoS(err.Error(), "component", "testing")
+				klog.InfoS(err.Error(), "component", "testing")
 				klog.Exit(err)
 			}
 			err = tt.args.cache.WriteMetric("cpu", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1,
@@ -244,6 +245,7 @@ func TestDontScheduleStrategy_Equals(t *testing.T) {
 	type args struct {
 		in0 core.Interface
 	}
+
 	tests := []struct {
 		name string
 		d    Strategy
@@ -288,6 +290,7 @@ func TestDontScheduleStrategy_Enforce(t *testing.T) {
 		enforcer *core.MetricEnforcer
 		cache    cache.ReaderWriter
 	}
+
 	tests := []struct {
 		name    string
 		d       Strategy
@@ -304,6 +307,7 @@ func TestDontScheduleStrategy_Enforce(t *testing.T) {
 			got, err := d.Enforce(tt.args.enforcer, tt.args.cache)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Strategy.Enforce() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
 			if got != tt.want {

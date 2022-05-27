@@ -1,8 +1,9 @@
-//Package metrics instruments to read and cache Node Metrics from the custom metrics API.
+// Package metrics instruments to read and cache Node Metrics from the custom metrics API.
 package metrics
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -16,63 +17,73 @@ import (
 	customclient "k8s.io/metrics/pkg/client/custom_metrics"
 )
 
-//Client knows how to query CustomMetricsAPI to return Node Metrics.
+var errNull = errors.New("")
+
+// Client knows how to query CustomMetricsAPI to return Node Metrics.
 type Client interface {
 	GetNodeMetric(metricName string) (NodeMetricsInfo, error)
 }
 
-//NodeMetric holds information on a single piece of telemetry data.
+// NodeMetric holds information on a single piece of telemetry data.
 type NodeMetric struct {
 	Timestamp time.Time
 	Window    time.Duration
 	Value     resource.Quantity
 }
 
-//NodeMetricsInfo holds a map of metric information related to a single named metric. The key for the map is the name of the node.
+// NodeMetricsInfo holds a map of metric information related to a single named metric. The key for the map is the name of the node.
 type NodeMetricsInfo map[string]NodeMetric
 
-//CustomMetricsClient embeds a client for the custom Metrics API
+// CustomMetricsClient embeds a client for the custom Metrics API.
 type CustomMetricsClient struct {
 	customclient.CustomMetricsClient
 }
 
-//NewClient creates a new Metrics Client including discovering and mapping the available APIs, and pulling the API version.
+// NewClient creates a new Metrics Client including discovering and mapping the available APIs, and pulling the API version.
 func NewClient(config *restclient.Config) CustomMetricsClient {
 	discoveryClient := discovery.NewDiscoveryClientForConfigOrDie(config)
 	cachedDiscoveryClient := cacheddiscovery.NewMemCacheClient(discoveryClient)
 	restMapper := restmapper.NewDeferredDiscoveryRESTMapper(cachedDiscoveryClient)
 	restMapper.Reset()
+
 	apiVersionsGetter := customclient.NewAvailableAPIsGetter(discoveryClient)
 	metricsClient := CustomMetricsClient{customclient.NewForConfig(config, restMapper, apiVersionsGetter)}
+
 	return metricsClient
 }
 
-//GetNodeMetric gets the given metric, time Window for Metric and timestamp for each node in the cluster.
+// GetNodeMetric gets the given metric, time Window for Metric and timestamp for each node in the cluster.
 func (c CustomMetricsClient) GetNodeMetric(metricName string) (NodeMetricsInfo, error) {
 	metrics, err := c.RootScopedMetrics().GetForObjects(schema.GroupKind{Kind: "Node"}, labels.NewSelector(), metricName, labels.NewSelector())
 	if err != nil {
-		return nil, errors.New("unable to fetch metrics from custom metrics API: " + err.Error())
+		return nil, fmt.Errorf("unable to get metric %v from custom metrics API: %w", metricName, err)
 	}
+
 	if len(metrics.Items) == 0 {
-		return nil, errors.New("no metrics returned from custom metrics API")
+		return nil, fmt.Errorf("metric %v not in custom metrics API %w", metricName, errNull)
 	}
+
 	output := wrapMetrics(metrics)
-	return output, err
+
+	return output, nil
 }
 
-//wrapMetrics parses the custom metrics API MetricValueList type into a NodeCustomMetricInfo
+// wrapMetrics parses the custom metrics API MetricValueList type into a NodeCustomMetricInfo.
 func wrapMetrics(metrics *v1beta2.MetricValueList) NodeMetricsInfo {
 	result := make(NodeMetricsInfo, len(metrics.Items))
+
 	for _, m := range metrics.Items {
 		window := time.Minute
 		if m.WindowSeconds != nil {
 			window = time.Duration(*m.WindowSeconds) * time.Second
 		}
+
 		result[m.DescribedObject.Name] = NodeMetric{
 			Timestamp: m.Timestamp.Time,
 			Window:    window,
 			Value:     m.Value,
 		}
 	}
+
 	return result
 }

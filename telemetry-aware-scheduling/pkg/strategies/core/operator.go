@@ -9,8 +9,8 @@ import (
 	"k8s.io/klog/v2"
 )
 
-//EvaluateRule returns a boolean after implementing the function described in the TASPolicyRule.
-//The rule is transformed into a function inside of the method.
+// EvaluateRule returns a boolean after implementing the function described in the TASPolicyRule.
+// The rule is transformed into a function inside of the method.
 func EvaluateRule(value resource.Quantity, rule telempol.TASPolicyRule) bool {
 	operators := map[string]func(resource.Quantity, int64) bool{
 		"LessThan": func(value resource.Quantity, target int64) bool {
@@ -25,30 +25,33 @@ func EvaluateRule(value resource.Quantity, rule telempol.TASPolicyRule) bool {
 	}
 	if _, ok := operators[rule.Operator]; !ok {
 		klog.InfoS("Invalid operator type:"+rule.Operator, "component", "controller")
+
 		return false
 	}
 
 	return operators[rule.Operator](value, rule.Target)
 }
 
-//OrderedList will return a list of nodes ordered by their linked metric and operator
-//TODO: Make this method more generic so it can use objects other than nodes.
+// OrderedList will return a list of nodes ordered by their linked metric and operator.
+// TODO: Make this method more generic so it can use objects other than nodes.
 func OrderedList(metricsInfo metrics.NodeMetricsInfo, operator string) []NodeSortableMetric {
 	mtrcs := []NodeSortableMetric{}
 	for name, info := range metricsInfo {
 		mtrcs = append(mtrcs, NodeSortableMetric{name, info.Value})
 	}
+
 	switch operator {
 	case "GreaterThan":
 		sort.Slice(mtrcs, func(i, j int) bool { return mtrcs[i].MetricValue.Cmp(mtrcs[j].MetricValue) == 1 })
 	case "LessThan":
 		sort.Slice(mtrcs, func(i, j int) bool { return mtrcs[i].MetricValue.Cmp(mtrcs[j].MetricValue) == -1 })
 	}
+
 	return mtrcs
 }
 
-//NodeSortableMetric type is necessary in order to call the sort.Slice method.
-//Note lack of usage of time windows or stamps.
+// NodeSortableMetric type is necessary in order to call the sort.Slice method.
+// Note lack of usage of time windows or stamps.
 type NodeSortableMetric struct {
 	NodeName    string
 	MetricValue resource.Quantity

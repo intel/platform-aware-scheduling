@@ -10,7 +10,7 @@ on:
       goVersion:
         required: false
         type: string
-        default: 1.17
+        default: 1.18
 
 jobs:
   build-test:
@@ -22,7 +22,9 @@ jobs:
         with:
           go-version: ${{ inputs.goVersion }}
       - name: Build
-        run: make test
-      - name: Test
         run: make build
+      - name: Image
+        run: make image
+      - name: Test
+        run: make test
 

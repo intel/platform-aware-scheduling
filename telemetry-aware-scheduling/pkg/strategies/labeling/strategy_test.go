@@ -19,9 +19,11 @@ import (
 
 func TestLabelingStrategy_SetPolicyName(t *testing.T) {
 	klog.InfoS("entered in strategy", "component", "testing")
+
 	type args struct {
 		name string
 	}
+
 	tests := []struct {
 		name string
 		d    *Strategy
@@ -64,26 +66,94 @@ func TestLabelingStrategy_Equals(t *testing.T) {
 	type args struct {
 		other core.Interface
 	}
+
 	tests := []struct {
 		name string
 		d    *Strategy
 		args args
 		want bool
 	}{
-		{name: "Not Equal: one empty strategies", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}},
-		{name: "Equal: one rule per strategy", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}}, want: true},
-		{name: "Equal: 2 different rules same order", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "cpu", Operator: "Equals", Target: 1, Labels: []string{"card0=false"}}, {Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "cpu", Operator: "Equals", Target: 1, Labels: []string{"card0=false"}}, {Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}}, want: true},
-		{name: "Not equal: 2 different rules different order", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}, {Metricname: "cpu", Operator: "Equals", Target: 1, Labels: []string{"card0=false"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "cpu", Operator: "Equals", Target: 1, Labels: []string{"card0=false"}}, {Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}}, want: false},
-		{name: "Not equal: different number rules", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "cpu", Operator: "Equals", Target: 1, Labels: []string{"card0=false"}}, {Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}}, want: false},
-		{name: "Not equal: different number rules different order", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}, {Metricname: "cpu", Operator: "Equals", Target: 1, Labels: []string{"card0=false"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50}}}}, want: false},
-		{name: "Not equal: different rules", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "cpu", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=false"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}}, want: false},
-		{name: "Not equal: different operator", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "LessThan", Target: 50, Labels: []string{"card0=false"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=false"}}}}}, want: false},
-		{name: "Not equal: different target", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "LessThan", Target: 10, Labels: []string{"card0=false"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=false"}}}}}, want: false},
-		{name: "Not equal: different metrics", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "cpu", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=false"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=false"}}}}}, want: false},
-		{name: "Not equal: different labels", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=false"}}}}}, want: false},
-		{name: "Equal: 2 labels same order", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true", "card1=false"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true", "card1=false"}}}}}, want: true},
-		{name: "Not Equal: 2 labels different order", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card1=false", "card0=true"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true", "card1=false"}}}}}, want: false},
-		{name: "Not Equal: different number of labels", d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card1=false"}}}}, args: args{other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 50, Labels: []string{"card0=true", "card1=false"}}}}}, want: false},
+		{name: "Not Equal: one empty strategies",
+			d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{}},
+			args: args{
+				other: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{})}},
+		{name: "Equal: one rule per strategy",
+			d: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{"card0=true"}),
+			args: args{
+				other: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{"card0=true"})},
+			want: true},
+		{name: "Equal: 2 different rules same order",
+			d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{
+				metricRules("cpu", "Equals", 1, []string{"card0=false"}),
+				metricRules("memory", "GreaterThan", 50, []string{"card0=true"})}},
+			args: args{
+				other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{
+					metricRules("cpu", "Equals", 1, []string{"card0=false"}),
+					metricRules("memory", "GreaterThan", 50, []string{"card0=true"})}}},
+			want: true},
+		{name: "Not equal: 2 different rules different order",
+			d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 50, []string{"card0=true"}),
+				metricRules("cpu", "Equals", 1, []string{"card0=false"})}},
+			args: args{
+				other: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{
+					metricRules("cpu", "Equals", 1, []string{"card0=false"}),
+					metricRules("memory", "GreaterThan", 50, []string{"card0=true"})}}},
+			want: false},
+		{name: "Not equal: different number rules",
+			d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{
+				metricRules("cpu", "Equals", 1, []string{"card0=false"}),
+				metricRules("memory", "GreaterThan", 50, []string{"card0=true"})}},
+			args: args{
+				other: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{"card0=true"})},
+			want: false},
+		{name: "Not equal: different number rules different order",
+			d: &Strategy{PolicyName: "test name", Rules: []v1.TASPolicyRule{
+				metricRules("memory", "GreaterThan", 50, []string{}),
+				metricRules("cpu", "Equals", 1, []string{"card0=false"})}},
+			args: args{
+				other: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{})},
+			want: false},
+		{name: "Not equal: different rules",
+			d: strategyRuleDefault("test name", "cpu", "GreaterThan", 50, []string{"card0=false"}),
+			args: args{
+				other: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{"card0=true"})},
+			want: false},
+		{name: "Not equal: different operator",
+			d: strategyRuleDefault("test name", "memory", "LessThan", 50, []string{"card0=false"}),
+			args: args{
+				other: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{"card0=false"})},
+			want: false},
+		{name: "Not equal: different target",
+			d: strategyRuleDefault("test name", "memory", "LessThan", 10, []string{"card0=false"}),
+			args: args{
+				other: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{"card0=false"})},
+			want: false},
+		{name: "Not equal: different metrics",
+			d: strategyRuleDefault("test name", "cpu", "GreaterThan", 50, []string{"card0=false"}),
+			args: args{
+				other: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{"card0=false"})},
+			want: false},
+		{name: "Not equal: different labels",
+			d: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{"card0=true"}),
+			args: args{
+				other: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{"card0=false"})},
+			want: false},
+		{name: "Equal: 2 labels same order",
+			d: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{"card0=true", "card1=false"}),
+			args: args{
+				other: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{"card0=true", "card1=false"})},
+			want: true},
+		{name: "Not Equal: 2 labels different order",
+			d: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{"card1=false", "card0=true"}),
+			args: args{
+				other: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{"card0=true", "card1=false"})},
+			want: false},
+		{name: "Not Equal: different number of labels",
+			d: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{"card1=false"}),
+			args: args{
+				other: strategyRuleDefault("test name", "memory", "GreaterThan", 50, []string{"card0=true", "card1=false"})},
+			want: false},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -102,6 +172,7 @@ func TestLabelingStrategy_Violated(t *testing.T) {
 	type args struct {
 		cache cache.ReaderWriter
 	}
+
 	tests := []struct {
 		name string
 		d    *Strategy
@@ -299,7 +370,8 @@ func TestLabelingStrategy_Violated(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1, Value: *resource.NewQuantity(10, resource.DecimalSI)}})
+			err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{
+				"node-1": {Timestamp: time.Now(), Window: 1, Value: *resource.NewQuantity(10, resource.DecimalSI)}})
 			if err != nil {
 				klog.InfoS("testing metric write on cache failed"+err.Error(), "component", "testing")
 			}

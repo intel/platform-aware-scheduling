@@ -18,7 +18,10 @@ import (
 
 const (
 	labelPrefix = "telemetry.aware.scheduling."
+	pairValue   = 2
 )
+
+var errNull = errors.New("")
 
 // node -> policy name -> labels slice (label is stored prefixed and the format is key=value).
 type violationMap map[string]map[string][]string
@@ -52,7 +55,7 @@ func (d *Strategy) Enforce(enforcer *strategy.MetricEnforcer, cache cache.Reader
 	nodes, err := enforcer.KubeClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		msg := fmt.Sprintf("cannot list nodes: %v", err)
-		klog.V(2).InfoS(msg, "component", "controller")
+		klog.V(l2).InfoS(msg, "component", "controller")
 
 		return -1, fmt.Errorf("enforce failure (node list), %w", err)
 	}
@@ -61,7 +64,7 @@ func (d *Strategy) Enforce(enforcer *strategy.MetricEnforcer, cache cache.Reader
 
 	numberViolations, err := d.updateNodeLabels(enforcer, violations, allNodeViolatedLabels, nodes)
 	if err != nil {
-		klog.V(2).InfoS(err.Error(), "component", "controller")
+		klog.V(l2).InfoS(err.Error(), "component", "controller")
 
 		return -1, err
 	}
@@ -73,7 +76,7 @@ func (d *Strategy) Enforce(enforcer *strategy.MetricEnforcer, cache cache.Reader
 func (d *Strategy) patchNode(nodeName string, enforcer *strategy.MetricEnforcer, payload []patchValue) error {
 	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		klog.V(4).InfoS(err.Error(), "component", "controller")
+		klog.V(l4).InfoS(err.Error(), "component", "controller")
 
 		return fmt.Errorf("node patch marshaling failure: %w", err)
 	}
@@ -81,7 +84,7 @@ func (d *Strategy) patchNode(nodeName string, enforcer *strategy.MetricEnforcer,
 	_, err = enforcer.KubeClient.CoreV1().Nodes().Patch(
 		context.TODO(), nodeName, types.JSONPatchType, jsonPayload, metav1.PatchOptions{})
 	if err != nil {
-		klog.V(4).InfoS(err.Error(), "component", "controller")
+		klog.V(l4).InfoS(err.Error(), "component", "controller")
 
 		return fmt.Errorf("node patch failure: %w", err)
 	}
@@ -94,8 +97,8 @@ func (d *Strategy) patchNode(nodeName string, enforcer *strategy.MetricEnforcer,
 // if label exists and the value has not changed, nothing is appended.
 func appendViolationPatchValue(payload []patchValue, label string, node *v1.Node) ([]patchValue, error) {
 	nameValuePair := strings.Split(label, "=")
-	if len(nameValuePair) != 2 {
-		return payload, errors.New("Invalid label, patch creation failed for: " + label)
+	if len(nameValuePair) != pairValue {
+		return payload, fmt.Errorf("invalid label, patch creation failed for: %v %w", label, errNull)
 	}
 
 	labelName := nameValuePair[0]
@@ -108,7 +111,7 @@ func appendViolationPatchValue(payload []patchValue, label string, node *v1.Node
 
 	if labelValue := nameValuePair[1]; !old || oldValue != labelValue {
 		name := strings.ReplaceAll(labelName, "/", "~1")
-		klog.V(2).InfoS("patching for violation",
+		klog.V(l2).InfoS("patching for violation",
 			"old", old, "op", op, "name", name, "labelValue", labelValue, "oldValue", oldValue)
 
 		payload = append(payload, *createLabelPatchValue(op, name, labelValue))
@@ -122,7 +125,7 @@ func appendNodeLabelCleanups(payload []patchValue, nodeViolatedLabels map[string
 		isViolatedLabel := nodeViolatedLabels[labelName+"="+labelValue]
 		if strings.HasPrefix(labelName, labelPrefix) && !isViolatedLabel {
 			name := strings.ReplaceAll(labelName, "/", "~1")
-			klog.V(2).InfoS("patching for cleanup", "name", name)
+			klog.V(l2).InfoS("patching for cleanup", "name", name)
 			payload = append(payload, *createLabelPatchValue("remove", name, ""))
 		}
 	}
@@ -160,23 +163,23 @@ func (d *Strategy) updateNodeLabels(enforcer *strategy.MetricEnforcer,
 		payload = appendNodeLabelCleanups(payload, allNodesViolatedLabels[node.Name], &node)
 
 		if len(payload) > 0 {
-			klog.V(2).InfoS("Patching", "Payload:", payload)
+			klog.V(l2).InfoS("Patching", "Payload:", payload)
 
 			err := d.patchNode(node.Name, enforcer, payload)
 			if err != nil {
-				klog.V(4).InfoS(err.Error(), "component", "controller")
+				klog.V(l4).InfoS(err.Error(), "component", "controller")
 
 				labelErrs = labelErrs + node.Name + ": [ " + violatedPolicies + " ]; "
 			}
 		}
 
 		if len(violatedPolicies) > 0 {
-			klog.V(2).InfoS("Node "+node.Name+" violating "+violatedPolicies, "component", "controller")
+			klog.V(l2).InfoS("Node "+node.Name+" violating "+violatedPolicies, "component", "controller")
 		}
 	}
 
 	if len(labelErrs) > 0 {
-		errOut = errors.New("could not label" + labelErrs)
+		errOut = fmt.Errorf("could not label %v %w", labelErrs, errNull)
 	}
 
 	return totalViolations, errOut
@@ -238,7 +241,7 @@ func (d *Strategy) nodeStatusForStrategy(enforcer *strategy.MetricEnforcer,
 
 	for strategy := range enforcer.RegisteredStrategies[StrategyType] {
 		policyName := strategy.GetPolicyName()
-		klog.V(2).InfoS("Evaluating "+policyName, "component", "controller")
+		klog.V(l2).InfoS("Evaluating "+policyName, "component", "controller")
 
 		nodes := strategy.Violated(cache)
 
@@ -264,7 +267,7 @@ func (d *Strategy) Cleanup(enforcer *strategy.MetricEnforcer, policyName string)
 	nodes, err := enforcer.KubeClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		msg := fmt.Sprintf("cannot list nodes: %v", err)
-		klog.V(2).InfoS(msg, "component", "controller")
+		klog.V(l2).InfoS(msg, "component", "controller")
 
 		return fmt.Errorf("Cleanup failure: %w", err)
 	}
@@ -280,12 +283,12 @@ func (d *Strategy) Cleanup(enforcer *strategy.MetricEnforcer, policyName string)
 
 			err := d.patchNode(node.Name, enforcer, payload)
 			if err != nil {
-				klog.V(2).InfoS(err.Error(), "component", "controller")
+				klog.V(l2).InfoS(err.Error(), "component", "controller")
 			}
 		}
 	}
 
-	klog.V(2).InfoS(fmt.Sprintf("Remove the node label on policy %v deletion", policyName), "component", "controller")
+	klog.V(l2).InfoS(fmt.Sprintf("Remove the node label on policy %v deletion", policyName), "component", "controller")
 
 	return nil
 }
