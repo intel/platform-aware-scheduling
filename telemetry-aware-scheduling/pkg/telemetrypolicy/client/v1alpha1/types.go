@@ -1,4 +1,4 @@
-//Package client telemetrypolicy/api/client provides an interface to interact with Policy CRD through a custom Client.
+// Package client telemetrypolicy/api/client provides an interface to interact with Policy CRD through a custom Client.
 package client
 
 import (
@@ -6,10 +6,10 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-//Client holds the information needed to query telemetry policies from the kubernetes API.
+// Client holds the information needed to query telemetry policies from the kubernetes API.
 type Client struct {
+	parameterCodec runtime.ParameterCodec
 	rest           *rest.RESTClient
 	namespace      string
 	plural         string
-	parameterCodec runtime.ParameterCodec
 }

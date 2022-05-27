@@ -22,19 +22,19 @@ on:
       goVersion:
         required: false
         type: string
-        default: 1.17
+        default: 1.18
       hadolintVersion:
         required: false
         type: string
-        default: v2.8.0
+        default: v2.10.0
       goLangCIVersion:
         required: false
         type: string
-        default: v1.42.1
+        default: v1.46.2
       goImportsVersion:
         required: false
         type: string
-        default: v0.1.9
+        default: v0.1.10
 jobs:
   shellcheck:
     name: Shellcheck
@@ -96,4 +96,5 @@ jobs:
           skip-go-installation: true
           working-directory: ${{matrix.workingdir }}
           # Additional linting tools can be added here
-          args: --enable=golint --timeout=5m
+          args: --timeout=5m -v --color='always'
+

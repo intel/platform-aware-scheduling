@@ -14,11 +14,10 @@ const (
 
 // TASPolicy is the Schema for the taspolicies API.
 type TASPolicy struct {
+	Status            TASPolicyStatus `json:"status,omitempty"`
+	Spec              TASPolicySpec   `json:"spec"`
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   TASPolicySpec   `json:"spec"`
-	Status TASPolicyStatus `json:"status,omitempty"`
 }
 
 // TASPolicyStrategy contains a set of TASPolicyRule which define the strategy.
@@ -32,8 +31,8 @@ type TASPolicyStrategy struct {
 type TASPolicyRule struct {
 	Metricname string   `json:"metricname"`
 	Operator   string   `json:"operator"`
-	Target     int64    `json:"target"`
 	Labels     []string `json:"labels,omitempty"`
+	Target     int64    `json:"target"`
 }
 
 // TASPolicySpec is a map of strategies indexed by their strategy type name i.e. scheduleonmetric, dontschedule.

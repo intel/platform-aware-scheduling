@@ -26,8 +26,8 @@ import (
 
 var baseTimeStamp = time.Date(2019, time.May, 20, 12, 25, 00, 0, time.UTC)
 
-//As in NewTestFactory method from kubectl/testing/fake.go
-//Reproduced rather than referenced because of dependency issues.
+// As in NewTestFactory method from kubectl/testing/fake.go
+// Reproduced rather than referenced because of dependency issues.
 func dummyRestClientConfig() *restclient.Config {
 	defer func() {
 		err := recover()
@@ -35,11 +35,13 @@ func dummyRestClientConfig() *restclient.Config {
 			klog.InfoS("Recovered from runtime error", "component", "testing")
 		}
 	}()
+
 	tmpFile, err := ioutil.TempFile("", "cmdtests_temp")
 	if err != nil {
 		klog.InfoS("Unable to create a fake client config", "component", "testing")
 		klog.Exit(err.Error())
 	}
+
 	loadingRules := &clientcmd.ClientConfigLoadingRules{
 		Precedence:     []string{tmpFile.Name()},
 		MigrationRules: map[string]string{},
@@ -47,15 +49,18 @@ func dummyRestClientConfig() *restclient.Config {
 	overrides := &clientcmd.ConfigOverrides{ClusterDefaults: clientcmdapi.Cluster{Server: "http://localhost:8080"}}
 	fallbackReader := bytes.NewBuffer([]byte{})
 	clientConfig := clientcmd.NewInteractiveDeferredLoadingClientConfig(loadingRules, overrides, fallbackReader)
+
 	restConfig, err := clientConfig.ClientConfig()
 	if err != nil {
 		klog.InfoS("Can't create dummy rest client config: "+err.Error(), "component", "testing")
 	}
+
 	return restConfig
 }
 
 func dummyMetric(level int64, metricName string, timestamp time.Time, nodeID int) custommetricsapi.MetricValue {
 	window := int64(60)
+
 	return custommetricsapi.MetricValue{
 		DescribedObject: v1.ObjectReference{
 			Kind:       "Node",
@@ -77,10 +82,12 @@ func setUpFakeClient(dummyMetrics custommetricsapi.MetricValueList) *cmfake.Fake
 		metrics := &dummyMetrics
 		getForAction, _ := action.(cmfake.GetForAction)
 		if getForAction.GetMetricName() != "memoryFree" {
-			return true, nil, fmt.Errorf("no metric of that name found%s", action)
+			return true, nil, fmt.Errorf("no metric of that name found %s %w", action, errNull)
 		}
+
 		return true, metrics, nil
 	})
+
 	return fakeCMClient
 }
 
@@ -88,9 +95,11 @@ func Test_customMetricsClient_GetNodeMetric(t *testing.T) {
 	type fields struct {
 		client customclient.CustomMetricsClient
 	}
+
 	type args struct {
 		metricName string
 	}
+
 	dummyMetrics := custommetricsapi.MetricValueList{
 		Items: []custommetricsapi.MetricValue{dummyMetric(50, "memoryFree", baseTimeStamp, 1)},
 	}
@@ -102,9 +111,13 @@ func Test_customMetricsClient_GetNodeMetric(t *testing.T) {
 		want    NodeMetricsInfo
 		wantErr bool
 	}{
-		{"correct metric retrieved", fields{dm}, args{"memoryFree"}, NodeMetricsInfo{"node-1": NodeMetric{baseTimeStamp, time.Duration(1 * time.Minute), *resource.NewQuantity(50, resource.DecimalSI)}}, false},
-		{"non existent metric query", fields{dm}, args{"nonExistentMetric"}, NodeMetricsInfo{}, true},
+		{"correct metric retrieved", fields{dm}, args{"memoryFree"},
+			NodeMetricsInfo{"node-1": NodeMetric{baseTimeStamp, 1 * time.Minute,
+				*resource.NewQuantity(50, resource.DecimalSI)}}, false},
+		{"non existent metric query", fields{dm}, args{"nonExistentMetric"},
+			NodeMetricsInfo{}, true},
 	}
+
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
@@ -112,12 +125,10 @@ func Test_customMetricsClient_GetNodeMetric(t *testing.T) {
 				tt.fields.client,
 			}
 			got, err := c.GetNodeMetric(tt.args.metricName)
-			fmt.Println(err)
-			for _, v := range got {
-				fmt.Println(v.Value.AsDec())
-			}
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("customMetricsClient.GetNodeMetric() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
 			if err != nil && tt.wantErr {
@@ -134,12 +145,14 @@ func TestNewClient(t *testing.T) {
 	type args struct {
 		config *restclient.Config
 	}
+
 	tests := []struct {
 		name string
 		args args
 	}{
 		{"valid config", args{dummyRestClientConfig()}},
 	}
+
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {

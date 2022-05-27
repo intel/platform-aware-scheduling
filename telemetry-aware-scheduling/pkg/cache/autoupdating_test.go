@@ -15,6 +15,7 @@ func TestNodeMetricsCache_PeriodicUpdate(t *testing.T) {
 	type args struct {
 		client metrics.Client
 	}
+
 	tests := []struct {
 		name          string
 		args          args
@@ -74,6 +75,7 @@ func TestNodeMetricsCache_ReadMetric(t *testing.T) {
 	type args struct {
 		metricName string
 	}
+
 	tests := []struct {
 		name    string
 		n       ReaderWriter
@@ -81,8 +83,10 @@ func TestNodeMetricsCache_ReadMetric(t *testing.T) {
 		want    metrics.NodeMetricsInfo
 		wantErr bool
 	}{
-		{"existing metric", MockSelfUpdatingCache(), args{"dummyMetric1"}, metrics.TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{50, 30}), false},
-		{"non existing metric", MockSelfUpdatingCache(), args{"non-existing metric"}, metrics.TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{50, 30}), true},
+		{"existing metric", MockSelfUpdatingCache(), args{"dummyMetric1"},
+			metrics.TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{50, 30}), false},
+		{"non existing metric", MockSelfUpdatingCache(), args{"non-existing metric"},
+			metrics.TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{50, 30}), true},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -91,8 +95,10 @@ func TestNodeMetricsCache_ReadMetric(t *testing.T) {
 			if err != nil {
 				if !tt.wantErr {
 					t.Errorf("AutoUpdatingCache.ReadMetric() error = %v", err)
+
 					return
 				}
+
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
@@ -105,6 +111,7 @@ func TestNodeMetricsCache_ReadPolicy(t *testing.T) {
 	type args struct {
 		policy telemetrypolicy.TASPolicy
 	}
+
 	tests := []struct {
 		name    string
 		n       ReaderWriter
@@ -123,8 +130,10 @@ func TestNodeMetricsCache_ReadPolicy(t *testing.T) {
 			if err1 != nil || err2 != nil {
 				if !tt.wantErr {
 					t.Errorf("AutoUpdatingCache.ReadPolicy() error = %v / %v", err1, err2)
+
 					return
 				}
+
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
@@ -141,6 +150,7 @@ func TestNodeMetricsCache_DeletePolicy(t *testing.T) {
 	type args struct {
 		policy telemetrypolicy.TASPolicy
 	}
+
 	tests := []struct {
 		name    string
 		n       ReaderWriter
@@ -160,8 +170,10 @@ func TestNodeMetricsCache_DeletePolicy(t *testing.T) {
 			if err2 != nil || err3 != nil {
 				if !tt.wantErr {
 					t.Errorf("AutoUpdatingCache.DeletePolicy() error = %v", err2)
+
 					return
 				}
+
 				return
 			}
 			if tt.wantErr {
@@ -174,6 +186,7 @@ func TestNodeMetricsCache_WriteMetric(t *testing.T) {
 	type args struct {
 		metricName string
 	}
+
 	tests := []struct {
 		name          string
 		n             ReaderWriter

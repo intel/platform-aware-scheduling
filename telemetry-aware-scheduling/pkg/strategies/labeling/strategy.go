@@ -16,6 +16,8 @@ import (
 // StrategyType is set to "labeling".
 const (
 	StrategyType = "labeling"
+	l2           = 2
+	l4           = 4
 )
 
 // Strategy type for labeling from a single policy.
@@ -44,18 +46,18 @@ func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
 	for _, rule := range d.Rules {
 		nodeMetrics, err := cache.ReadMetric(rule.Metricname)
 		if err != nil {
-			klog.V(2).InfoS(err.Error(), "component", "controller")
+			klog.V(l2).InfoS(err.Error(), "component", "controller")
 
 			continue
 		}
 
 		for nodeName, nodeMetric := range nodeMetrics {
 			msg := fmt.Sprint(nodeName+" "+rule.Metricname, " = ", nodeMetric.Value.AsDec())
-			klog.V(4).InfoS(msg, "component", "controller")
+			klog.V(l4).InfoS(msg, "component", "controller")
 
 			if core.EvaluateRule(nodeMetric.Value, rule) {
 				msg := fmt.Sprintf(nodeName + " violating " + d.PolicyName + ": " + ruleToString(rule))
-				klog.V(2).InfoS(msg, "component", "controller")
+				klog.V(l2).InfoS(msg, "component", "controller")
 
 				if _, ok := violatingNodes[nodeName]; !ok {
 					violatingNodes[nodeName] = &violationResultType{}
@@ -71,7 +73,7 @@ func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
 				res.ruleResults = append(res.ruleResults, ruleResult{rule: rule, quantity: nodeMetric.Value})
 				if len(res.ruleResults) > 0 {
 					for _, ruleRes := range res.ruleResults {
-						klog.V(2).Infof("Violated rules: %v", ruleToString(ruleRes.rule))
+						klog.V(l2).Infof("Violated rules: %v", ruleToString(ruleRes.rule))
 					}
 				}
 			}

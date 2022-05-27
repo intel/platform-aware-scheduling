@@ -12,8 +12,8 @@ K8_ADDITIONS_PATH="${root}/.github/scripts/policies"
 TMP_DIR="${root}/tmp"
 CNIS_DAEMONSET_URL="https://raw.githubusercontent.com/intel/multus-cni/master/e2e/cni-install.yml"
 CNIS_NAME="cni-plugins"
-# running the latest available image my default, unless instructured to
-KIND_IMAGE="kindest/node:v1.23.0@sha256:49824ab1727c04e56a21a5d8372a402fcd32ea51ac96a2706a12af38934f81ac"
+# running the latest available image my default, unless instructed to
+KIND_IMAGE="kindest/node:v1.24.0@sha256:0866296e693efe1fed79d5e6c7af8df71fc73ae45e3679af05342239cdc5bc8e"
 [ -n "$1" ] && KIND_IMAGE=$1
 
 # private registry set-up variables

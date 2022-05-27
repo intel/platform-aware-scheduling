@@ -24,9 +24,11 @@ func TestDescheduleStrategy_Enforce(t *testing.T) {
 		enforcer *strategy.MetricEnforcer
 		cache    cache.ReaderWriter
 	}
+
 	type expected struct {
 		nodeNames []string
 	}
+
 	tests := []struct {
 		name    string
 		d       *Strategy
@@ -36,13 +38,17 @@ func TestDescheduleStrategy_Enforce(t *testing.T) {
 		want    expected
 	}{
 		{name: "node label test",
-			d:    &Strategy{PolicyName: "deschedule-test", Rules: []telpol.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 1}, {Metricname: "cpu", Operator: "LessThan", Target: 10}}},
+			d: &Strategy{PolicyName: "deschedule-test", Rules: []telpol.TASPolicyRule{
+				{Metricname: "memory", Operator: "GreaterThan", Target: 1},
+				{Metricname: "cpu", Operator: "LessThan", Target: 10}}},
 			node: &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-1", Labels: map[string]string{"deschedule-test": ""}}},
 			args: args{enforcer: strategy.NewEnforcer(testclient.NewSimpleClientset()),
 				cache: cache.MockEmptySelfUpdatingCache()},
 			want: expected{nodeNames: []string{"node-1"}}},
 		{name: "node unlabel test",
-			d:    &Strategy{PolicyName: "deschedule-test", Rules: []telpol.TASPolicyRule{{Metricname: "memory", Operator: "GreaterThan", Target: 1000}, {Metricname: "cpu", Operator: "LessThan", Target: 10}}},
+			d: &Strategy{PolicyName: "deschedule-test", Rules: []telpol.TASPolicyRule{
+				{Metricname: "memory", Operator: "GreaterThan", Target: 1000},
+				{Metricname: "cpu", Operator: "LessThan", Target: 10}}},
 			node: &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-1", Labels: map[string]string{"deschedule-test": "violating"}}},
 			args: args{enforcer: strategy.NewEnforcer(testclient.NewSimpleClientset()),
 				cache: cache.MockEmptySelfUpdatingCache()},
@@ -50,10 +56,13 @@ func TestDescheduleStrategy_Enforce(t *testing.T) {
 	}
 	for _, tt := range tests {
 		tt := tt
-		err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1, Value: *resource.NewQuantity(100, resource.DecimalSI)}})
+
+		err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{
+			"node-1": {Timestamp: time.Now(), Window: 1, Value: *resource.NewQuantity(100, resource.DecimalSI)}})
 		if err != nil {
 			t.Errorf("Cannot write metric to mock cach for test: %v", err)
 		}
+
 		_, err = tt.args.enforcer.KubeClient.CoreV1().Nodes().Create(context.TODO(), tt.node, metav1.CreateOptions{})
 		if err != nil {
 			t.Errorf("Cannot write metric to mock cach for test: %v", err)
@@ -66,12 +75,15 @@ func TestDescheduleStrategy_Enforce(t *testing.T) {
 			if _, err := tt.d.Enforce(tt.args.enforcer, tt.args.cache); (err != nil) != tt.wantErr {
 				t.Errorf("Strategy.Enforce() error = %v, wantErr %v", err, tt.wantErr)
 			}
+
 			labelledNodes, err := tt.args.enforcer.KubeClient.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: "deschedule-test=violating"})
 			if err != nil {
 				if !tt.wantErr {
 					t.Errorf("Strategy.Enforce() error = %v, wantErr %v", err, tt.wantErr)
+
 					return
 				}
+
 				return
 			}
 			for _, node := range labelledNodes.Items {

@@ -30,21 +30,21 @@ type testStruc []testItemStruct
 
 func TestDeschedule_Cleanup(t *testing.T) {
 	var tests = testStruc{
-		//This test labels node-1 as 'violating'. The labels should be removed after policy deletion.
+		// This test labels node-1 as 'violating'. The labels should be removed after policy deletion.
 		{name: "one node as 'violating'",
 			d: &Strategy{PolicyName: "deschedule-test"},
 			nodes: []*v1.Node{nodeSpec("deschedule-test", "node-1", "violating"),
 				nodeSpec("deschedule-test", "node-2", "null")},
 			args: args{enforcer: strategy.NewEnforcer(testclient.NewSimpleClientset())},
 			want: []string{}},
-		//This test labels node-1 and node-2 as 'violating'. The labels should be removed after policy deletion.
+		// This test labels node-1 and node-2 as 'violating'. The labels should be removed after policy deletion.
 		{name: "multiple nodes as 'violating'",
 			d: &Strategy{PolicyName: "deschedule-test"},
 			nodes: []*v1.Node{nodeSpec("deschedule-test", "node-1", "violating"),
 				nodeSpec("deschedule-test", "node-2", "violating")},
 			args: args{enforcer: strategy.NewEnforcer(testclient.NewSimpleClientset())},
 			want: []string{}},
-		//In this test node-1 and node-2 are unlabeled. No labels should be added after policy deletion.
+		// In this test node-1 and node-2 are unlabeled. No labels should be added after policy deletion.
 		{name: "multiple nodes",
 			d: &Strategy{PolicyName: "deschedule-test"},
 			nodes: []*v1.Node{nodeSpec("deschedule-test", "node-1", ""),
@@ -52,11 +52,12 @@ func TestDeschedule_Cleanup(t *testing.T) {
 			args: args{enforcer: strategy.NewEnforcer(testclient.NewSimpleClientset())},
 			want: []string{}},
 	}
+
 	for _, tt := range tests {
 		tt := tt
 		nodeAction(t, tt, "create")
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.d.Cleanup(tt.args.enforcer, tt.d.PolicyName) //testing Cleanup()
+			err := tt.d.Cleanup(tt.args.enforcer, tt.d.PolicyName) // testing Cleanup()
 			if err != nil {
 				klog.InfoS(err.Error(), "component", "testing")
 			}
@@ -73,14 +74,14 @@ func TestDeschedule_Cleanup(t *testing.T) {
 
 func TestDeschedule_Relabel_nodes(t *testing.T) {
 	var tests = testStruc{
-		//This test will relabel node-1 as 'violating' after being removed by policy deletion.
+		// This test will relabel node-1 as 'violating' after being removed by policy deletion.
 		{name: "one node as 'violating'",
 			d: &Strategy{PolicyName: "deschedule-test"},
 			nodes: []*v1.Node{nodeSpec("deschedule-test", "node-1", "violating"),
 				nodeSpec("deschedule-test", "node-2", "null")},
 			args: args{enforcer: strategy.NewEnforcer(testclient.NewSimpleClientset())},
 			want: []string{"violating"}},
-		//This test will relabel node-1 and node-2 as 'violating' after being removed by policy deletion.
+		// This test will relabel node-1 and node-2 as 'violating' after being removed by policy deletion.
 		{name: "multiple nodes as 'violating'",
 			d: &Strategy{PolicyName: "deschedule-test"},
 			nodes: []*v1.Node{nodeSpec("deschedule-test", "node-1", "violating"),
@@ -88,11 +89,12 @@ func TestDeschedule_Relabel_nodes(t *testing.T) {
 			args: args{enforcer: strategy.NewEnforcer(testclient.NewSimpleClientset())},
 			want: []string{"violating", "violating"}},
 	}
+
 	for _, tt := range tests {
 		tt := tt
 		nodeAction(t, tt, "create")
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.d.Cleanup(tt.args.enforcer, tt.d.PolicyName) //testing Cleanup()
+			err := tt.d.Cleanup(tt.args.enforcer, tt.d.PolicyName) // testing Cleanup()
 			if err != nil {
 				klog.InfoS(err.Error(), "component", "testing")
 			}
@@ -128,6 +130,7 @@ func nodeAction(t *testing.T, testItem testItemStruct, action string) {
 			if err != nil {
 				t.Errorf("Cannot %v nodes correctly: %v", action, err)
 			}
+
 			msg := fmt.Sprintf("Labelling %v with %v", testItem.nodes[n].Name, testItem.nodes[n].Labels[testItem.d.PolicyName])
 			klog.InfoS(msg, "component", "testing")
 		case "update":
@@ -135,6 +138,7 @@ func nodeAction(t *testing.T, testItem testItemStruct, action string) {
 			if err != nil {
 				t.Errorf("Cannot %v nodes correctly: %v", action, err)
 			}
+
 			msg := fmt.Sprintf("Labelling %v with %v", testItem.nodes[n].Name, testItem.nodes[n].Labels[testItem.d.PolicyName])
 			klog.InfoS(msg, "component", "testing")
 		case "delete":
@@ -142,6 +146,7 @@ func nodeAction(t *testing.T, testItem testItemStruct, action string) {
 			if err != nil {
 				t.Errorf("Cannot %v nodes correctly: %v", action, err)
 			}
+
 			klog.InfoS("Nodes deleted", "component", "testing")
 		default:
 			klog.Fatal("not right action for node request")

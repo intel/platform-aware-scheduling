@@ -1,5 +1,5 @@
-//Provides a controller that can be used to watch policies in the Kuebrnetes API.
-//It registers strategies from those policies to an enforcer.
+// Provides a controller that can be used to watch policies in the Kuebrnetes API.
+// It registers strategies from those policies to an enforcer.
 package controller
 
 import (
@@ -320,10 +320,10 @@ func TestTelemetryPolicyController_Run(t *testing.T) {
 		fields fields
 		args   args
 	}{
-		//{"basic test",
+		// {"basic test",
 		//	fields{fakeRESTClient(), metrics.NewAutoUpdatingCache(), &strategy.MetricEnforcer{}},
 		//	args{context.Background()},
-		//},
+		// },
 	}
 	for _, tt := range tests {
 		tt := tt

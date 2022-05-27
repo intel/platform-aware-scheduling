@@ -23,10 +23,12 @@ func TestLabelingStrategy_Enforce(t *testing.T) {
 		enforcer *strategy.MetricEnforcer
 		cache    cache.ReaderWriter
 	}
+
 	type expected struct {
-		nodeNames  []string
 		nodeLabels map[string]string
+		nodeNames  []string
 	}
+
 	tests := []struct {
 		name    string
 		d       *Strategy
@@ -122,26 +124,31 @@ func TestLabelingStrategy_Enforce(t *testing.T) {
 
 	for _, tt := range tests {
 		tt := tt
+
 		err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1,
 			Value: *resource.NewQuantity(2000, resource.DecimalSI)}})
 		if err != nil {
 			t.Errorf("Cannot write metric to mock cach for test: %v", err)
 		}
+
 		err = tt.args.cache.WriteMetric("cpu", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1,
 			Value: *resource.NewQuantity(200, resource.DecimalSI)}})
 		if err != nil {
 			t.Errorf("Cannot write metric to mock cach for test: %v", err)
 		}
+
 		_, err = tt.args.enforcer.KubeClient.CoreV1().Nodes().Create(context.TODO(), tt.node, metav1.CreateOptions{})
 		if err != nil {
 			t.Errorf("Cannot write metric to mock cach for test: %v", err)
 		}
+
 		tt.args.enforcer.RegisterStrategyType(tt.d)
 		tt.args.enforcer.AddStrategy(tt.d, tt.d.StrategyType())
 
 		t.Run(tt.name, func(t *testing.T) {
 			got := []string{}
 			tmp := map[string]string{}
+
 			_, err := tt.d.Enforce(tt.args.enforcer, tt.args.cache)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Strategy.Enforce() error = %v, wantErr %v", err, tt.wantErr)
@@ -169,10 +176,12 @@ func TestLabelingStrategy_Enforce_unsupportedCases(t *testing.T) {
 		enforcer *strategy.MetricEnforcer
 		cache    cache.ReaderWriter
 	}
+
 	type expected struct {
-		nodeNames  []string
 		nodeLabels map[string]string
+		nodeNames  []string
 	}
+
 	tests := []struct {
 		name    string
 		d       *Strategy
@@ -214,20 +223,24 @@ func TestLabelingStrategy_Enforce_unsupportedCases(t *testing.T) {
 
 	for _, tt := range tests {
 		tt := tt
+
 		err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1,
 			Value: *resource.NewQuantity(200, resource.DecimalSI)}})
 		if err != nil {
 			t.Errorf("Cannot write metric to mock cache for test: %v", err)
 		}
+
 		err = tt.args.cache.WriteMetric("cpu", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1,
 			Value: *resource.NewQuantity(200, resource.DecimalSI)}})
 		if err != nil {
 			t.Errorf("Cannot write metric to mock cache for test: %v", err)
 		}
+
 		_, err = tt.args.enforcer.KubeClient.CoreV1().Nodes().Create(context.TODO(), tt.node, metav1.CreateOptions{})
 		if err != nil {
 			t.Errorf("Cannot write metric to mock cache for test: %v", err)
 		}
+
 		tt.args.enforcer.RegisterStrategyType(tt.d)
 		tt.args.enforcer.AddStrategy(tt.d, tt.d.StrategyType())
 
@@ -235,6 +248,7 @@ func TestLabelingStrategy_Enforce_unsupportedCases(t *testing.T) {
 			got := []string{}
 			tmp := map[string]string{}
 			klog.Info(tmp)
+
 			_, err := tt.d.Enforce(tt.args.enforcer, tt.args.cache)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Strategy.Enforce() error = %v, wantErr %v", err, tt.wantErr)
@@ -262,14 +276,16 @@ func TestLabelingStrategy_Cleanup(t *testing.T) {
 		enforcer *strategy.MetricEnforcer
 		cache    cache.ReaderWriter
 	}
+
 	type expected struct {
-		nodeNames  []string
 		nodeLabels map[string]string
+		nodeNames  []string
 	}
+
 	tests := []struct {
 		name    string
-		d       *Strategy
 		node    *v1.Node
+		d       *Strategy
 		args    args
 		wantErr bool
 		want    expected
@@ -362,30 +378,36 @@ func TestLabelingStrategy_Cleanup(t *testing.T) {
 
 	for _, tt := range tests {
 		tt := tt
+
 		err := tt.args.cache.WriteMetric("memory", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1,
 			Value: *resource.NewQuantity(2000, resource.DecimalSI)}})
 		if err != nil {
 			t.Errorf("Cannot write metric to mock cach for test: %v", err)
 		}
+
 		err = tt.args.cache.WriteMetric("cpu", metrics.NodeMetricsInfo{"node-1": {Timestamp: time.Now(), Window: 1,
 			Value: *resource.NewQuantity(200, resource.DecimalSI)}})
 		if err != nil {
 			t.Errorf("Cannot write metric to mock cach for test: %v", err)
 		}
+
 		_, err = tt.args.enforcer.KubeClient.CoreV1().Nodes().Create(context.TODO(), tt.node, metav1.CreateOptions{})
 		if err != nil {
 			t.Errorf("Cannot write metric to mock cach for test: %v", err)
 		}
+
 		tt.args.enforcer.RegisterStrategyType(tt.d)
 		tt.args.enforcer.AddStrategy(tt.d, tt.d.StrategyType())
 
 		t.Run(tt.name, func(t *testing.T) {
 			got := []string{}
 			tmp := map[string]string{}
+
 			_, err := tt.d.Enforce(tt.args.enforcer, tt.args.cache)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Strategy.Enforce() error = %v, wantErr %v", err, tt.wantErr)
 			}
+
 			err = tt.d.Cleanup(tt.args.enforcer, tt.d.PolicyName) // testing Cleanup()
 			if err != nil {
 				klog.InfoS(err.Error(), "component", "testing")

@@ -11,12 +11,20 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	l2           = 2
+	readTimeout  = 5
+	writeTimeout = 10
+	maxHeader    = 1000
+)
+
 // postOnly check if the method type is POST.
 func postOnly(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
-			klog.V(2).InfoS("method Type not POST", "component", "extender")
+			klog.V(l2).InfoS("method Type not POST", "component", "extender")
+
 			return
 		}
 
@@ -29,7 +37,8 @@ func contentLength(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.ContentLength > 1*1000*1000*1000 {
 			w.WriteHeader(http.StatusInternalServerError)
-			klog.V(2).InfoS("request size too large", "component", "extender")
+			klog.V(l2).InfoS("request size too large", "component", "extender")
+
 			return
 		}
 
@@ -43,7 +52,8 @@ func requestContentType(next http.HandlerFunc) http.HandlerFunc {
 		requestContentType := r.Header.Get("Content-Type")
 		if requestContentType != "application/json" {
 			w.WriteHeader(http.StatusNotFound)
-			klog.V(2).InfoS("request content type not application/json", "component", "extender")
+			klog.V(l2).InfoS("request content type not application/json", "component", "extender")
+
 			return
 		}
 
@@ -76,7 +86,7 @@ func handlerWithMiddleware(handle http.HandlerFunc) http.HandlerFunc {
 
 // error handler deals with requests sent to an invalid endpoint and returns a 404.
 func errorHandler(w http.ResponseWriter, r *http.Request) {
-	klog.V(2).InfoS("Requested resource: '"+r.URL.Path+"' not found", "component", "extender")
+	klog.V(l2).InfoS("Requested resource: '"+r.URL.Path+"' not found", "component", "extender")
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotFound)
 }
@@ -89,29 +99,34 @@ func (m Server) StartServer(port string, certFile string, keyFile string, caFile
 	mx.HandleFunc("/scheduler/prioritize", handlerWithMiddleware(m.Prioritize))
 	mx.HandleFunc("/scheduler/filter", handlerWithMiddleware(m.Filter))
 	mx.HandleFunc("/scheduler/bind", handlerWithMiddleware(m.Bind))
+
 	var err error
+
 	if unsafe {
-		klog.V(2).InfoS("Extender Listening on HTTP "+port, "component", "extender")
+		klog.V(l2).InfoS("Extender Listening on HTTP "+port, "component", "extender")
+
 		err = http.ListenAndServe(":"+port, mx)
 		if err != nil {
-			klog.V(2).InfoS("Listening on HTTP failed: "+err.Error(), "component", "extender")
+			klog.V(l2).InfoS("Listening on HTTP failed: "+err.Error(), "component", "extender")
 		}
 	} else {
 		srv := configureSecureServer(port, caFile)
 		srv.Handler = mx
-		klog.V(2).InfoS("Extender Listening on HTTPS "+port, "component", "extender")
+		klog.V(l2).InfoS("Extender Listening on HTTPS "+port, "component", "extender")
 
 		klog.Fatal(srv.ListenAndServeTLS(certFile, keyFile))
 	}
-	klog.V(2).InfoS("Scheduler extender server failed to start "+err.Error(), "component", "extender")
+
+	klog.V(l2).InfoS("Scheduler extender server failed to start "+err.Error(), "component", "extender")
 }
 
 // Configuration values including algorithms etc for the TAS scheduling endpoint.
 func configureSecureServer(port string, caFile string) *http.Server {
 	caCert, err := ioutil.ReadFile(caFile)
 	if err != nil {
-		klog.V(2).InfoS("caCert read failed: "+err.Error(), "component", "extender")
+		klog.V(l2).InfoS("caCert read failed: "+err.Error(), "component", "extender")
 	}
+
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
@@ -133,11 +148,12 @@ func configureSecureServer(port string, caFile string) *http.Server {
 	srv := &http.Server{
 		Addr:              ":" + port,
 		Handler:           nil,
-		ReadHeaderTimeout: 5 * time.Second,
-		WriteTimeout:      10 * time.Second,
-		MaxHeaderBytes:    1000,
+		ReadHeaderTimeout: readTimeout * time.Second,
+		WriteTimeout:      writeTimeout * time.Second,
+		MaxHeaderBytes:    maxHeader,
 		TLSConfig:         cfg,
 		TLSNextProto:      make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
+
 	return srv
 }

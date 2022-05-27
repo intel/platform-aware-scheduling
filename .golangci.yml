@@ -1,0 +1,65 @@
+run:
+  tests: true
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  enable-all: true
+  disable:
+    - paralleltest
+    - gomoddirectives
+    - exhaustivestruct
+    - exhaustruct
+    - nonamedreturns
+    - varnamelen
+    - gofumpt
+    - godox
+    - gci
+    - gocognit
+    - unparam
+    - cyclop
+    - forcetypeassert
+    - exhaustive
+    - testpackage
+    - thelper
+    - ireturn
+    - containedctx
+    - maintidx
+    - typecheck
+    - gochecknoglobals
+
+linters-settings:
+  gofmt:
+    simplify: true
+  gofumpt:
+    lang-version: "1.17"
+  golint:
+    min-confidence: 0.9
+  govet:
+    check-shadowing: true
+#    enable:
+#      - "fieldalignment"
+  gocyclo:
+    min-complexity: 18
+  gocognit:
+    min-complexity: 31
+  funlen:
+    lines: 70
+  cyclop:
+    max-complexity: 12
+  lll:
+    line-length: 160
+  nestif:
+    min-complexity: 7
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        # Until the testing package allows pinning variables disable scopelint
+        # for tests. See https://github.com/kyoh86/scopelint/issues/4.
+        - scopelint
+        - funlen
+        - goimports
+        - gofmt
+

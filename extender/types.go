@@ -39,14 +39,14 @@ type FailedNodesMap map[string]string
 // Args represents the arguments needed by the extender to Filter/Prioritize
 // nodes for a pod.
 type Args struct {
-	// Pod being scheduled
-	Pod v1.Pod
 	// List of candidate nodes where the pod can be scheduled; to be populated
 	// only if ExtenderConfig.NodeCacheCapable == false
 	Nodes *v1.NodeList
 	// List of candidate node names where the pod can be scheduled; to be
 	// populated only if ExtenderConfig.NodeCacheCapable == true
 	NodeNames *[]string
+	// Pod being scheduled
+	Pod v1.Pod
 }
 
 // FilterResult stores the result from extender to be sent as response.
