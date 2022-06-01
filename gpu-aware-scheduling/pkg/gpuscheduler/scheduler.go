@@ -658,7 +658,7 @@ func (m *GASExtender) checkForSpaceResourceRequests(perGPUCapacity resourceMap, 
 	containerCards := [][]string{}
 	preferred := false
 
-	samegpuNamesMap, err := m.containersRequestingSamegpu(pod)
+	samegpuNamesMap, err := containersRequestingSamegpu(pod)
 	if err != nil {
 		return containerCards, preferred, err
 	}
@@ -702,7 +702,7 @@ func (m *GASExtender) checkForSpaceResourceRequests(perGPUCapacity resourceMap, 
 func (m *GASExtender) getCardForSamegpu(samegpuIndexMap map[int]bool, allContainerRequests []resourceMap,
 	perGPUCapacity resourceMap, node *v1.Node, pod *v1.Pod, nodeResourcesUsed nodeResources,
 	gpuMap map[string]bool) ([]string, bool, error) {
-	if err := m.sanitizeSamegpuResourcesRequest(samegpuIndexMap, allContainerRequests); err != nil {
+	if err := sanitizeSamegpuResourcesRequest(samegpuIndexMap, allContainerRequests); err != nil {
 		return []string{}, false, err
 	}
 
@@ -1129,7 +1129,7 @@ func (m *GASExtender) readNodeResources(nodeName string) (nodeResources, error) 
 
 // return search map of container names that should have same GPU based on samegpuAnnotationName.
 // Return empty map if either there are duplicates or absent containers listed.
-func (m *GASExtender) containersRequestingSamegpu(pod *v1.Pod) (map[string]bool, error) {
+func containersRequestingSamegpu(pod *v1.Pod) (map[string]bool, error) {
 	csvSamegpulist, ok := pod.Annotations[samegpuAnnotationName]
 	if !ok {
 		return map[string]bool{}, nil
@@ -1172,7 +1172,7 @@ func (m *GASExtender) containersRequestingSamegpu(pod *v1.Pod) (map[string]bool,
 	return samegpuMap, nil
 }
 
-func (m *GASExtender) sanitizeSamegpuResourcesRequest(
+func sanitizeSamegpuResourcesRequest(
 	samegpuIndexMap map[int]bool, allResourceRequests []resourceMap) error {
 	if len(samegpuIndexMap) == 0 {
 		return nil
