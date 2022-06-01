@@ -1179,8 +1179,6 @@ func TestSanitizeSamegpulist(t *testing.T) {
 		},
 		Spec: *getMockPodSpecMultiContSamegpu(),
 	}
-	clientset := fake.NewSimpleClientset(pod)
-	gas := NewGASExtender(clientset, false, false, "")
 
 	wrongValueReason := map[string]string{
 		"container1,container5":            "Listing absent containers makes gas-same-gpu ignored",
@@ -1191,7 +1189,7 @@ func TestSanitizeSamegpulist(t *testing.T) {
 
 	Convey("Ensure no gas-same-gpu annotation returns blank list with no error",
 		t, func() {
-			containerNames, err := gas.containersRequestingSamegpu(pod)
+			containerNames, err := containersRequestingSamegpu(pod)
 			So(len(containerNames), ShouldEqual, 0)
 			So(err, ShouldEqual, nil)
 		})
@@ -1201,7 +1199,7 @@ func TestSanitizeSamegpulist(t *testing.T) {
 
 		Convey(reason,
 			t, func() {
-				containerNames, err := gas.containersRequestingSamegpu(pod)
+				containerNames, err := containersRequestingSamegpu(pod)
 				So(len(containerNames), ShouldEqual, 0)
 				So("malformed annotation", ShouldEqual, err.Error())
 			})
@@ -1211,17 +1209,13 @@ func TestSanitizeSamegpulist(t *testing.T) {
 
 	Convey("Ensure correct annotation returns all listed container names with no error",
 		t, func() {
-			containerNames, err := gas.containersRequestingSamegpu(pod)
+			containerNames, err := containersRequestingSamegpu(pod)
 			So(containerNames, ShouldResemble, map[string]bool{"container2": true, "container3": true})
 			So(err, ShouldEqual, nil)
 		})
 }
 
 func TestSanitizeSamegpuResourcesRequest(t *testing.T) {
-	pod := getFakePod()
-	clientset := fake.NewSimpleClientset(pod)
-	gas := NewGASExtender(clientset, false, false, "")
-
 	Convey("Tiles and monitoring resources are not allowed in same-gpu resourceRequests",
 		t, func() {
 			// fail because of tiles
@@ -1229,7 +1223,7 @@ func TestSanitizeSamegpuResourcesRequest(t *testing.T) {
 			resourceRequests := []resourceMap{
 				{"gpu.intel.com/i915": 1, "gpu.intel.com/tiles": 2},
 			}
-			err := gas.sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+			err := sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
 			So(err.Error(), ShouldEqual, "resources conflict")
 
 			// fail because of monitoring
@@ -1237,7 +1231,7 @@ func TestSanitizeSamegpuResourcesRequest(t *testing.T) {
 			resourceRequests = []resourceMap{
 				{"gpu.intel.com/i915": 1, "gpu.intel.com/i915_monitoring": 1},
 			}
-			err = gas.sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+			err = sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
 			So(err.Error(), ShouldEqual, "resources conflict")
 
 			// success
@@ -1248,7 +1242,7 @@ func TestSanitizeSamegpuResourcesRequest(t *testing.T) {
 					"gpu.intel.com/memory.max": 8589934592,
 				},
 			}
-			err = gas.sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+			err = sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
 			So(err, ShouldEqual, nil)
 		})
 
@@ -1260,7 +1254,7 @@ func TestSanitizeSamegpuResourcesRequest(t *testing.T) {
 				{"gpu.intel.com/i915": 1, "gpu.intel.com/millicores": 200},
 				{"gpu.intel.com/i915": 2, "gpu.intel.com/millicores": 200},
 			}
-			err := gas.sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+			err := sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
 			So(err.Error(), ShouldEqual, "resources conflict")
 
 			// Failure homogeneous
@@ -1269,7 +1263,7 @@ func TestSanitizeSamegpuResourcesRequest(t *testing.T) {
 				{"gpu.intel.com/i915": 2, "gpu.intel.com/millicores": 200},
 				{"gpu.intel.com/i915": 2, "gpu.intel.com/millicores": 200},
 			}
-			err = gas.sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+			err = sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
 			So(err.Error(), ShouldEqual, "resources conflict")
 
 			// Success
@@ -1278,7 +1272,7 @@ func TestSanitizeSamegpuResourcesRequest(t *testing.T) {
 				{"gpu.intel.com/i915": 1, "gpu.intel.com/millicores": 200},
 				{"gpu.intel.com/i915": 1, "gpu.intel.com/millicores": 300},
 			}
-			err = gas.sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+			err = sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
 			So(err, ShouldEqual, nil)
 		})
 }
