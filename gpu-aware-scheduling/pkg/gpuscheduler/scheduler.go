@@ -555,7 +555,7 @@ func addEmptyResourceMaps(gpus []string, nodeResourcesUsed nodeResources) {
 	}
 }
 
-func addUnavailableToUsedResourced(nodeResourcesUsed nodeResources, unavailableResources nodeResources) {
+func addUnavailableToUsedResources(nodeResourcesUsed nodeResources, unavailableResources nodeResources) {
 	for card, res := range unavailableResources {
 		err := nodeResourcesUsed[card].addRM(res)
 		if err != nil {
@@ -637,7 +637,7 @@ func (m *GASExtender) checkForSpaceAndRetrieveCards(pod *v1.Pod, node *v1.Node) 
 	// add unavailable resources as used, unavailable resources are
 	// (possible) unused resources but are marked as do-not-use externally
 	// e.g. too high temperature detected on a particular resource
-	addUnavailableToUsedResourced(nodeResourcesUsed, unavailableResources)
+	addUnavailableToUsedResources(nodeResourcesUsed, unavailableResources)
 
 	klog.V(l4).Infof("Node %v used resources: %v", node.Name, nodeResourcesUsed)
 
