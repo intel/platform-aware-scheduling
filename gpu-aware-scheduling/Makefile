@@ -24,8 +24,8 @@ build:
 #note: you can speed up subsequent docker builds by doing "go mod vendor"
 #note: you can further speed up subsequent docker builds by doing "make licenses"
 image:
-	docker build --build-arg GOLICENSES_PREFIX=$(GOLICENCES_PREFIX) --build-arg GOLICENSES_VERSION=$(GOLICENSES_VERSION) \
-	--build-arg LOCAL_LICENSES=$(LOCAL_LICENSES) -f deploy/images/Dockerfile_gpu-extender ../ -t $(IMAGE_PATH)gpu-extender$(IMAGE_TAG)
+	docker build --build-arg GOLICENSES_VERSION=$(GOLICENSES_VERSION) --build-arg LOCAL_LICENSES=$(LOCAL_LICENSES) \
+	-f deploy/images/Dockerfile_gpu-extender ../ -t $(IMAGE_PATH)gpu-extender$(IMAGE_TAG)
 
 release-image: clean
 	docker build --build-arg GOLICENSES_VERSION=$(GOLICENSES_IN_GO_MOD) -f deploy/images/Dockerfile_gpu-extender ../ \
