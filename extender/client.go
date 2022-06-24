@@ -2,7 +2,8 @@ package extender
 
 import (
 	"fmt"
-	"log"
+
+	"k8s.io/klog/v2"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -13,7 +14,7 @@ import (
 func GetKubeClient(kubeConfig string) (kubernetes.Interface, *rest.Config, error) {
 	clientConfig, err := rest.InClusterConfig()
 	if err != nil {
-		log.Print("not in cluster - trying file-based configuration")
+		klog.V(l2).InfoS("not in cluster - trying file-based configuration", "component", "controller")
 
 		clientConfig, err = clientcmd.BuildConfigFromFlags("", kubeConfig)
 		if err != nil {
@@ -23,7 +24,7 @@ func GetKubeClient(kubeConfig string) (kubernetes.Interface, *rest.Config, error
 
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get kubeclient: %w", err)
+		return nil, nil, fmt.Errorf("failed to create kubeClientset %w", err)
 	}
 
 	return kubeClient, clientConfig, nil
