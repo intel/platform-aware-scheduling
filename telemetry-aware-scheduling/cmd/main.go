@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 
 	"os/signal"
@@ -20,9 +19,6 @@ import (
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
 	telemetrypolicyclient "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/client/v1alpha1"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetryscheduler"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 
 	"context"
@@ -30,10 +26,7 @@ import (
 	tascache "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
 )
 
-const (
-	l2 = 2
-	l4 = 4
-)
+const l2 = 2
 
 func main() {
 	var kubeConfig, port, certFile, keyFile, caFile, syncPeriod string
@@ -66,7 +59,7 @@ func tasController(kubeConfig string, syncPeriod string, cache *tascache.AutoUpd
 		}
 	}()
 
-	kubeClient, clientConfig, err := getkubeClient(kubeConfig)
+	kubeClient, clientConfig, err := extender.GetKubeClient(kubeConfig)
 	if err != nil {
 		klog.V(l2).InfoS("Issue in getting client config", "component", "controller")
 		klog.Exit(err.Error())
@@ -113,26 +106,6 @@ func tasController(kubeConfig string, syncPeriod string, cache *tascache.AutoUpd
 
 	done := make(chan os.Signal, 1)
 	catchInterrupt(done)
-}
-
-func getkubeClient(kubeConfig string) (kubernetes.Interface, *rest.Config, error) {
-	clientConfig, err := rest.InClusterConfig()
-
-	if err != nil {
-		klog.V(l4).InfoS("not in cluster - trying file-based configuration", "component", "controller")
-
-		clientConfig, err = clientcmd.BuildConfigFromFlags("", kubeConfig)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get clientConfig %w", err)
-		}
-	}
-
-	kubeClient, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create kubeClientset %w", err)
-	}
-
-	return kubeClient, clientConfig, nil
 }
 
 func catchInterrupt(done chan os.Signal) {
