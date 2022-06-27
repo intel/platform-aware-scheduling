@@ -106,6 +106,9 @@ func (n *AutoUpdatingCache) WriteMetric(metricName string, data metrics.NodeMetr
 	payload := nilPayloadCheck(data)
 	n.add(fmt.Sprintf(metricPath, metricName), payload)
 	if payload == nil {
+		n.mtx.Lock()
+		defer n.mtx.Unlock()
+
 		if total, ok := n.metricMap[metricName]; ok {
 			n.metricMap[metricName] = total + 1
 		} else {
