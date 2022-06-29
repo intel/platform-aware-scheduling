@@ -13,13 +13,13 @@ A video of that closed loop in action is available [here](https://networkbuilder
 ## Assumptions 
 This guide requires TAS be running as described in the README, and that the [custom metrics pipeline](custom-metrics.md) is supplying it with up to date metrics. Also required is a multinode Kubernetes set-up with user access to all three machines in the cluster.
 
-There should be text file (with extension .prom) at /tmp/node-metrics/metrics.prom that contains health metrics in [the Prometheus text format](https://github.com/prometheus/docs/blob/master/content/docs/instrumenting/exposition_formats.md#text-format-details).
+There should be a text file (with extension .prom) in the /tmp/node-metrics/ folder that contains health metrics in [the Prometheus text format](https://github.com/prometheus/docs/blob/master/content/docs/instrumenting/exposition_formats.md#text-format-details).
 
 If the helm charts were used to install the metrics pipeline this directory will already be created. If another method of setting up Node Exporter was followed the [textfile collector](https://github.com/prometheus/node_exporter#textfile-collector) will need to be enabled in Node Exporter's configuration.
 
 
 ## Setting the health metric
-With our health metric the file at /tmp/node-metrics/test.prom should look like:
+With our health metric the file at /tmp/node-metrics/text.prom should look like:
 
 ````node_health_metric 0````
 
