@@ -4,8 +4,6 @@ Telemetry Aware Scheduling (TAS) makes telemetry data available to scheduling an
 For example - a pod that requires certain cache characteristics can be schedule on output from Intel® RDT metrics. Likewise a combination of RDT, RAS and other platform metrics can be used to provide a signal for the overall health of a node and be used to proactively ensure workload resiliency.
 
 
-**This software is a pre-production alpha version and should not be deployed to production servers.**
-
 
 ## Introduction
 
@@ -82,7 +80,10 @@ Note: For Kubeadm set ups some additional steps may be needed.
 After these steps the scheduler extender should be registered with the Kubernetes Scheduler.
 
 #### Deploy TAS
-Telemetry Aware Scheduling uses go modules. It requires Go 1.16+ with modules enabled in order to build. TAS has been tested with Kubernetes 1.20+. TAS was tested on Intel® Server Board S2600WF-Based Systems (Wolf Pass).
+Telemetry Aware Scheduling uses go modules. It requires Go 1.16+ with modules enabled in order to build. 
+TAS current version has been tested with the recent Kubernetes version at the released date. It maintains support to the three most recent K8s versions. 
+TAS was tested on Intel® Server Boards S2600WF and S2600WT-Based Systems.
+
 A yaml file for TAS is contained in the deploy folder along with its service and RBAC roles and permissions.
 
 A secret called extender-secret will need to be created with the cert and key for the TLS endpoint. TAS will not deploy if there is no secret available with the given deployment file.

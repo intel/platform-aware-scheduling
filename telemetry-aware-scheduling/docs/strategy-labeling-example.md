@@ -258,7 +258,7 @@ Once the metric changes for a given node, and it returns to a schedulable condit
 
 
 ### Descheduler
-[Kubernetes Descheduler](https://github.com/kubernetes-sigs/descheduler) allows control of pod evictions in the cluster after being bound to a node. Descheduler, based on its policy, finds pods that can be moved and evicted.  There are many ways to install and run the K8s [Descheduler](https://github.com/kubernetes-sigs/descheduler#quick-start). Here, we have executed it as a [deployment](https://github.com/kubernetes-sigs/descheduler#run-as-a-deployment).
+[Kubernetes Descheduler](https://github.com/kubernetes-sigs/descheduler) allows control of pod evictions in the cluster after being bound to a node. Descheduler, based on its policy, finds pods that can be moved and evicted.  There are many ways to install and run the K8s [Descheduler](https://github.com/kubernetes-sigs/descheduler#quick-start). Here, we have executed it as a [deployment](https://github.com/kubernetes-sigs/descheduler#run-as-a-deployment) by using descheduler:v0.23.1.
 In a shell terminal, deploy the Descheduler files:
 
 ````
