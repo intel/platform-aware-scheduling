@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: nfd-worker
+  namespace: node-feature-discovery
 spec:
   template:
     spec:
