@@ -23,8 +23,9 @@ type DisabledTilesMap map[string][]int
 type DescheduledTilesMap map[string][]int
 type PreferredTilesMap map[string][]int
 
-func containerRequests(pod *v1.Pod) []resourceMap {
+func containerRequests(pod *v1.Pod) ([]resourceMap, resourceMap) {
 	allResources := []resourceMap{}
+	totalRequests := resourceMap{}
 
 	for _, container := range pod.Spec.Containers {
 		rm := resourceMap{}
@@ -34,13 +35,14 @@ func containerRequests(pod *v1.Pod) []resourceMap {
 			if strings.HasPrefix(resourceName, resourcePrefix) {
 				value, _ := quantity.AsInt64()
 				rm[resourceName] = value
+				totalRequests[resourceName] = totalRequests[resourceName] + value
 			}
 		}
 
 		allResources = append(allResources, rm)
 	}
 
-	return allResources
+	return allResources, totalRequests
 }
 
 // addPCIGroupGPUs processes the given card and if it is requested to be handled as groups, the

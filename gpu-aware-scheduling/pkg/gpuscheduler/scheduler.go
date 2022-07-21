@@ -76,17 +76,19 @@ type GASExtender struct {
 	rwmutex          sync.RWMutex
 	allowlistEnabled bool
 	denylistEnabled  bool
+	packResEnabled   bool
 }
 
 // NewGASExtender returns a new GAS Extender.
 func NewGASExtender(clientset kubernetes.Interface, enableAllowlist,
-	enableDenylist bool, balanceResource string) *GASExtender {
+	enableDenylist bool, balanceResource string, packResource bool) *GASExtender {
 	return &GASExtender{
 		cache:            iCache.NewCache(clientset),
 		clientset:        clientset,
 		allowlistEnabled: enableAllowlist,
 		denylistEnabled:  enableDenylist,
 		balancedResource: balanceResource,
+		packResEnabled:   packResource,
 	}
 }
 
@@ -452,7 +454,7 @@ func (m *GASExtender) getFreeTiles(capacityPerGPU int64, node *v1.Node,
 
 func (m *GASExtender) checkGpuAvailability(gpuName string, node *v1.Node, pod *v1.Pod,
 	usedGPUmap map[string]bool, gpuMap map[string]bool) bool {
-	if usedGPUmap[gpuName] {
+	if !m.packResEnabled && usedGPUmap[gpuName] {
 		klog.V(l4).Infof("gpu %v is already used for this container", gpuName)
 
 		return false
@@ -472,6 +474,79 @@ func (m *GASExtender) checkGpuAvailability(gpuName string, node *v1.Node, pod *v
 	}
 
 	return true
+}
+
+func (m *GASExtender) getCardsForPodGPURequests(containerRequests []resourceMap, totalRequests resourceMap, perGPUCapacity resourceMap,
+	node *v1.Node, pod *v1.Pod,
+	nodeResourcesUsed nodeResources,
+	gpuMap map[string]bool) ([][]string, bool, error) {
+	
+	containerCards := [][]string{}
+	preferred := false
+
+	if len(containerRequests) == 0 {
+		return containerCards, preferred, nil
+	}
+
+	usedGPUmap := map[string]bool{}
+	preferredCardAtFront := false
+
+	gpuNames := getSortedGPUNamesForNode(nodeResourcesUsed)
+	if preferredCard := findNodesPreferredGPU(node); preferredCard != "" {
+		movePreferredCardToFront(gpuNames, preferredCard)
+		preferredCardAtFront = true
+	}
+
+	fitted := false
+	for gpuIndex, gpuName := range gpuNames {
+		usedResMap := nodeResourcesUsed[gpuName]
+		klog.V(l4).Info("Checking gpu ", gpuName)
+		if !m.checkGpuAvailability(gpuName, node, pod, usedGPUmap, gpuMap) {
+			continue
+		}
+		if !checkResourceCapacity(totalRequests, perGPUCapacity, usedResMap) {
+			continue
+		}
+		
+		klog.V(l4).Info("Gpu capacity is enough, then assgin to each container in pod")
+		for _, containerRequest := range containerRequests {
+			cards := []string{}
+			perGPUResourceRequest, numI915 := getPerGPUResourceRequest(containerRequest)
+			for gpuNum := int64(0); gpuNum < numI915; gpuNum++ {
+				err := usedResMap.addRM(perGPUResourceRequest)
+				if err == nil {
+					fitted = true
+					cards = append(cards, gpuName)
+					//usedGPUmap[gpuName] = true
+				} else {
+					fitted = false
+					break
+				}
+			}
+			if !fitted {
+				klog.V(l4).Infof("pod %v will not fit gpu %v on node %v", pod.Name, gpuName, node.Name)
+				break
+			}
+			containerCards = append(containerCards, cards)
+		}
+
+		if fitted {
+			klog.V(l4).Infof("pod %v will fit gpu %v on node %v", pod.Name, gpuName, node.Name)
+			if gpuIndex == 0 && preferredCardAtFront {
+				preferred = true
+			}
+			break
+		}
+			
+	}
+
+	if !fitted {
+		klog.V(l4).Infof("pod %v will not fit node %v", pod.Name, node.Name)
+
+		return nil, false, errWontFit
+	}
+
+	return containerCards, preferred, nil
 }
 
 func (m *GASExtender) getCardsForContainerGPURequest(containerRequest, perGPUCapacity resourceMap,
@@ -624,23 +699,39 @@ func (m *GASExtender) checkForSpaceAndRetrieveCards(pod *v1.Pod, node *v1.Node) 
 	klog.V(l4).Info("Used resources: ", nodeResourcesUsed)
 
 	// select GPUs. Trivial implementation selects first suitable GPUs
-	containerRequests := containerRequests(pod)
+	containerRequests, totalRequests := containerRequests(pod)
 
-	for i, containerRequest := range containerRequests {
-		cards, pref, err := m.getCardsForContainerGPURequest(containerRequest, perGPUCapacity,
+	if m.packResEnabled {
+		klog.V(l4).Infof("pod %v need pack gpuResources in node %v", pod.Name, node.Name)
+		podCards, pref, err := m.getCardsForPodGPURequests(containerRequests, totalRequests, perGPUCapacity,
 			node, pod, nodeResourcesUsed, gpuMap)
-		if err != nil {
-			klog.V(l4).Info("container %v out of %v did not fit", i+1, len(containerRequests))
 
+		if err != nil {
+			klog.V(l4).Infof("pod %v will not fit node %v when pack enabled", pod.Name, node.Name)
 			return containerCards, preferred, err
 		}
-
-		containerCards = append(containerCards, cards)
-
+		containerCards = podCards
 		if pref {
 			preferred = true
 		}
+	} else {
+		for i, containerRequest := range containerRequests {
+			cards, pref, err := m.getCardsForContainerGPURequest(containerRequest, perGPUCapacity,
+				node, pod, nodeResourcesUsed, gpuMap)
+
+			if err != nil {
+				klog.V(l4).Info("container %v out of %v did not fit", i+1, len(containerRequests))
+				return containerCards, preferred, err
+			}
+
+			containerCards = append(containerCards, cards)
+
+			if pref {
+				preferred = true
+			}
+		}
 	}
+	klog.V(l4).Infof("containerCards: ", containerCards)
 
 	return containerCards, preferred, nil
 }
@@ -654,7 +745,7 @@ func (m *GASExtender) convertNodeCardsToAnnotations(pod *v1.Pod,
 
 	perGPUCapacity := getPerGPUResourceCapacity(node, gpuCount)
 
-	containerRequests := containerRequests(pod)
+	containerRequests, _ := containerRequests(pod)
 	containerDelimeter := ""
 
 	if len(containerRequests) != len(containerCards) {
@@ -876,6 +967,7 @@ func (m *GASExtender) bindNode(args *extender.BindingArgs) *extender.BindingResu
 // filterNodes takes in the arguments for the scheduler and filters nodes based on
 // whether the POD resource request fits into each node.
 func (m *GASExtender) filterNodes(args *extender.Args) *extender.FilterResult {
+	klog.V(l4).Info("filterNodes for pod ", args.Pod.Name)
 	var nodeNames []string
 
 	var preferredNodeNames []string

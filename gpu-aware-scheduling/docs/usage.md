@@ -126,6 +126,12 @@ You can use POD-annotations in your POD-templates to list the GPU names which yo
 
 Note that the feature is disabled by default. You need to enable allowlist and/or denylist via command line flags.
 
+## PackResource
+
+In some use cases, GPU cards allocated for containers in one pod need to be the same card, otherwise exceptions or errors(for example: gpu hang) may occur after deployment. POD-annotations gas-container-cards expected is "cardx,cardx|cardx,cardx", "x" is the same ID.
+
+Note that the feature is disabled by default. You need to enable packResource via command line flags.
+
 ## Summary in a chronological order
 
 - GPU-plugin initcontainer installs an NFD hook which prints labels for you, based on the Intel GPUs it finds

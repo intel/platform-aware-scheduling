@@ -80,6 +80,7 @@ name |type | description| usage | default|
 |enableAllowlist| bool | enable POD-annotation based GPU allowlist feature | --enableAllowlist| false
 |enableDenylist| bool | enable POD-annotation based GPU denylist feature | --enableDenylist| false
 |balancedResource| string | enable named resource balancing between GPUs | --balancedResource| ""
+|packResource| bool | enable resource packed within one gpu card for pod | --packResource| false
 
 #### Balanced resource (optional)
 GAS can be configured to balance named resources so that the resource requests are distributed as evenly as possible between the GPUs. For example if the balanced resource is set to "tiles" and the containers request 1 tile each, the first container could get tile from "card0", the second from "card1", the third again from "card0" and so on.

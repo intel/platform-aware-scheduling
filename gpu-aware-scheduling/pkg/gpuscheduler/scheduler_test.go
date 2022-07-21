@@ -33,7 +33,7 @@ const (
 func getDummyExtender(objects ...runtime.Object) *GASExtender {
 	clientset := fake.NewSimpleClientset(objects...)
 
-	return NewGASExtender(clientset, true, true, "")
+	return NewGASExtender(clientset, true, true, "", false)
 }
 
 //nolint: gochecknoglobals // only test resource
@@ -148,7 +148,7 @@ func getMockNode(sharedDevCount, tileCountPerCard int, cardNames ...string) *v1.
 func TestNewGASExtender(t *testing.T) {
 	Convey("When I create a new gas extender", t, func() {
 		Convey("and InClusterConfig returns an error", func() {
-			gas := NewGASExtender(nil, false, false, "")
+			gas := NewGASExtender(nil, false, false, "", false)
 			So(gas.clientset, ShouldBeNil)
 		})
 	})
@@ -755,11 +755,55 @@ func TestResourceBalancedCardsForContainerGPURequest(t *testing.T) {
 	})
 }
 
+func TestResourcePackedCardsForPodGPURequests(t *testing.T) {
+	gas := getEmptyExtender()
+	gas.packResEnabled = true
+	node := getMockNode(1, 1, "card0", "card1", "card2")
+
+	pod := getFakePod()
+
+	containerRequests := []resourceMap{resourceMap{"gpu.intel.com/i915": 2}, resourceMap{"gpu.intel.com/i915": 1}}
+	totalRequests := resourceMap{"gpu.intel.com/i915": 3}
+	perGPUCapacity := resourceMap{"gpu.intel.com/i915": 4}
+
+	nodeResourcesUsed := nodeResources{"card0": resourceMap{"gpu.intel.com/i915": 2}, "card1": resourceMap{}, "card2": resourceMap{}}
+	gpuMap := map[string]bool{"card0": true, "card1": true, "card2": true}
+
+	Convey("When GPUs are resource packed, all GPU requests in pod should be on the same card", t, func() {
+		containerCards, preferred, err := gas.getCardsForPodGPURequests(containerRequests, totalRequests, perGPUCapacity,
+			node, pod,
+			nodeResourcesUsed,
+			gpuMap)
+
+		packed := true
+		gpuSelected := ""
+		for _, cards := range containerCards {
+			for _, card := range cards {
+				if gpuSelected == "" {
+					gpuSelected = card
+					continue
+				}
+				if card != gpuSelected {
+					packed = false
+					break
+				}
+			}
+		}
+
+		So(len(containerCards), ShouldEqual, 2)
+		So(len(containerCards[0]), ShouldEqual, 2)
+		So(len(containerCards[1]), ShouldEqual, 1)
+		So(packed, ShouldBeTrue)
+		So(err, ShouldBeNil)
+		So(preferred, ShouldBeFalse)
+	})
+}
+
 func TestRunSchedulingLogicWithMultiContainerTileResourceReq(t *testing.T) {
 	pod := getFakePod()
 
 	clientset := fake.NewSimpleClientset(pod)
-	gas := NewGASExtender(clientset, false, false, "tiles")
+	gas := NewGASExtender(clientset, false, false, "tiles", false)
 	mockNode := getMockNode(4, 4, "card0")
 
 	pod.Spec = *getMockPodSpecMultiCont()
@@ -838,7 +882,7 @@ func TestTileDisablingDeschedulingAndPreference(t *testing.T) {
 	pod := getFakePod()
 
 	clientset := fake.NewSimpleClientset(pod)
-	gas := NewGASExtender(clientset, false, false, "")
+	gas := NewGASExtender(clientset, false, false, "", false)
 	mockCache := MockCacheAPI{}
 	origCacheAPI := iCache
 	iCache = &mockCache
@@ -1022,7 +1066,7 @@ func TestTileSanitation(t *testing.T) {
 	pod.Spec = *getMockPodSpecWithTile(1)
 
 	clientset := fake.NewSimpleClientset(pod)
-	gas := NewGASExtender(clientset, false, false, "")
+	gas := NewGASExtender(clientset, false, false, "", false)
 	mockCache := MockCacheAPI{}
 	origCacheAPI := iCache
 	iCache = &mockCache
@@ -1079,7 +1123,7 @@ func TestFilterWithDisabledTiles(t *testing.T) {
 	pod.Spec = *getMockPodSpecWithTile(1)
 
 	clientset := fake.NewSimpleClientset(pod)
-	gas := NewGASExtender(clientset, false, false, "")
+	gas := NewGASExtender(clientset, false, false, "", false)
 	mockCache := MockCacheAPI{}
 	origCacheAPI := iCache
 	iCache = &mockCache
