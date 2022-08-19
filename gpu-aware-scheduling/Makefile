@@ -46,8 +46,8 @@ licenses: clean-licenses
 	save "./cmd/gas-scheduler-extender" --save_path licenses
 
 mock:
-	mockery --name=CacheAPI --dir=pkg/gpuscheduler --inpkg --note="+build !validation\nre-generate with 'make mock'"
-	mockery --name=InternalCacheAPI --dir=pkg/gpuscheduler --inpkg --note="+build !validation\nre-generate with 'make mock'"
+	mockery --name=CacheAPI --dir=pkg/gpuscheduler --inpackage --note="+build !validation\nre-generate with 'make mock'"
+	mockery --name=InternalCacheAPI --dir=pkg/gpuscheduler --inpackage --note="+build !validation\nre-generate with 'make mock'"
 
 e2e:
 
