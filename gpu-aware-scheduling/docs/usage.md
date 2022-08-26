@@ -1,10 +1,15 @@
 # Usage with NFD and GPU-plugin
-This document explains how to get GAS working together with [Node Feature Discovery](https://github.com/kubernetes-sigs/node-feature-discovery) and the [GPU-plugin](https://github.com/intel/intel-device-plugins-for-kubernetes/blob/main/cmd/gpu_plugin/README.md).
+This document explains how to get GAS working together with [Node Feature Discovery](https://github.com/kubernetes-sigs/node-feature-discovery) (NFD) and the [GPU-plugin](https://github.com/intel/intel-device-plugins-for-kubernetes/blob/main/cmd/gpu_plugin/README.md).
 
-To begin with, it will help a lot if you have been successful already using the GPU-plugin with some deployments. That means your HW and cluster is most likely fine with GAS also.
+To begin with, it will help a lot if you have been successful already using the GPU-plugin with
+some deployments. That means your HW and cluster is most likely fine with GAS also.
 
 ## GPU-plugin
-Resource management enabled version of the GPU-plugin is currently necessary for running GAS. The resource management enabled GPU-plugin version can read the necessary annotations of the PODs, and without those annotations, GPU allocations will not work correctly. A copy of the plugin deployment kustomization can be found from [docs/gpu_plugin](./gpu_plugin). It can be deployed simply by issuing:
+Resource management is required to be enabled in GPU-plugin currently to run GAS. With resource
+management enabled, GPU-plugin can read the necessary annotations of the PODs. Without reading
+those annotations, GPU allocations will not work correctly. A copy of the plugin deployment
+kustomization can be found from [docs/gpu_plugin](./gpu_plugin). It can be deployed simply by
+issuing:
 ```Bash
 kubectl apply -k docs/gpu_plugin/overlays/fractional_resources
 ```
@@ -12,9 +17,10 @@ kubectl apply -k docs/gpu_plugin/overlays/fractional_resources
 The GPU plugin initcontainer needs to be used in order to get the extended resources created with NFD. It is deployed by the kustomization base. The initcontainer installs the required NFD-hook into the host system.
 
 ## NFD
-Basically all versions starting with [v0.6.0](https://github.com/kubernetes-sigs/node-feature-discovery/releases/tag/v0.6.0) should work. You can use it to publish the GPU extended resources and GPU-related labels printed by the hook installed by the GPU-plugin initcontainer.
+All versions starting with [v0.6.0](https://github.com/kubernetes-sigs/node-feature-discovery/releases/tag/v0.6.0) should work. You can use it to publish the GPU extended resources and GPU-related labels printed by the hook installed by the GPU-plugin initcontainer.
 
-For picking up the labels printed by the hook installed by the GPU-plugin initcontainer, deploy nfd master with this kind of command in its yaml:
+For NFD to pick up the labels that are printed by the hook installed by the GPU-plugin
+initcontainer, nfd master deployment shold have these options in command entry of its yaml:
 ```YAML
 command: ["nfd-master", "--resource-labels=gpu.intel.com/memory.max,gpu.intel.com/millicores,gpu.intel.com/tiles", "--extra-label-ns=gpu.intel.com"]
 ```
@@ -54,7 +60,7 @@ You need some i915 GPUs in the nodes. Internal GPUs work fine for testing GAS, m
 
 ## PODs
 
-Your PODs then, needs to ask for some GPU-resources. Like this:
+Your PODs need to ask for GPU-resources, for instance:
 ```YAML
         resources:
           limits:
@@ -63,7 +69,7 @@ Your PODs then, needs to ask for some GPU-resources. Like this:
             gpu.intel.com/memory.max: 10M
 ```
 
-Or like this for tiles:
+Or, for tiles:
 ```YAML
         resources:
           limits:
@@ -132,7 +138,7 @@ Note that the feature is disabled by default. You need to enable allowlist and/o
 
 By default when GAS checks if available Node resources are enough for Pod's resources requests,
 the containers of the Pod are processed sequentially and independently. In multi-gpu nodes in
-certain cases this may result (but not guaranteed) in container of the same Pod having different
+certain cases this may result (but not guaranteed) in containers of the same Pod having different
 GPUs allocated to them.
 
 In case two or more containers of the same Pod require to use the same GPU, GAS supports
