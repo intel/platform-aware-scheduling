@@ -32,37 +32,58 @@ The deploy folder has all of the yaml files necessary to get GPU Aware Schedulin
 
 #### Extender configuration
 You should follow extender configuration instructions from the
-[Telemetry Aware Scheduling](../telemetry-aware-scheduling/README.md#Extender-configuration) and adapt those instructions to
-use GPU Aware Scheduling configurations, which can be found in the [deploy/extender-configuration](deploy/extender-configuration) folder.
+[Telemetry Aware Scheduling](../telemetry-aware-scheduling/README.md#Extender-configuration) and
+adapt those instructions to use GPU Aware Scheduling configurations, which can be found in the
+[deploy/extender-configuration](deploy/extender-configuration) folder.
 
 #### Deploy GAS
-GPU Aware Scheduling uses go modules. It requires Go 1.18 with modules enabled in order to build. GAS has been tested with Kubernetes 1.23.
-A yaml file for GAS is contained in the deploy folder along with its service and RBAC roles and permissions.
+GAS has been tested with Kubernetes 1.24. A yaml file for GAS is contained in the deploy folder
+along with its service and RBAC roles and permissions.
 
-A secret called extender-secret will need to be created with the cert and key for the TLS endpoint. GAS will not deploy if there is no
-secret available with the given deployment file.
+A secret called `extender-secret` will need to be created with the cert and key for the TLS endpoint.
+If you name the secret differently, remember to fix the [deployment file](deploy/gas-deployment.yaml) respectively before deploying GAS.
 
-A secret can be created with:
+The secret can be created with command:
 
-``
+```bash
 kubectl create secret tls extender-secret --cert /etc/kubernetes/<PATH_TO_CERT> --key /etc/kubernetes/<PATH_TO_KEY>
-``
+```
 
-In order to build in your host:
+Replace <PATH_TO_CERT> and <PATH_TO_KEY> with the names your cluster has, here is the same comand
+ with the default values:
 
-``make build``
+```bash
+kubectl create secret tls extender-secret --cert /etc/kubernetes/pki/ca.crt --key /etc/kubernetes/pki/ca.key
+```
 
-You can also build inside docker, which creates the container:
+Note, you might need privileges to access default location of these files, use `sudo <same command` then in this case.
 
-``make image``
+The "deploy"-folder has the necessary scripts for deploying GAS. You can simply deploy by running:
 
-The "deploy"-folder has the necessary scripts for deploying. You can simply deploy by running:
-
-``kubectl apply -f deploy/``
+```bash
+kubectl apply -f deploy/
+```
 
 After this is run GAS should be operable in the cluster and should be visible after running ``kubectl get pods``
 
 Remember to run the configure-scheduler.sh script, or perform similar actions in your cluster if the script does not work in your environment directly.
+
+#### Build GAS locally
+
+GPU Aware Scheduling uses go modules. It requires Go 1.18 with modules enabled for building.
+To build GAS locally on your host:
+
+```bash
+make build
+```
+
+You can also build inside docker, which creates the container:
+
+```bash
+make image
+```
+
+To deploy locally built GAS container image, just change the [deployment YAML](deploy/gas-deployment.yaml) and deploy normally as if it was pre-built image, see above.
 
 ### Configuration flags
 The below flags can be passed to the binaries at run time.
@@ -72,12 +93,14 @@ name |type | description| usage | default|
 -----|------|-----|-------|-----|
 |kubeConfig| string |location of kubernetes configuration file | --kubeConfig /root/filename|~/.kube/config
 |port| int | port number on which the scheduler extender will listen| --port 32000 | 9001
-|cert| string | location of the cert file for the TLS endpoint | --cert=/root/cert.txt| /etc/kubernetes/pki/ca.key
+|cert| string | location of the cert file for the TLS endpoint | --cert=/root/cert.txt| /etc/kubernetes/pki/ca.crt
 |key| string | location of the key file for the TLS endpoint| --key=/root/key.txt | /etc/kubernetes/pki/ca.key
-|cacert| string | location of the ca certificate for the TLS endpoint| --key=/root/cacert.txt | /etc/kubernetes/pki/ca.crt
+|cacert| string | location of the ca certificate for the TLS endpoint| --cacert=/root/cacert.txt | /etc/kubernetes/pki/ca.crt
 |enableAllowlist| bool | enable POD-annotation based GPU allowlist feature | --enableAllowlist| false
 |enableDenylist| bool | enable POD-annotation based GPU denylist feature | --enableDenylist| false
 |balancedResource| string | enable named resource balancing between GPUs | --balancedResource| ""
+
+Some features are based on the labels put onto pods, for full features list see [usage doc](docs/usage.md)
 
 #### Balanced resource (optional)
 GAS can be configured to balance named resources so that the resource requests are distributed as evenly as possible between the GPUs. For example if the balanced resource is set to "tiles" and the containers request 1 tile each, the first container could get tile from "card0", the second from "card1", the third again from "card0" and so on.
@@ -85,7 +108,7 @@ GAS can be configured to balance named resources so that the resource requests a
 ## Adding the resource to make a deployment use GAS Scheduler Extender
 
 For example, in a deployment file:
-```
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -112,7 +135,7 @@ spec:
 ```
 
 There is one change to the yaml here:
-- A resources/limits entry requesting the resource gpu.intel.com/i915. This is used to restrict the use of GAS to only selected pods. If this is not in a pod spec the pod will not be scheduled by GAS.
+- A resources/limits entry requesting the resource gpu.intel.com/i915 will make GAS take part in scheduling such deployment. If this resource is not requested, GAS will not be used during scheduling of the pod.
 
 ### Unsupported use-cases
 
