@@ -465,8 +465,7 @@ func (m *GASExtender) checkGpuAvailability(gpuName string, node *v1.Node, pod *v
 	}
 
 	if !gpuMap[gpuName] {
-		klog.Warningf("node %v gpu %v has vanished", node.Name, gpuName)
-
+		// this can happen e.g. during same-gpu usage when the i915-resource is running out
 		return false
 	}
 
@@ -739,6 +738,23 @@ func (m *GASExtender) getNodeForName(name string) (*v1.Node, error) {
 	return node, nil
 }
 
+func checkPod(pod *v1.Pod) error {
+	if pod == nil {
+		return errBadArgs
+	}
+
+	_, xeLinkAnnotationPresent := pod.Annotations[xelinkAnnotationName]
+	_, sameGpuAnnotationPresent := pod.Annotations[samegpuAnnotationName]
+
+	if xeLinkAnnotationPresent && sameGpuAnnotationPresent {
+		klog.Errorf("annotations %v and %v can't be used at the same time", xelinkAnnotationName, samegpuAnnotationName)
+
+		return errBadArgs
+	}
+
+	return nil
+}
+
 // checkForSpaceAndRetrieveCards checks if pod fits into a node and returns the cards (gpus)
 // that are assigned to each container. If pod doesn't fit or any other error triggers, error is returned.
 func (m *GASExtender) checkForSpaceAndRetrieveCards(pod *v1.Pod, node *v1.Node) ([][]Card, bool, error) {
@@ -751,6 +767,10 @@ func (m *GASExtender) checkForSpaceAndRetrieveCards(pod *v1.Pod, node *v1.Node) 
 		return containerCards, preferred, errWontFit
 	}
 
+	if err := checkPod(pod); err != nil {
+		return [][]Card{}, false, err
+	}
+
 	gpus := getNodeGPUList(node)
 	klog.V(l4).Infof("Node %v gpu list: %v", node.Name, gpus)
 	gpuCount := len(gpus)
@@ -758,7 +778,7 @@ func (m *GASExtender) checkForSpaceAndRetrieveCards(pod *v1.Pod, node *v1.Node) 
 	if gpuCount == 0 {
 		klog.Warningf("Node %s GPUs have vanished", node.Name)
 
-		return containerCards, preferred, errWontFit
+		return [][]Card{}, false, errWontFit
 	}
 
 	perGPUCapacity := getPerGPUResourceCapacity(node, gpuCount)
@@ -767,7 +787,7 @@ func (m *GASExtender) checkForSpaceAndRetrieveCards(pod *v1.Pod, node *v1.Node) 
 	if err != nil {
 		klog.Warningf("Node %s resources couldn't be read or node vanished", node.Name)
 
-		return containerCards, preferred, err
+		return [][]Card{}, false, err
 	}
 
 	gpuMap := createSearchMapFromStrings(gpus)
@@ -832,7 +852,7 @@ func (m *GASExtender) checkForSpaceResourceRequests(perGPUCapacity resourceMap, 
 			continue
 		}
 
-		if pod.Annotations[xelinkAnnotationName] != "" {
+		if _, ok := pod.Annotations[xelinkAnnotationName]; ok {
 			cards, preferred, err = m.getXELinkedCardsForContainerGPURequest(containerRequest, perGPUCapacity,
 				node, pod, nodeResourcesUsed, nodeTilesAllocating, gpuMap)
 		} else {
@@ -855,6 +875,8 @@ func (m *GASExtender) checkForSpaceResourceRequests(perGPUCapacity resourceMap, 
 func (m *GASExtender) getCardForSamegpu(samegpuIndexMap map[int]bool, allContainerRequests []resourceMap,
 	perGPUCapacity resourceMap, node *v1.Node, pod *v1.Pod, nodeResourcesUsed nodeResources,
 	gpuMap map[string]bool) ([]Card, bool, error) {
+	gpuMapCopy := deepCopySimpleMap(gpuMap)
+
 	if err := sanitizeSamegpuResourcesRequest(samegpuIndexMap, allContainerRequests); err != nil {
 		return []Card{}, false, err
 	}
@@ -864,8 +886,16 @@ func (m *GASExtender) getCardForSamegpu(samegpuIndexMap map[int]bool, allContain
 		return []Card{}, false, fail
 	}
 
+	// combinedResourcesRequest ends up with a hard-coded 1 i915 resource only, so we prune the gpuMapCopy, if needed
+	reallyNeededI915Resources := len(samegpuIndexMap)
+	for gpuName, gpuUsedResources := range nodeResourcesUsed {
+		if perGPUCapacity[gpuPluginResource]-gpuUsedResources[gpuPluginResource] < int64(reallyNeededI915Resources) {
+			delete(gpuMapCopy, gpuName)
+		}
+	}
+
 	samegpuCard, preferred, err := m.getCardsForContainerGPURequest(
-		combinedResourcesRequest, perGPUCapacity, node, pod, nodeResourcesUsed, gpuMap)
+		combinedResourcesRequest, perGPUCapacity, node, pod, nodeResourcesUsed, gpuMapCopy)
 	if err != nil {
 		klog.V(l4).Infof("Node %v same-gpu containers of pod %v did not fit", node.Name, pod.Name)
 

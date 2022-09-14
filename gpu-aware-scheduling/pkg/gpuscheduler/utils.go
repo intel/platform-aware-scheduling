@@ -240,6 +240,16 @@ func getPCIGroup(node *v1.Node, gpuName string) []string {
 	return []string{}
 }
 
+func deepCopySimpleMap[k comparable, v int | bool | string](simpleMap map[k]v) map[k]v {
+	mapCopy := map[k]v{}
+
+	for key, value := range simpleMap {
+		mapCopy[key] = value
+	}
+
+	return mapCopy
+}
+
 func hasGPUCapacity(node *v1.Node) bool {
 	if node == nil {
 		return false
