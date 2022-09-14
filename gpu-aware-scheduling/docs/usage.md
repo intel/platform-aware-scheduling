@@ -161,6 +161,7 @@ spec:
 - Containers listed in `gas-same-gpu` annotation have to request exactly one `gpu.intel.com/i915` resource
 - Containers listed in `gas-same-gpu` annotation cannot request `gpu.intel.com/i915_monitoring` resource
 - Containers listed in `gas-same-gpu` annotation cannot request `gpu.intel.com/tiles` resource
+- Pods cannot use (single-GPU) `gas-same-gpu` annotation with (multi-GPU) `gas-allocate-xelink` annotation
 
 ## Multi-GPU allocation with Xe Link connections
 
