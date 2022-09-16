@@ -20,4 +20,3 @@ spec:
           limits:
             gpu.intel.com/i915: 1
             gpu.intel.com/millicores: 100
-            gpu.intel.com/memory.max: 1G

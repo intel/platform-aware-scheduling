@@ -1,62 +1,21 @@
 # Usage with NFD and GPU-plugin
 This document explains how to get GAS working together with [Node Feature Discovery](https://github.com/kubernetes-sigs/node-feature-discovery) (NFD) and the [GPU-plugin](https://github.com/intel/intel-device-plugins-for-kubernetes/blob/main/cmd/gpu_plugin/README.md).
 
-To begin with, it will help a lot if you have been successful already using the GPU-plugin with
+To begin with, it will help a lot if you have been successful already using the Intel GPU-plugin with
 some deployments. That means your HW and cluster is most likely fine with GAS also.
 
-## GPU-plugin
+## Enabling fractional resource support in GPU-plugin and NFD
 Resource management is required to be enabled in GPU-plugin currently to run GAS. With resource
 management enabled, GPU-plugin can read the necessary annotations of the PODs. Without reading
-those annotations, GPU allocations will not work correctly. A copy of the plugin deployment
-kustomization can be found from [docs/gpu_plugin](./gpu_plugin). It can be deployed simply by
-issuing:
-```Bash
-kubectl apply -k docs/gpu_plugin/overlays/fractional_resources
-```
+those annotations, GPU allocations will not work correctly. NFD needs to be configured to create
+the node extended resources which are then used by GAS.
 
-The GPU plugin initcontainer needs to be used in order to get the extended resources created with NFD. It is deployed by the kustomization base. The initcontainer installs the required NFD-hook into the host system.
-
-## NFD
-All versions starting with [v0.6.0](https://github.com/kubernetes-sigs/node-feature-discovery/releases/tag/v0.6.0) should work. You can use it to publish the GPU extended resources and GPU-related labels printed by the hook installed by the GPU-plugin initcontainer.
-
-For NFD to pick up the labels that are printed by the hook installed by the GPU-plugin
-initcontainer, nfd master deployment shold have these options in command entry of its yaml:
-```YAML
-command: ["nfd-master", "--resource-labels=gpu.intel.com/memory.max,gpu.intel.com/millicores,gpu.intel.com/tiles", "--extra-label-ns=gpu.intel.com"]
-```
-
-The above would promote three labels, "memory.max", "millicores" and "tiles" to extended resources of the node that produces the labels.
-
-If you want to enable i915 capability scanning, the nfd worker needs to read debugfs, and therefore it needs to run as privileged, like this:
-```YAML
-          securityContext:
-            runAsNonRoot: null
-            # Adding GPU info labels needs debugfs "915_capabilities" access
-            # (can't just have mount for that specific file because all hosts don't have i915)
-            runAsUser: 0
-```
-
-In order to allow NFD to create extended resource, you will have to give it RBAC-rule to access nodes/status, like:
-```YAML
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - nodes
-# when using command line flag --resource-labels to create extended resources
-# you will need to uncomment "- nodes/status"
-  - nodes/status
-```
-
-A simple example of non-root NFD deployment kustomization can be found from [docs/nfd](./nfd). You can deploy it by running
-
-```Bash
-kubectl apply -k docs/nfd
-```
+The easiest way to setup both the Intel GPU device plugin and NFD is to follow the
+[installation instructions of the Intel GPU-plugin](https://github.com/intel/intel-device-plugins-for-kubernetes/blob/main/cmd/gpu_plugin/README.md#install-to-nodes-with-intel-gpus-with-fractional-resources).
 
 ## Cluster nodes
 
-You need some i915 GPUs in the nodes. Internal GPUs work fine for testing GAS, most recent NUCs are good enough.
+You need some i915 GPUs in the nodes. Integrated GPUs work fine for testing GAS, most recent NUCs are good enough.
 
 ## PODs
 
