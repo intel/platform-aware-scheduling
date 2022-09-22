@@ -46,6 +46,13 @@ If this pipeline isn't set up, and node level metrics aren't exposed through it,
 
 #### Extender configuration
 Note: a shell script that shows these steps can be found [here](deploy/extender-configuration). This script should be seen as a guide only, and will not work on most Kubernetes installations.
+<details>
+<summary>Instructions for non-root <a href="https://github.com/intel/platform-aware-scheduling/blob/master/telemetry-aware-scheduling/deploy/extender-configuration/configure-scheduler.sh">configure-scheduler.sh</a> script runners</summary>
+
+>The `configure-scheduler.sh` script needs write access to under `/etc`. One typically either runs it as root, or you have to use sudo.
+It also requires that sudo (or root) needs to have a working kubectl access to the cluster. If running `sudo kubectl version` looks ok,
+you are likely good to go. If that produced an error, consider giving the folder `/root/.kube/` the cluster config file.
+</details>&nbsp;
 
 The extender configuration files can be found under deploy/extender-configuration.
 TAS Scheduler Extender needs to be registered with the Kubernetes Scheduler. In order to do this a configuration file should be created like one the below:
@@ -93,6 +100,13 @@ The secret can be created with:
 ``
 kubectl create secret tls extender-secret --cert /etc/kubernetes/<PATH_TO_CERT> --key /etc/kubernetes/<PATH_TO_KEY> 
 ``
+<details>
+<summary>Cert selection tip for <a href="https://github.com/intel/platform-aware-scheduling/blob/24f25a38613e326b4830f5e647211df16060fe70/telemetry-aware-scheduling/deploy/extender-configuration/configure-scheduler.sh#L136-L137">configure-scheduler.sh</a> users</summary>
+
+>The `configure-scheduler.sh` script is hard-coded to use `/etc/kubernetes/pki/ca.key` and `/etc/kubernetes/pki/ca.crt`. The cert for the secret
+must match the scheduler configuration, so use those files. If you instead want to use your own cert, you need to configure the scheduler to match.
+</details>&nbsp;
+
 In order to deploy run:
 
 ``kubectl apply -f deploy/``
