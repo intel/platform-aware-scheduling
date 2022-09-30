@@ -2,9 +2,11 @@ package gpuscheduler
 
 import (
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 )
@@ -13,10 +15,19 @@ const (
 	// resourcePrefix is the intel resource prefix.
 	resourcePrefix    = "gpu.intel.com/"
 	pciGroupLabel     = "gpu.intel.com/pci-groups"
+	xeLinksLabel      = "gpu.intel.com/xe-links"
 	regexCardTile     = "^card([0-9]+)_gt([0-9]+)$"
+	regexXeLink       = "^([0-9]+)\\.([0-9]+)-([0-9]+)\\.([0-9]+)$"
 	digitBase         = 10
 	desiredIntBits    = 16
 	regexDesiredCount = 3
+	regexXeLinkCount  = 5
+)
+
+// Globals for compiled regexps. No other global types here!
+var (
+	cardTileReg = regexp.MustCompile(regexCardTile)
+	xeLinkReg   = regexp.MustCompile(regexXeLink)
 )
 
 type DisabledTilesMap map[string][]int
@@ -76,9 +87,7 @@ func createTileMapping(labels map[string]string) (
 		card = ""
 		tile = -1
 
-		re := regexp.MustCompile(regexCardTile)
-
-		values := re.FindStringSubmatch(cardTileCombo)
+		values := cardTileReg.FindStringSubmatch(cardTileCombo)
 		if len(values) != regexDesiredCount {
 			return card, tile, errExtractFail
 		}
@@ -321,6 +330,145 @@ func reorderPreferredTilesFirst(tiles []int, preferred []int) []int {
 	}
 
 	return tiles
+}
+
+func getXeLinkedTiles(gpuName string, node *v1.Node) map[int]bool {
+	xeLinkedTiles := map[int]bool{}
+
+	xeLinkLabelValue := node.Labels[xeLinksLabel]
+	lZeroDeviceID := gpuNameToLZeroDeviceID(gpuName, node)
+
+	if lZeroDeviceID == -1 || xeLinkLabelValue == "" {
+		return xeLinkedTiles
+	}
+
+	xeLinkSlice := strings.Split(xeLinkLabelValue, "_")
+
+	for _, linkPair := range xeLinkSlice {
+		submatches := xeLinkReg.FindStringSubmatch(linkPair)
+		if len(submatches) == regexXeLinkCount {
+			if submatches[1] == strconv.Itoa(lZeroDeviceID) {
+				tileNumber, err := strconv.Atoi(submatches[2])
+				if err == nil {
+					xeLinkedTiles[tileNumber] = true
+				}
+			}
+		} else {
+			klog.Errorf("Malformed Xe Link label part: %v", linkPair)
+		}
+	}
+
+	return xeLinkedTiles
+}
+
+type linkInfo struct {
+	lZeroDeviceID          int
+	lZeroSubdeviceID       int
+	linkedLZeroDeviceID    int
+	linkedLZeroSubdeviceID int
+}
+
+func parseXeLink(link string) (linkInfo, error) {
+	lInfo := linkInfo{}
+
+	submatches := xeLinkReg.FindStringSubmatch(link)
+
+	if len(submatches) != regexXeLinkCount {
+		return lInfo, errBadArgs
+	}
+
+	identifiers := [4]int{}
+
+	for i := 1; i < regexXeLinkCount; i++ {
+		var err error
+		identifiers[i-1], err = strconv.Atoi(submatches[i])
+
+		if err != nil {
+			return lInfo, errors.Wrap(err, "bad xe-link string")
+		}
+	}
+
+	lInfo.lZeroDeviceID = identifiers[0]
+	lInfo.lZeroSubdeviceID = identifiers[1]
+	lInfo.linkedLZeroDeviceID = identifiers[2]
+	lInfo.linkedLZeroSubdeviceID = identifiers[3]
+
+	return lInfo, nil
+}
+
+func getXeLinkedGPUInfo(gpuName string, tileIndex int, node *v1.Node) (string, int) {
+	xeLinkLabelValue := node.Labels[xeLinksLabel]
+	lZeroDeviceID := gpuNameToLZeroDeviceID(gpuName, node)
+
+	if lZeroDeviceID == -1 || xeLinkLabelValue == "" {
+		return "", -1
+	}
+
+	xeLinkSlice := strings.Split(xeLinkLabelValue, "_")
+
+	for _, linkPair := range xeLinkSlice {
+		lInfo, err := parseXeLink(linkPair)
+		if err != nil {
+			return "", -1
+		}
+
+		if lInfo.lZeroDeviceID == lZeroDeviceID && lInfo.lZeroSubdeviceID == tileIndex {
+			return lZeroDeviceIDToGpuName(lInfo.linkedLZeroDeviceID, node), lInfo.linkedLZeroSubdeviceID
+		}
+	}
+
+	return "", -1
+}
+
+func gpuNameToLZeroDeviceID(gpuName string, node *v1.Node) int {
+	gpuNumSlice := numSortedGpuNums(node)
+
+	for i, gpuNum := range gpuNumSlice {
+		if "card"+gpuNum == gpuName {
+			return i
+		}
+	}
+
+	return -1
+}
+
+func lZeroDeviceIDToGpuName(lZeroID int, node *v1.Node) string {
+	gpuNumSlice := numSortedGpuNums(node)
+
+	if lZeroID >= len(gpuNumSlice) || lZeroID < 0 || gpuNumSlice[lZeroID] == "" {
+		return ""
+	}
+
+	return "card" + gpuNumSlice[lZeroID]
+}
+
+func numSortedGpuNums(node *v1.Node) []string {
+	gpuNums := node.Labels[gpuNumbersLabel]
+
+	gpuNumSlice := strings.Split(gpuNums, ".")
+
+	failed := false
+
+	// sort gpuNumSlice numerically
+	sort.Slice(gpuNumSlice, func(i, j int) bool {
+		iVal, errI := strconv.Atoi(gpuNumSlice[i])
+		jVal, errJ := strconv.Atoi(gpuNumSlice[j])
+
+		if errI != nil || errJ != nil {
+			failed = true
+			klog.Errorf("malformed %v label value %q, strconv results %v and %v", gpuNumbersLabel, gpuNums, errI, errJ)
+
+			return false
+		}
+
+		return iVal < jVal
+	})
+
+	if failed {
+		return nil
+	}
+
+	return gpuNumSlice
 }
 
 func convertPodTileAnnotationToCardTileMap(podTileAnnotation string) map[string]bool {

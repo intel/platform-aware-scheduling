@@ -27,6 +27,93 @@ func TestIsCompletePod(t *testing.T) {
 	})
 }
 
+func TestGetXeLinkedGPUInfo(t *testing.T) {
+	Convey("When Intel GPU numbers start from 1", t, func() {
+		node := v1.Node{}
+		node.Labels = map[string]string{
+			"gpu.intel.com/gpu-numbers": "1.10.11.2.3.4.5.6.7.8.9",
+			"gpu.intel.com/xe-links":    "5.0-6.0_6.0-5.0_1.0-2.1_2.1-1.0",
+		}
+
+		// remember links are in lzero identifiers, gpu names are numbered from devfs
+		// so 1.0-2.1 = card2-card3 if gpu numbers happen to start from 1 instead of 0
+		name, id := getXeLinkedGPUInfo("card2", 0, &node)
+		So(name, ShouldEqual, "card3")
+		So(id, ShouldEqual, 1)
+
+		// no link test
+		name, id = getXeLinkedGPUInfo("card8", 0, &node)
+		So(name, ShouldEqual, "")
+		So(id, ShouldEqual, -1)
+	})
+
+	Convey("When gpu-numbers are malformed", t, func() {
+		node := v1.Node{}
+		node.Labels = map[string]string{
+			"gpu.intel.com/gpu-numbers": "1.10.11.2.3.4.5.6.7.8.9.foobar",
+			"gpu.intel.com/xe-links":    "5.0-6.0_6.0-5.0_1.0-2.1_2.1-1.0",
+		}
+
+		name, id := getXeLinkedGPUInfo("card2", 0, &node)
+		So(name, ShouldEqual, "")
+		So(id, ShouldEqual, -1)
+	})
+
+	Convey("When xe-links are malformed", t, func() {
+		node := v1.Node{}
+		node.Labels = map[string]string{
+			"gpu.intel.com/gpu-numbers": "1.10.11.2.3.4.5.6.7.8.9",
+			"gpu.intel.com/xe-links":    "foobar_5.0-6.0_6.0-5.0_1.0-2.1_2.1-1.0",
+		}
+
+		name, id := getXeLinkedGPUInfo("card2", 0, &node)
+		So(name, ShouldEqual, "")
+		So(id, ShouldEqual, -1)
+	})
+}
+
+func TestLZeroDeviceIdToGpuName(t *testing.T) {
+	Convey("When Intel GPU numbers start from 1", t, func() {
+		node := v1.Node{}
+		node.Labels = map[string]string{
+			"gpu.intel.com/gpu-numbers": "1.10.11.2.3.4.5.6.7.8.9",
+		}
+
+		result := lZeroDeviceIDToGpuName(0, &node)
+		So(result, ShouldEqual, "card1")
+
+		result = lZeroDeviceIDToGpuName(1, &node)
+		So(result, ShouldEqual, "card2")
+
+		result = lZeroDeviceIDToGpuName(10, &node)
+		So(result, ShouldEqual, "card11")
+
+		result = lZeroDeviceIDToGpuName(0, &v1.Node{})
+		So(result, ShouldEqual, "")
+	})
+}
+
+func TestGPUNameToLZeroDeviceId(t *testing.T) {
+	Convey("When Intel GPU numbers start from 1", t, func() {
+		node := v1.Node{}
+		node.Labels = map[string]string{
+			"gpu.intel.com/gpu-numbers": "1.10.11.2.3.4.5.6.7.8.9",
+		}
+
+		result := gpuNameToLZeroDeviceID("card1", &node)
+		So(result, ShouldEqual, 0)
+
+		result = gpuNameToLZeroDeviceID("card2", &node)
+		So(result, ShouldEqual, 1)
+
+		result = gpuNameToLZeroDeviceID("card11", &node)
+		So(result, ShouldEqual, 10)
+
+		result = gpuNameToLZeroDeviceID("card12", &v1.Node{})
+		So(result, ShouldEqual, -1)
+	})
+}
+
 func TestPCIGroups(t *testing.T) {
 	Convey("When the GPU belongs to a PCI Group", t, func() {
 		node := getMockNode(1, 1)
