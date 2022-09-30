@@ -28,6 +28,7 @@ const (
 	tileAnnotationName      = "gas-container-tiles"
 	allowlistAnnotationName = "gas-allow"
 	denylistAnnotationName  = "gas-deny"
+	xelinkAnnotationName    = "gas-allocate-xelink"
 	samegpuAnnotationName   = "gas-same-gpu"
 	samegpuMaxI915Request   = 1
 	samegpuMinContainers    = 2
@@ -52,7 +53,7 @@ const (
 	base10                  = 10
 )
 
-//nolint: gochecknoglobals // only mocked APIs are allowed as globals
+// nolint: gochecknoglobals // only mocked APIs are allowed as globals
 var (
 	iCache CacheAPI
 )
@@ -69,7 +70,7 @@ var (
 	errResConflict = errors.New("resources conflict")
 )
 
-//nolint: gochecknoinits // only mocked APIs are allowed in here
+// nolint: gochecknoinits // only mocked APIs are allowed in here
 func init() {
 	iCache = &cacheAPI{}
 }
@@ -82,6 +83,12 @@ type GASExtender struct {
 	rwmutex          sync.RWMutex
 	allowlistEnabled bool
 	denylistEnabled  bool
+}
+
+// Card represents a selected gpuName and optional xeLinkedTileIds to be used.
+type Card struct {
+	gpuName         string
+	xeLinkedTileIds []int
 }
 
 // NewGASExtender returns a new GAS Extender.
@@ -172,7 +179,7 @@ func getNodeGPUList(node *v1.Node) []string {
 
 	// Deprecated, remove after intel device plugins release-0.23 drops to unsupported status
 	if len(cards) == 0 {
-		annotation, ok := node.Labels[gpuListLabel]
+		label, ok := node.Labels[gpuListLabel]
 
 		if !ok {
 			klog.Error("gpulist label not found from node")
@@ -180,7 +187,7 @@ func getNodeGPUList(node *v1.Node) []string {
 			return nil
 		}
 
-		cards = strings.Split(annotation, ".")
+		cards = strings.Split(label, ".")
 	}
 
 	return cards
@@ -249,8 +256,8 @@ func (m *GASExtender) isGPUUsable(gpuName string, node *v1.Node, pod *v1.Pod) bo
 
 // isGPUAllowed returns true, if the given gpuName is allowed. A GPU is considered allowed, if:
 // 1) the allowlist-feature is not enabled in the first place - all gpus are allowed then
-// 2) there is no annotation in the POD (nil annotations, or missing annotation) - all gpus are allowed then
-// 3) there is an allowlist-annotation in the POD, and it contains the given GPU name -> true.
+// 2) there is no annotation in the Pod (nil annotations, or missing annotation) - all gpus are allowed then
+// 3) there is an allowlist-annotation in the Pod, and it contains the given GPU name -> true.
 func (m *GASExtender) isGPUAllowed(gpuName string, pod *v1.Pod) bool {
 	if !m.allowlistEnabled || pod.Annotations == nil {
 		klog.V(l5).InfoS("gpu allowed", "gpuName", gpuName, "podName", pod.Name, "allowlistEnabled", m.allowlistEnabled)
@@ -370,7 +377,7 @@ func getSortedGPUNamesForNode(nodeResourcesUsed nodeResources) []string {
 	return gpuNames
 }
 
-func (m *GASExtender) createTileAnnotation(gpuName string, numCards int64, containerRequest, perGPUCapacity resourceMap,
+func (m *GASExtender) createTileAnnotation(card Card, numCards int64, containerRequest, perGPUCapacity resourceMap,
 	node *v1.Node, currentlyAllocatingTilesMap map[string][]int, preferredTiles []int) string {
 	requestedTiles := containerRequest[gpuTileResource]
 
@@ -386,7 +393,12 @@ func (m *GASExtender) createTileAnnotation(gpuName string, numCards int64, conta
 		return ""
 	}
 
-	freeTiles := m.getFreeTiles(tileCapacityPerGPU, node, gpuName, currentlyAllocatingTilesMap)
+	// currently only supported xeLinked configuration is 1 connection from each allocated GPU
+	if len(card.xeLinkedTileIds) == 1 && requestedTilesPerGPU == 1 {
+		return card.gpuName + ":gt" + strconv.Itoa(card.xeLinkedTileIds[0])
+	}
+
+	freeTiles := m.getFreeTiles(tileCapacityPerGPU, node, card.gpuName, currentlyAllocatingTilesMap, false)
 	if len(freeTiles) < int(requestedTilesPerGPU) {
 		klog.Errorf("not enough free tiles")
 
@@ -397,12 +409,12 @@ func (m *GASExtender) createTileAnnotation(gpuName string, numCards int64, conta
 		freeTiles = reorderPreferredTilesFirst(freeTiles, preferredTiles)
 	}
 
-	annotation := gpuName + ":"
+	annotation := card.gpuName + ":"
 	delimeter := ""
 
 	for _, freeTileIndex := range freeTiles {
 		annotation += delimeter + tileString + strconv.Itoa(freeTileIndex)
-		currentlyAllocatingTilesMap[gpuName] = append(currentlyAllocatingTilesMap[gpuName], freeTileIndex)
+		currentlyAllocatingTilesMap[card.gpuName] = append(currentlyAllocatingTilesMap[card.gpuName], freeTileIndex)
 		delimeter = "+"
 		requestedTilesPerGPU--
 
@@ -414,13 +426,13 @@ func (m *GASExtender) createTileAnnotation(gpuName string, numCards int64, conta
 	return annotation
 }
 
-func (m *GASExtender) getFreeTiles(capacityPerGPU int64, node *v1.Node,
-	gpuName string, currentlyAllocatingTilesMap map[string][]int) []int {
+func (m *GASExtender) getFreeTiles(tileCapacityPerGPU int64, node *v1.Node,
+	gpuName string, currentlyAllocatingTilesMap map[string][]int, xelinks bool) []int {
 	nTiles := iCache.GetNodeTileStatus(m.cache, node.Name)
 	freeTilesMap := map[int]bool{}
 
 	// convert capacity to bool search map with indices 0 to capacity-1
-	for i := 0; i < int(capacityPerGPU); i++ {
+	for i := 0; i < int(tileCapacityPerGPU); i++ {
 		freeTilesMap[i] = true
 	}
 
@@ -468,11 +480,145 @@ func (m *GASExtender) checkGpuAvailability(gpuName string, node *v1.Node, pod *v
 	return true
 }
 
+/*
+findXeLinkedGPUPair utility function finds a suitable xe-linked gpu pair. It needs all the possible info.
+nodeTilesAllocating is the tiles which are marked for potential use by previous containers of the pod.
+
+for an xe-link to be usable,
+  - check if the GPU has resources and is available
+  - loop GPU free xe-linked tiles
+  - check if the linked GPU has resources and is available
+  - check if the linked GPU linked tile is free
+    if all the above are valid, the GPU pair can be allocated.
+*/
+func (m *GASExtender) findXeLinkedGPUPair(gpuNames []string,
+	node *v1.Node, pod *v1.Pod,
+	nodeResourcesUsed nodeResources,
+	availableTiles, nodeTilesAllocating nodeTiles,
+	perGPUResourceRequest, perGPUCapacity resourceMap,
+	gpuMap, usedGPUmap map[string]bool) (cards []Card, err error) {
+	cards = []Card{}
+	err = errWontFit
+	found := false
+
+	for _, gpuName := range gpuNames {
+		usedResMap := nodeResourcesUsed[gpuName]
+		klog.V(l4).Info("Checking gpu ", gpuName)
+
+		if !m.checkGpuAvailability(gpuName, node, pod, usedGPUmap, gpuMap) {
+			continue
+		}
+
+		if !checkResourceCapacity(perGPUResourceRequest, perGPUCapacity, usedResMap) {
+			continue
+		}
+
+		for _, tileIndex := range availableTiles[gpuName] {
+			linkedGpuName, linkedTileID := getXeLinkedGPUInfo(gpuName, tileIndex, node)
+			klog.V(l4).Infof("Checking linked gpu %v tile id %v", gpuName, linkedTileID)
+
+			if !m.checkGpuAvailability(linkedGpuName, node, pod, usedGPUmap, gpuMap) {
+				continue
+			}
+
+			linkedGpuUsedResMap := nodeResourcesUsed[linkedGpuName]
+			if contains, _ := containsInt(availableTiles[linkedGpuName], linkedTileID); contains &&
+				checkResourceCapacity(perGPUResourceRequest, perGPUCapacity, linkedGpuUsedResMap) {
+				err = usedResMap.addRM(perGPUResourceRequest)
+				if err != nil {
+					return []Card{}, err
+				}
+
+				err = linkedGpuUsedResMap.addRM(perGPUResourceRequest)
+				if err != nil {
+					err2 := usedResMap.subtractRM(perGPUResourceRequest)
+					klog.Errorf("resource addition failure: %v, subtraction result: %v", err.Error(), err2)
+
+					return []Card{}, err
+				}
+
+				klog.V(l4).Infof("gpu %v tile id %v and linked gpu %v tile id %v fits",
+					gpuName, tileIndex, linkedGpuName, linkedTileID)
+
+				found = true
+
+				cards = append(cards, []Card{{gpuName: gpuName, xeLinkedTileIds: []int{tileIndex}},
+					{gpuName: linkedGpuName, xeLinkedTileIds: []int{linkedTileID}}}...)
+				usedGPUmap[gpuName] = true
+				usedGPUmap[linkedGpuName] = true
+
+				break // xe-linked tile search loop
+			}
+		}
+
+		if found {
+			for _, card := range cards {
+				nodeTilesAllocating[card.gpuName] = append(nodeTilesAllocating[card.gpuName], card.xeLinkedTileIds...)
+			}
+
+			break // double-gpu search loop
+		}
+	}
+
+	return cards, err
+}
+
+func (m *GASExtender) getXELinkedCardsForContainerGPURequest(containerRequest, perGPUCapacity resourceMap,
+	node *v1.Node, pod *v1.Pod,
+	nodeResourcesUsed nodeResources,
+	nodeTilesAllocating nodeTiles,
+	gpuMap map[string]bool) (cards []Card, preferred bool, err error) {
+	cards = []Card{}
+
+	if len(containerRequest) == 0 {
+		return cards, preferred, nil
+	}
+
+	usedGPUmap := map[string]bool{}
+
+	// figure out container resources per gpu
+	perGPUResourceRequest, numI915 := getPerGPUResourceRequest(containerRequest)
+
+	if numI915%2 != 0 {
+		klog.Errorf("xe-linked allocations must have an even numbered gpu resource request")
+
+		return []Card{}, preferred, errBadArgs
+	}
+
+	preferredCard := ""
+
+	for gpuNum := int64(0); gpuNum < numI915; gpuNum += 2 {
+		gpuNames := getSortedGPUNamesForNode(nodeResourcesUsed)
+
+		if m.balancedResource != "" {
+			arrangeGPUNamesPerResourceAvailability(nodeResourcesUsed, gpuNames, m.balancedResource)
+		} else if preferredCard = findNodesPreferredGPU(node); preferredCard != "" {
+			movePreferredCardToFront(gpuNames, preferredCard)
+		}
+
+		availableTiles := m.createAvailableXeLinkedTilesStat(node,
+			int(perGPUCapacity[gpuTileResource]), gpuNames, nodeTilesAllocating)
+
+		cardPair, err := m.findXeLinkedGPUPair(gpuNames, node, pod, nodeResourcesUsed, availableTiles, nodeTilesAllocating,
+			perGPUResourceRequest, perGPUCapacity, gpuMap, usedGPUmap)
+
+		if err != nil {
+			return []Card{}, preferred, err
+		}
+
+		cards = append(cards, cardPair...)
+	}
+
+	preferred = (len(cards) > 0 && cards[0].gpuName == preferredCard)
+
+	return cards, preferred, nil
+}
+
 func (m *GASExtender) getCardsForContainerGPURequest(containerRequest, perGPUCapacity resourceMap,
 	node *v1.Node, pod *v1.Pod,
 	nodeResourcesUsed nodeResources,
-	gpuMap map[string]bool) (cards []string, preferred bool, err error) {
-	cards = []string{}
+	gpuMap map[string]bool) (cards []Card, preferred bool, err error) {
+	cards = []Card{}
 
 	if len(containerRequest) == 0 {
 		return cards, preferred, nil
@@ -512,7 +658,7 @@ func (m *GASExtender) getCardsForContainerGPURequest(containerRequest, perGPUCap
 						preferred = true
 					}
 
-					cards = append(cards, gpuName)
+					cards = append(cards, Card{gpuName: gpuName})
 					usedGPUmap[gpuName] = true
 				}
 
@@ -595,9 +741,9 @@ func (m *GASExtender) getNodeForName(name string) (*v1.Node, error) {
 
 // checkForSpaceAndRetrieveCards checks if pod fits into a node and returns the cards (gpus)
 // that are assigned to each container. If pod doesn't fit or any other error triggers, error is returned.
-func (m *GASExtender) checkForSpaceAndRetrieveCards(pod *v1.Pod, node *v1.Node) ([][]string, bool, error) {
+func (m *GASExtender) checkForSpaceAndRetrieveCards(pod *v1.Pod, node *v1.Node) ([][]Card, bool, error) {
 	preferred := false
-	containerCards := [][]string{}
+	containerCards := [][]Card{}
 
 	if node == nil {
 		klog.Warningf("checkForSpaceAndRetrieveCards called with nil node")
@@ -648,14 +794,14 @@ func (m *GASExtender) checkForSpaceAndRetrieveCards(pod *v1.Pod, node *v1.Node) 
 }
 
 func (m *GASExtender) checkForSpaceResourceRequests(perGPUCapacity resourceMap, pod *v1.Pod, node *v1.Node,
-	nodeResourcesUsed nodeResources, gpuMap map[string]bool) ([][]string, bool, error) {
+	nodeResourcesUsed nodeResources, gpuMap map[string]bool) ([][]Card, bool, error) {
 	var err error
 
-	var cards []string
+	var cards []Card
 
-	var samegpuCard []string
+	var samegpuCard []Card
 
-	containerCards := [][]string{}
+	containerCards := [][]Card{}
 	preferred := false
 
 	samegpuNamesMap, err := containersRequestingSamegpu(pod)
@@ -673,6 +819,8 @@ func (m *GASExtender) checkForSpaceResourceRequests(perGPUCapacity resourceMap, 
 		}
 	}
 
+	nodeTilesAllocating := nodeTiles{}
+
 	for i, containerRequest := range allContainerRequests {
 		klog.V(l4).Infof("getting cards for container %v", i)
 
@@ -684,8 +832,13 @@ func (m *GASExtender) checkForSpaceResourceRequests(perGPUCapacity resourceMap, 
 			continue
 		}
 
-		cards, preferred, err = m.getCardsForContainerGPURequest(containerRequest, perGPUCapacity,
-			node, pod, nodeResourcesUsed, gpuMap)
+		if pod.Annotations[xelinkAnnotationName] != "" {
+			cards, preferred, err = m.getXELinkedCardsForContainerGPURequest(containerRequest, perGPUCapacity,
+				node, pod, nodeResourcesUsed, nodeTilesAllocating, gpuMap)
+		} else {
+			cards, preferred, err = m.getCardsForContainerGPURequest(containerRequest, perGPUCapacity,
+				node, pod, nodeResourcesUsed, gpuMap)
+		}
 
 		if err != nil {
 			klog.V(l4).Infof("Node %v container %v out of %v did not fit", node.Name, i+1, len(allContainerRequests))
@@ -701,14 +854,14 @@ func (m *GASExtender) checkForSpaceResourceRequests(perGPUCapacity resourceMap, 
 
 func (m *GASExtender) getCardForSamegpu(samegpuIndexMap map[int]bool, allContainerRequests []resourceMap,
 	perGPUCapacity resourceMap, node *v1.Node, pod *v1.Pod, nodeResourcesUsed nodeResources,
-	gpuMap map[string]bool) ([]string, bool, error) {
+	gpuMap map[string]bool) ([]Card, bool, error) {
 	if err := sanitizeSamegpuResourcesRequest(samegpuIndexMap, allContainerRequests); err != nil {
-		return []string{}, false, err
+		return []Card{}, false, err
 	}
 
 	combinedResourcesRequest, fail := combineSamegpuResourceRequests(samegpuIndexMap, allContainerRequests)
 	if fail != nil {
-		return []string{}, false, fail
+		return []Card{}, false, fail
 	}
 
 	samegpuCard, preferred, err := m.getCardsForContainerGPURequest(
@@ -716,16 +869,16 @@ func (m *GASExtender) getCardForSamegpu(samegpuIndexMap map[int]bool, allContain
 	if err != nil {
 		klog.V(l4).Infof("Node %v same-gpu containers of pod %v did not fit", node.Name, pod.Name)
 
-		return []string{}, false, err
+		return []Card{}, false, err
 	}
 
 	bookKeepingRM := resourceMap{gpuPluginResource: int64(len(samegpuIndexMap) - 1)}
 
-	err = nodeResourcesUsed[samegpuCard[0]].addRM(bookKeepingRM)
+	err = nodeResourcesUsed[samegpuCard[0].gpuName].addRM(bookKeepingRM)
 	if err != nil {
 		klog.Errorf("Node %v could not add-up resource for bookkeeping", node.Name)
 
-		return []string{}, false, err
+		return []Card{}, false, err
 	}
 
 	klog.V(l4).Infof("Pod %v same-gpu containers fit to node %v", pod.Name, node.Name)
@@ -737,7 +890,7 @@ func (m *GASExtender) getCardForSamegpu(samegpuIndexMap map[int]bool, allContain
 // convertNodeCardsToAnnotations converts given container cards into card and tile
 // annotation strings.
 func (m *GASExtender) convertNodeCardsToAnnotations(pod *v1.Pod,
-	node *v1.Node, containerCards [][]string) (annotation, tileAnnotation string) {
+	node *v1.Node, containerCards [][]Card) (annotation, tileAnnotation string) {
 	gpuCount := len(getNodeGPUList(node))
 	klog.V(l4).Info("Node gpu count:", gpuCount)
 
@@ -772,9 +925,9 @@ func (m *GASExtender) convertNodeCardsToAnnotations(pod *v1.Pod,
 		cardDelimeter := ""
 
 		for _, card := range cards {
-			annotation += cardDelimeter + card
+			annotation += cardDelimeter + card.gpuName
 
-			prefTiles := prefTileMap[card]
+			prefTiles := prefTileMap[card.gpuName]
 			if usesTiles {
 				tiles := m.createTileAnnotation(card, int64(len(cards)),
 					containerRequest, perGPUCapacity, node, unusableTilesMap, prefTiles)
@@ -797,16 +950,64 @@ func containerHasTiles(resources resourceMap) bool {
 	return (found && amount > 0)
 }
 
-func (m *GASExtender) createUnavailableNodeResources(node *v1.Node, tilesPerGpu int64) nodeResources {
+// createUnavailableTilesStat returns disabled+descheduled+used+unusable (e.g. currently allocating)
+// tiles. May have duplicate indices.
+func (m *GASExtender) createUnavailableTilesStat(node *v1.Node, tilesPerGpu int, unusableTiles nodeTiles) nodeTiles {
+	disabledTilesMap := createDisabledTileMapping(node.Labels)
+	// it is possible to have an invalid rule which would disable a non existing
+	// tile which would reduce the available resources even though it's not needed
+	disabledTilesMap = sanitizeTiles(disabledTilesMap, tilesPerGpu)
+
+	usedTilesStats := iCache.GetNodeTileStatus(m.cache, node.Name)
+	combineMappings(disabledTilesMap, usedTilesStats)
+	// node tile status doesn't include currently allocating tiles yet
+	combineMappings(unusableTiles, usedTilesStats)
+
+	return usedTilesStats
+}
+
+// createAvailableXeLinkedTilesStat returns the available xe-linked tiles of the node.
+// You can provide a map of currently allocating tiles to be excluded from the available.
+func (m *GASExtender) createAvailableXeLinkedTilesStat(node *v1.Node,
+	tileCapacityPerGPU int,
+	gpuNames []string,
+	nodeTilesAllocating nodeTiles) nodeTiles {
+	availableTiles := nodeTiles{}
+
+	unavailableTiles := m.createUnavailableTilesStat(node, tileCapacityPerGPU, nodeTilesAllocating)
+
+	for _, gpuName := range gpuNames {
+		gpuAvailableTiles := getXeLinkedTiles(gpuName, node)
+
+		for _, index := range unavailableTiles[gpuName] {
+			delete(gpuAvailableTiles, index)
+		}
+
+		available := make([]int, len(gpuAvailableTiles))
+
+		i := 0
+
+		for k := range gpuAvailableTiles {
+			available[i] = k
+			i++
+		}
+
+		availableTiles[gpuName] = available
+	}
+
+	return availableTiles
+}
+
+func (m *GASExtender) createUnavailableNodeResources(node *v1.Node, tileCapacityPerGPU int64) nodeResources {
 	nodeRes := nodeResources{}
 
 	// for now, only "supported" unavailable resource is tiles
 	disabledTilesMap := createDisabledTileMapping(node.Labels)
 	// it is possible to have an invalid rule which would disable a non existing
 	// tile which would reduce the available resources even though it's not needed
-	disabledTilesMap = sanitizeTiles(disabledTilesMap, int(tilesPerGpu))
+	disabledTilesMap = sanitizeTiles(disabledTilesMap, int(tileCapacityPerGPU))
 
-	usedTilesStats := m.cache.nodeTileStatuses[node.Name]
+	usedTilesStats := iCache.GetNodeTileStatus(m.cache, node.Name)
 
 	// iterate over the disabled and the used tiles
 	// for the tiles that are disabled but _not_ used, increase the usage
@@ -999,7 +1200,7 @@ func (m *GASExtender) filterNodes(args *extender.Args) *extender.FilterResult {
 				nodeNames = append(nodeNames, nodeName)
 			}
 		} else {
-			failedNodes[nodeName] = "Not enough GPU-resources for deployment"
+			failedNodes[nodeName] = "Not enough GPU-resources for deployment: " + err.Error()
 		}
 	}
 
