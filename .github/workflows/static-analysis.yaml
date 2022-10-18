@@ -40,12 +40,12 @@ jobs:
     name: Shellcheck
     runs-on: ${{ inputs.runsOn }}
     steps:
-      - uses: actions/checkout@v2
-      - name: Run ShellCheck
-        uses: ludeeus/action-shellcheck@master
-        with:
-          scandir: ${{ inputs.scanDir }}
-          ignore_paths: ${{ inputs.ignoreDir }}
+      - uses: actions/checkout@v3
+      - run: |
+          wget -q https://github.com/koalaman/shellcheck/releases/download/stable/shellcheck-stable.linux.x86_64.tar.xz
+          tar -xvf shellcheck-stable.linux.x86_64.tar.xz
+          shellcheck-stable/shellcheck -V; find . -name '*.sh' -print -exec sha256sum {} \;; find . -type f \( -name "*.sh" \) -print -exec shellcheck-stable/shellcheck -a -s bash -S warning -f gcc {} \;;
+        shell: bash
 
   hadolint:
     name: Hadolint
@@ -90,11 +90,5 @@ jobs:
         with:
           go-version: ${{ inputs.goVersion  }}
       - name: Running golang CI for ${{matrix.workingdir}}
-        uses: golangci/golangci-lint-action@v2
-        with:
-          version: ${{ inputs.goLangCIVersion  }}
-          skip-go-installation: true
-          working-directory: ${{matrix.workingdir }}
-          # Additional linting tools can be added here
-          args: --timeout=5m -v --color='always'
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@${{ inputs.goLangCIVersion }} && cd ./${{ matrix.workingdir }} && golangci-lint run --timeout=5m -v --color='always' && cd ..
 
