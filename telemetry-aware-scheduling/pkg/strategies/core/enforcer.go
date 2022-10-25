@@ -122,7 +122,7 @@ func (e *MetricEnforcer) EnforceRegisteredStrategies(cache cache.Reader, timer t
 		<-timer.C
 
 		for registeredType := range e.RegisteredStrategies {
-			go e.enforceStrategy(registeredType, cache)
+			e.enforceStrategy(registeredType, cache)
 		}
 	}
 }
