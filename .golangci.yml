@@ -27,12 +27,13 @@ linters:
     - maintidx
     - typecheck
     - gochecknoglobals
+    - nosnakecase
 
 linters-settings:
   gofmt:
     simplify: true
   gofumpt:
-    lang-version: "1.17"
+    lang-version: "1.19"
   golint:
     min-confidence: 0.9
   govet:
@@ -62,4 +63,5 @@ issues:
         - funlen
         - goimports
         - gofmt
+        - dupword
 

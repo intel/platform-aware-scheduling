@@ -10,15 +10,15 @@ on:
       goVersion:
         required: false
         type: string
-        default: 1.18
+        default: 1.19
 
 jobs:
   build-test:
     runs-on: ${{ inputs.runsOn }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ inputs.goVersion }}
       - name: Build

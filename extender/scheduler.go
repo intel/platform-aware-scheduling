@@ -4,8 +4,8 @@ package extender
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -105,7 +105,15 @@ func (m Server) StartServer(port string, certFile string, keyFile string, caFile
 	if unsafe {
 		klog.V(l2).InfoS("Extender Listening on HTTP "+port, "component", "extender")
 
-		err = http.ListenAndServe(":"+port, mx)
+		srv := &http.Server{
+			Addr:              ":" + port,
+			Handler:           mx,
+			ReadHeaderTimeout: readTimeout * time.Second,
+			WriteTimeout:      writeTimeout * time.Second,
+			MaxHeaderBytes:    maxHeader,
+		}
+
+		err = srv.ListenAndServe()
 		if err != nil {
 			klog.V(l2).InfoS("Listening on HTTP failed: "+err.Error(), "component", "extender")
 		}
@@ -122,7 +130,7 @@ func (m Server) StartServer(port string, certFile string, keyFile string, caFile
 
 // Configuration values including algorithms etc for the TAS scheduling endpoint.
 func configureSecureServer(port string, caFile string) *http.Server {
-	caCert, err := ioutil.ReadFile(caFile)
+	caCert, err := os.ReadFile(caFile)
 	if err != nil {
 		klog.V(l2).InfoS("caCert read failed: "+err.Error(), "component", "extender")
 	}
