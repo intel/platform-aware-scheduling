@@ -6,15 +6,15 @@ on:
       goVersion:
         required: false
         type: string
-        default: 1.18
+        default: 1.19
       kindversion:
         required: false
         type: string
-        default: v0.14.0
+        default: v0.17.0
       imagehash:
         required: false
         type: string
-        default: kindest/node:v1.24.0@sha256:0866296e693efe1fed79d5e6c7af8df71fc73ae45e3679af05342239cdc5bc8e
+        default: kindest/node:v1.25.2@sha256:f52781bc0d7a19fb6c405c2af83abfeb311f130707a0e219175677e366cc45d1
       runson:
         required: false
         type: string
@@ -34,7 +34,7 @@ jobs:
     runs-on: ${{ inputs.runson }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Show available space
         run: df -h
       - name: Remove docker dangling images
@@ -47,9 +47,9 @@ jobs:
     if: ${{ always() }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Set up Go version
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ inputs.goVersion}}
       - name: Get tools for cluster installation

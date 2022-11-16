@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -31,7 +31,7 @@ func DummyRestClientConfig() *restclient.Config {
 		}
 	}()
 
-	tmpFile, err := ioutil.TempFile("", "cmdtests_temp")
+	tmpFile, err := os.CreateTemp("", "cmdtests_temp")
 	if err != nil {
 		klog.InfoS("Unable to create a fake client config", "component", "testing")
 		klog.Exit(err.Error())
