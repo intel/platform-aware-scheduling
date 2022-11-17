@@ -49,7 +49,7 @@ func TestNewCache(t *testing.T) {
 	})
 }
 
-//nolint: gochecknoglobals // only test resource
+//nolint:gochecknoglobals // only test resource
 var dummyCache *Cache
 
 func (c *Cache) reset() {

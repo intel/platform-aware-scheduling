@@ -36,7 +36,7 @@ func getDummyExtender(objects ...runtime.Object) *GASExtender {
 	return NewGASExtender(clientset, true, true, "")
 }
 
-//nolint: gochecknoglobals // only test resource
+//nolint:gochecknoglobals // only test resource
 var emptyExtender *GASExtender
 
 func getEmptyExtender() *GASExtender {
