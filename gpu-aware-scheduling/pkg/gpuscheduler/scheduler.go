@@ -53,7 +53,7 @@ const (
 	base10                  = 10
 )
 
-// nolint: gochecknoglobals // only mocked APIs are allowed as globals
+//nolint:gochecknoglobals // only mocked APIs are allowed as globals
 var (
 	iCache CacheAPI
 )
@@ -70,7 +70,7 @@ var (
 	errResConflict = errors.New("resources conflict")
 )
 
-// nolint: gochecknoinits // only mocked APIs are allowed in here
+//nolint:gochecknoinits // only mocked APIs are allowed in here
 func init() {
 	iCache = &cacheAPI{}
 }
