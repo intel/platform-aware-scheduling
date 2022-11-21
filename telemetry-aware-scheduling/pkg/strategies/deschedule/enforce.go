@@ -17,8 +17,10 @@ import (
 )
 
 const (
-	l2 = 2
-	l4 = 4
+	l2                         = 2
+	l4                         = 4
+	failNodeListCleanUpMessage = "failed to list nodes during clean-up"
+	failNodeListEnforceMessage = "failed to list all nodes during enforce"
 )
 
 var errNull = errors.New("")
@@ -40,7 +42,7 @@ func (d *Strategy) Cleanup(enforcer *strategy.MetricEnforcer, policyName string)
 		msg := fmt.Sprintf("cannot list nodes: %v", err)
 		klog.V(l2).InfoS(msg, "component", "controller")
 
-		return fmt.Errorf("failed to cleanup node labels: %w", err)
+		return fmt.Errorf("%s: %w", failNodeListCleanUpMessage, err)
 	}
 
 	for _, node := range nodes.Items {
@@ -74,7 +76,7 @@ func (d *Strategy) Enforce(enforcer *strategy.MetricEnforcer, cache cache.Reader
 		msg := fmt.Sprintf("cannot list nodes: %v", err)
 		klog.V(l2).InfoS(msg, "component", "controller")
 
-		return -1, fmt.Errorf("failed to enforce strategy: %w", err)
+		return -1, fmt.Errorf("%s: %w", failNodeListEnforceMessage, err)
 	}
 
 	list := d.nodeStatusForStrategy(enforcer, cache)
@@ -147,31 +149,28 @@ func (d *Strategy) updateNodeLabels(enforcer *strategy.MetricEnforcer, viols vio
 
 		for policyName := range nonViolatedPolicies {
 			if _, ok := node.Labels[policyName]; ok {
-				// There is a duplication of work here - both label added as null and label removed. Due to some oddness in behaviour on remove label.
-				//TODO: Decide which behaviour is better. This leaves a constant label on every node for every strategy in the enforcer.
 				payload = append(payload,
 					patchValue{
-						Op:   "remove",
-						Path: "/metadata/labels/" + policyName,
+						Op:    "remove",
+						Path:  "/metadata/labels/" + policyName,
+						Value: "",
 					})
-				payload = append(payload, patchValue{
-					Op:    "add",
-					Path:  "/metadata/labels/" + policyName,
-					Value: "null",
-				})
 			}
 			totalViolations++
 		}
 
-		err := d.patchNode(node.Name, enforcer, payload)
-		if err != nil {
-			if len(labelErrs) == 0 {
-				labelErrs = "could not label: "
+		if len(payload) != 0 {
+			err := d.patchNode(node.Name, enforcer, payload)
+
+			if err != nil {
+				if len(labelErrs) == 0 {
+					labelErrs = "could not label: "
+				}
+
+				klog.V(l4).InfoS(err.Error(), "component", "controller")
+
+				labelErrs = labelErrs + node.Name + ": [ " + violatedPolicies + " ]; "
 			}
-
-			klog.V(l4).InfoS(err.Error(), "component", "controller")
-
-			labelErrs = labelErrs + node.Name + ": [ " + violatedPolicies + " ]; "
 		}
 
 		if len(violatedPolicies) > 0 {
