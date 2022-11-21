@@ -21,6 +21,9 @@ const (
 	l4                         = 4
 	failNodeListCleanUpMessage = "failed to list nodes during clean-up"
 	failNodeListEnforceMessage = "failed to list all nodes during enforce"
+	failNodePatchMessage       = "failed to patch node"
+	failedLabelingMessage      = "could not label"
+	defaultPolicyValue         = "violating"
 )
 
 var errNull = errors.New("")
@@ -31,6 +34,14 @@ type patchValue struct {
 	Op    string `json:"op"`
 	Path  string `json:"path"`
 	Value string `json:"value"`
+}
+
+func createLabelPatchValue(op, labelName, value string) *patchValue {
+	return &patchValue{
+		Op:    op,
+		Path:  "/metadata/labels/" + labelName,
+		Value: value,
+	}
 }
 
 // Cleanup remove node labels for violating when policy is deleted.
@@ -47,12 +58,12 @@ func (d *Strategy) Cleanup(enforcer *strategy.MetricEnforcer, policyName string)
 
 	for _, node := range nodes.Items {
 		var payload []patchValue
+
 		if _, ok := node.Labels[policyName]; ok {
-			payload = append(payload,
-				patchValue{
-					Op:   "remove",
-					Path: "/metadata/labels/" + policyName,
-				})
+			msg := fmt.Sprintf("patch %s label for removal with empty value", policyName)
+			klog.V(l2).InfoS(msg, "component", "controller")
+
+			payload = append(payload, *createLabelPatchValue("remove", policyName, ""))
 		}
 
 		err := d.patchNode(node.Name, enforcer, payload)
@@ -104,7 +115,7 @@ func (d *Strategy) patchNode(nodeName string, enforcer *strategy.MetricEnforcer,
 	if err != nil {
 		klog.V(l4).InfoS(err.Error(), "component", "controller")
 
-		return fmt.Errorf("failed to patch %v the node: %w", payload, err)
+		return fmt.Errorf("%s with %v: %w", failNodePatchMessage, payload, err)
 	}
 
 	return nil
@@ -120,6 +131,21 @@ func allPolicies(enforcer *strategy.MetricEnforcer) map[string]interface{} {
 	return policies
 }
 
+// appendViolationPatchValue appends a de-scheduling patch to a node if it doesn't already exist.
+// It returns the given payload appended by any patch value.
+func appendViolationPatchValue(payload []patchValue, policyName string, node v1.Node) []patchValue {
+	labelValue, ok := node.Labels[policyName]
+
+	if !ok || (ok && labelValue != defaultPolicyValue) {
+		msg := fmt.Sprintf("patching for violation %s with value %s", policyName, defaultPolicyValue)
+		klog.V(l2).InfoS(msg, "component", "controller")
+
+		payload = append(payload, *createLabelPatchValue("add", policyName, defaultPolicyValue))
+	}
+
+	return payload
+}
+
 // updateNodeLabels takes the list of nodes violating the strategy.
 // It then sets the payloads for labelling them as violators and calls for them to be labelled.
 func (d *Strategy) updateNodeLabels(enforcer *strategy.MetricEnforcer, viols violationList, allNodes *v1.NodeList) (int, error) {
@@ -131,30 +157,24 @@ func (d *Strategy) updateNodeLabels(enforcer *strategy.MetricEnforcer, viols vio
 	var nonViolatedPolicies map[string]interface{}
 
 	for _, node := range allNodes.Items {
-		payload := []patchValue{}
+		var payload []patchValue
+
 		nonViolatedPolicies = allPolicies(enforcer)
 		violatedPolicies := ""
 
 		for _, policyName := range viols[node.Name] {
 			delete(nonViolatedPolicies, policyName)
 
-			payload = append(payload,
-				patchValue{
-					Op:    "add",
-					Path:  "/metadata/labels/" + policyName,
-					Value: "violating",
-				})
+			payload = appendViolationPatchValue(payload, policyName, node)
 			violatedPolicies += policyName + ", "
 		}
 
 		for policyName := range nonViolatedPolicies {
 			if _, ok := node.Labels[policyName]; ok {
-				payload = append(payload,
-					patchValue{
-						Op:    "remove",
-						Path:  "/metadata/labels/" + policyName,
-						Value: "",
-					})
+				klog.V(l2).InfoS("patching for removal", "name", policyName,
+					"labelValue", "")
+
+				payload = append(payload, *createLabelPatchValue("remove", policyName, ""))
 			}
 			totalViolations++
 		}
