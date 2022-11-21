@@ -61,17 +61,31 @@ func assertViolatingNodes(t *testing.T, nodeList *v1.NodeList, wantNodes map[str
 	}
 }
 
-func TestDescheduleStrategy_Enforce(t *testing.T) {
-	type args struct {
-		enforcer *strategy.MetricEnforcer
-		cache    cache.ReaderWriter
-	}
-
+func getClientWithListException() *testclient.Clientset {
 	clientWithListNodeException := testclient.NewSimpleClientset()
 	clientWithListNodeException.CoreV1().(*fake.FakeCoreV1).PrependReactor("list", "nodes",
 		func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
 			return true, &v1.NodeList{}, errMockTest
 		})
+
+	return clientWithListNodeException
+}
+
+func getClientWithPatchException() *testclient.Clientset {
+	clientWithPatchException := testclient.NewSimpleClientset()
+	clientWithPatchException.CoreV1().(*fake.FakeCoreV1).PrependReactor("patch", "nodes",
+		func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+			return true, nil, errMockTest
+		})
+
+	return clientWithPatchException
+}
+
+func TestDescheduleStrategy_Enforce(t *testing.T) {
+	type args struct {
+		enforcer *strategy.MetricEnforcer
+		cache    cache.ReaderWriter
+	}
 
 	tests := []struct {
 		name                string
@@ -123,11 +137,22 @@ func TestDescheduleStrategy_Enforce(t *testing.T) {
 				{ObjectMeta: metav1.ObjectMeta{Name: "node-2", Labels: map[string]string{"deschedule-test": "violating", "node-2-label": "test"}}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "node-3", Labels: map[string]string{"node-3-label": "test"}}}},
 			cacheMetrics: map[string]CacheMetric{"node-2": {"cpu", 11}, "node-3": {"memory", 100}},
-			args: args{enforcer: strategy.NewEnforcer(clientWithListNodeException),
+			args: args{enforcer: strategy.NewEnforcer(getClientWithListException()),
 				cache: cache.MockEmptySelfUpdatingCache()},
 			want:                expected{},
 			wantErr:             true,
 			wantErrMessageToken: failNodeListEnforceMessage},
+		{name: "list nodes with patch exception",
+			d: &Strategy{PolicyName: "deschedule-test", Rules: []telpol.TASPolicyRule{
+				{Metricname: "memory", Operator: "GreaterThan", Target: 1000},
+				{Metricname: "cpu", Operator: "LessThan", Target: 10}}},
+			nodes:        []*v1.Node{{ObjectMeta: metav1.ObjectMeta{Name: "node-1", Labels: map[string]string{"deschedule-test": "violating", "node-1-label": "test"}}}},
+			cacheMetrics: map[string]CacheMetric{"node-1": {"cpu", 40}},
+			args: args{enforcer: strategy.NewEnforcer(getClientWithPatchException()),
+				cache: cache.MockEmptySelfUpdatingCache()},
+			want:                expected{},
+			wantErr:             true,
+			wantErrMessageToken: failedLabelingMessage},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -184,11 +209,6 @@ func TestDescheduleStrategy_Cleanup(t *testing.T) {
 		cache    cache.ReaderWriter
 	}
 
-	clientWithException := testclient.NewSimpleClientset()
-	clientWithException.CoreV1().(*fake.FakeCoreV1).PrependReactor("list", "nodes", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
-		return true, &v1.NodeList{}, errMockTest
-	})
-
 	tests := []struct {
 		name                string
 		d                   *Strategy
@@ -225,11 +245,24 @@ func TestDescheduleStrategy_Cleanup(t *testing.T) {
 				{Metricname: "memory", Operator: "GreaterThan", Target: 1000},
 				{Metricname: "cpu", Operator: "LessThan", Target: 10}}},
 			node: &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-2", Labels: map[string]string{"deschedule-test": "", "test": "label"}}},
-			args: args{enforcer: strategy.NewEnforcer(clientWithException),
+			args: args{enforcer: strategy.NewEnforcer(getClientWithListException()),
 				cache: cache.MockEmptySelfUpdatingCache()},
 			wantErr:             true,
 			wantErrMessageToken: failNodeListCleanUpMessage,
 			want:                expected{}},
+		{name: "patch nodes throws an error",
+			d: &Strategy{PolicyName: "deschedule-test", Rules: []telpol.TASPolicyRule{
+				{Metricname: "memory", Operator: "GreaterThan", Target: 1000},
+				{Metricname: "cpu", Operator: "LessThan", Target: 10}}},
+			node: &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-2", Labels: map[string]string{"deschedule-test": "violating", "test": "label"}}},
+			args: args{enforcer: strategy.NewEnforcer(getClientWithPatchException()),
+				cache: cache.MockEmptySelfUpdatingCache()},
+			wantErr:             false,
+			wantErrMessageToken: failNodePatchMessage,
+			want: expected{
+				nodes:        map[string]map[string]string{"node-2": {"deschedule-test": "violating", "test": "label"}},
+				labeledNodes: map[string]map[string]string{"node-2": {"deschedule-test": "violating", "test": "label"}},
+			}},
 	}
 
 	for _, tt := range tests {
@@ -241,7 +274,8 @@ func TestDescheduleStrategy_Cleanup(t *testing.T) {
 		}
 
 		t.Run(tt.name, func(t *testing.T) {
-			if err := tt.d.Cleanup(tt.args.enforcer, tt.d.PolicyName); (err != nil) != tt.wantErr {
+			err := tt.d.Cleanup(tt.args.enforcer, tt.d.PolicyName)
+			if (err != nil) != tt.wantErr {
 				if !strings.Contains(fmt.Sprint(err.Error()), tt.wantErrMessageToken) {
 					t.Errorf("Expecting output to match wantErr %v, instead got %v", tt.wantErrMessageToken, err)
 
