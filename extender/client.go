@@ -27,5 +27,8 @@ func GetKubeClient(kubeConfig string) (kubernetes.Interface, *rest.Config, error
 		return nil, nil, fmt.Errorf("failed to create kubeClientset %w", err)
 	}
 
+	clientConfig.Burst = 50
+	clientConfig.QPS = 20
+
 	return kubeClient, clientConfig, nil
 }
