@@ -2,7 +2,14 @@
 set -o errexit
 
 root="$(dirname "$0")/../../"
-VERSION="v0.14.0"
+
+VERSION=""
+[ -n "$1" ] && VERSION=$1
+if [ -z "$VERSION" ]; then
+    echo "Kind version is required, but found $VERSION. Exiting..."
+    exit 1
+fi
+
 KIND_BINARY_URL="https://github.com/kubernetes-sigs/kind/releases/download/${VERSION}/kind-$(uname)-amd64"
 K8_STABLE_RELEASE_URL="https://storage.googleapis.com/kubernetes-release/release/stable.txt"
 
