@@ -4,7 +4,7 @@
 //go:build !validation
 // +build !validation
 
-// nolint:testpackage
+//nolint:testpackage
 package gpuscheduler
 
 import (

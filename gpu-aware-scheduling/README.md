@@ -140,6 +140,9 @@ There is one change to the yaml here:
 ### Unsupported use-cases
 
 Topology Manager and GAS card selections can conflict. Using both at the same time is not supported. You may use topology manager without GAS.
+Using [CRI-RM](https://github.com/intel/cri-resource-manager)
+[topology aware policy](https://intel.github.io/cri-resource-manager/stable/docs/policy/topology-aware.html#topology-aware-policy)
+is encouraged instead, it works together with GAS.
 
 Selecting deployment node directly in POD spec [nodeName](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename) bypasses the scheduler and therefore also GAS. This is obviously a use-case which can't be supported by GAS, so don't use that mechanism, if you want to run the scheduler and GAS.
 
