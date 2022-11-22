@@ -226,6 +226,13 @@ spec:
   - Cannot request `gpu.intel.com/i915_monitoring` resource
 - Pods cannot use (single-GPU) `gas-same-gpu` annotation with (multi-GPU) `gas-allocate-xelink` annotation
 
+## Single-Numa GPU requests
+
+When allocating multiple GPUs, you can request allocating from the same numa node by adding annotation `gas-allocate-single-numa` with value `true`
+to the Pod. The Kubernetes Topology Manager can't be used with Pods that get GPUs assigned by GAS, but you can use
+[CRI-RM](https://github.com/intel/cri-resource-manager) instead of the Topology Manager to get similar performance gains with CPUs selected from the
+same numa node.
+
 ## Summary in a chronological order
 
 - GPU-plugin initcontainer installs an NFD hook which prints labels for you, based on the Intel GPUs it finds
