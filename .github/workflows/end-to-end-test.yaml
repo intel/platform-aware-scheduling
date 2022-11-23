@@ -59,4 +59,5 @@ jobs:
       - name: Run end to end tests
         run: cd .github/e2e/&& go test -v e2e_test.go
       - name: Clean up Kind cluster
+        if: ${{ always() }}
         run: ./.github/scripts/e2e_teardown_cluster.sh && ./.github/scripts/e2e_cleanup.sh
