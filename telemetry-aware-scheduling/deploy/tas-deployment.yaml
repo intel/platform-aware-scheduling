@@ -29,11 +29,14 @@ spec:
         imagePullPolicy: IfNotPresent
         securityContext:
           capabilities:
-            drop:
-              - all
+            drop: [ 'ALL' ]
           readOnlyRootFilesystem: true
           runAsNonRoot: true
           runAsUser: 10001
+          allowPrivilegeEscalation: false
+          runAsGroup: 10001
+          seccompProfile:
+            type: RuntimeDefault
         volumeMounts:
         - name: certs
           mountPath: /tas/cert
