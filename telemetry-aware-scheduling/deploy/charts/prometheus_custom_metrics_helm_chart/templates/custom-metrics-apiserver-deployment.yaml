@@ -19,7 +19,7 @@ spec:
       serviceAccountName: custom-metrics-apiserver
       containers:
       - name: custom-metrics-apiserver
-        image: directxman12/k8s-prometheus-adapter-amd64
+        image: directxman12/k8s-prometheus-adapter-amd64:v0.8.4
         args:
         - --secure-port=6443
         - --tls-cert-file=/var/run/serving-cert/tls.crt
@@ -29,6 +29,16 @@ spec:
         - --metrics-relist-interval=1m
         - --v=10
         - --config=/etc/adapter/config.yaml
+        securityContext:
+          capabilities:
+            drop: [ 'ALL' ]
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          seccompProfile:
+            type: RuntimeDefault
         ports:
         - containerPort: 6443
         volumeMounts:
@@ -40,6 +50,13 @@ spec:
           readOnly: true
         - mountPath: /tmp
           name: tmp-vol
+        resources:
+          limits:
+            memory: "500Mi"
+            cpu: "500m"
+          requests:
+            memory: "150Mi"
+            cpu: "300m"
       volumes:
       - name: volume-serving-cert
         secret:
