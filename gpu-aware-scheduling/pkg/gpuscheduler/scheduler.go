@@ -772,9 +772,7 @@ func createGPUMaps(pod *v1.Pod, node *v1.Node, allGPUs []string) []map[string]bo
 	maps := []map[string]bool{}
 
 	if pod.Annotations == nil || node.Labels == nil {
-		maps = append(maps, createSearchMapFromStrings(allGPUs))
-
-		return maps
+		return []map[string]bool{createSearchMapFromStrings(allGPUs)}
 	}
 
 	_, singleNumaRequested := pod.Annotations[singleNumaAnnotationName]
@@ -787,9 +785,9 @@ func createGPUMaps(pod *v1.Pod, node *v1.Node, allGPUs []string) []map[string]bo
 			numaGroupSplit := strings.Split(numaGroup, "-")
 
 			if len(numaGroupSplit) != numaSplitParts {
-				klog.Error("bad numa group in label %s", gpuNumaInformation)
+				klog.Error("node %v bad numa group in label %s", node.Name, gpuNumaInformation)
 
-				return maps
+				return []map[string]bool{}
 			}
 
 			gpuNumbers := numaGroupSplit[1]
@@ -799,7 +797,7 @@ func createGPUMaps(pod *v1.Pod, node *v1.Node, allGPUs []string) []map[string]bo
 			maps = append(maps, createSearchMapFromStrings(cardNames))
 		}
 	} else {
-		maps = append(maps, createSearchMapFromStrings(allGPUs))
+		return []map[string]bool{createSearchMapFromStrings(allGPUs)}
 	}
 
 	return maps
