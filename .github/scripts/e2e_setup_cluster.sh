@@ -247,7 +247,7 @@ docker cp kind-control-plane:/etc/kubernetes/pki/ca.key "${mount_dir}/certs/clie
 
 
 kubectl create secret tls extender-secret --cert "${mount_dir}/certs/client.crt" --key "${mount_dir}/certs/client.key"
-sed "s/intel\/telemetry-aware-scheduling/tasextender/g" "${root}/telemetry-aware-scheduling/deploy/tas-deployment.yaml" -i
+sed "s/intel\/telemetry-aware-scheduling.*$/tasextender/g" "${root}/telemetry-aware-scheduling/deploy/tas-deployment.yaml" -i
 set_node_affinity_expression_label_key
 if [ "$CONTROL_PLANE_NODE_AFINITY_LABEL" != "$NODE_AFFINITY_LABEL_KEY"  ]; then
   sed "s/control-plane/$NODE_AFFINITY_LABEL_KEY/g" "$TAS_DEPLOYMENT_FILE" -i
