@@ -9,6 +9,11 @@ is_test=false
 MANIFEST_FILE=/etc/kubernetes/manifests/kube-scheduler.yaml
 scheduler_config_file_path=deploy/extender-configuration/scheduler-config.yaml
 scheduler_config_destination=/etc/kubernetes
+TAS_DEPLOYMENT_FILE=deploy/tas-deployment.yaml
+SCHEDULER_VERSION=""
+KUBE_SCHEDULER_API_VERSION=""
+CONTROL_PLANE_NODE_AFINITY_LABEL="control-plane"
+NODE_AFFINITY_LABEL_KEY=$CONTROL_PLANE_NODE_AFINITY_LABEL
 
 help() {
   echo "Usage: $(basename "$0") [-m PATH_TO_MANIFEST_FILE] [-f PATH_TO_CONFIGURATION_FILE] [-d CONFIGURATION_DESTINATION_FOLDER] [-th]" 2>&1
@@ -90,18 +95,58 @@ echo "Scheduler config file is located at: $scheduler_config_file_path"
 echo "Scheduler config destination will be: $scheduler_config_destination"
 
 ####### DETERMINE THE VERSION OF SCHEDULER USED IN THE K8S CLUSTER
-scheduler_image_version_22=22
-# The scheduling configuration API is currently (K8s v22) in the v1beta2 version. From K8s v23 onwards the api
-# will have version v1.
-scheduler_config_api_versions_v1beta2="v1beta2"
-scheduler_image=$( grep "image:" "$MANIFEST_FILE" | cut -d '.' -f 4 )
+get_scheduler_version() {
+  scheduler_image=$( grep "image:" "$MANIFEST_FILE" | cut -d '.' -f 4 )
 
-if [ -z "$scheduler_image" ]; then
-  echo "Unable to retrieve the scheduler image value from manifest file. We got: $scheduler_image. Exiting..."
-  exit 1
-fi
+  if [ -z "$scheduler_image" ]; then
+    echo "Unable to retrieve the scheduler image value from manifest file. We got: $scheduler_image. Exiting..."
+    exit 1
+  fi
 
-echo "Version of the image used in the kube scheduler is: $scheduler_image"
+  SCHEDULER_VERSION=$scheduler_image
+}
+
+get_kube_scheduler_api_version() {
+  [ -z "${SCHEDULER_VERSION}" ] && echo "### Empty value for K8s scheduler value: $SCHEDULER_VERSION. Exit..." && exit 1
+
+  scheduler_image_version_19=19
+  scheduler_image_version_22=22
+  scheduler_image_version_25=25
+  scheduler_config_api_versions_v1beta1="v1beta1"
+  scheduler_config_api_versions_v1beta2="v1beta2"
+  scheduler_config_api_versions_v1="v1"
+
+  currentKubeSchedulerApiVersion=""
+  if [ "$SCHEDULER_VERSION" -lt $scheduler_image_version_19  ]; then
+    echo "E2E tests will not execute for K8s version older than $scheduler_image_version_19. Exit..."
+    exit 1
+  elif [  "$SCHEDULER_VERSION" -ge $scheduler_image_version_19 ] && [ "$SCHEDULER_VERSION" -lt $scheduler_image_version_22 ]; then
+    currentKubeSchedulerApiVersion=$scheduler_config_api_versions_v1beta1
+  elif [  "$SCHEDULER_VERSION" -ge $scheduler_image_version_22 ] && [ "$SCHEDULER_VERSION" -lt $scheduler_image_version_25 ]; then
+    currentKubeSchedulerApiVersion=$scheduler_config_api_versions_v1beta2
+  else
+    currentKubeSchedulerApiVersion=$scheduler_config_api_versions_v1
+  fi
+
+  [ -z "${currentKubeSchedulerApiVersion}" ] && echo "Invalid API version for Kube Scheduler Configuration, got: $currentKubeSchedulerApiVersion. Exit..." && exit 1
+
+  KUBE_SCHEDULER_API_VERSION=$currentKubeSchedulerApiVersion
+}
+
+set_node_affinity_expression_label_key() {
+  scheduler_image_version_24=24
+  [ -z "${SCHEDULER_VERSION}" ] && echo "### Unable to get K8s scheduler value, got $SCHEDULER_VERSION. Exit..." && exit 1
+  if [ "$SCHEDULER_VERSION" -lt $scheduler_image_version_24  ]; then
+    NODE_AFFINITY_LABEL_KEY="master"
+  fi
+
+  [ -z "${NODE_AFFINITY_LABEL_KEY}" ] && echo "### Node affinity label key is empty: $NODE_AFFINITY_LABEL_KEY. Exit..." && exit 1
+}
+
+get_scheduler_version
+echo "Version of the image used in the kube scheduler is: $SCHEDULER_VERSION"
+get_kube_scheduler_api_version
+echo "Version of the KubeScheduler API: $KUBE_SCHEDULER_API_VERSION"
 
 ####### CLEAN_UP MANIFEST FILE
 # In case the previous run of this script was partially successful or unsuccessful, we'd like to start from a clean
@@ -153,96 +198,50 @@ sed -e "/  volumes:/a\\
 
 ####### VERSION SPECIFIC MANIFEST_FILE CHANGES. These are necessary, but change according to the version of Kubernetes
 
-## Before K8s v22 we will use the Policy API instead of the Scheduler Config API in order to setup the scheduler
-if [ "$scheduler_image" -lt $scheduler_image_version_22 ]; then
-  echo "[IMPORTANT] Will proceed by using the Policy API to configure the scheduler extender. This API will be **DEPRECATED** from $scheduler_image_version_22 onwards"
-  # Create the config map and the cluster role for the scheduler configuration.
-  #The cluster role is needed in Kubeadm to ensure the scheduler can access configmaps.
-  config_map=deploy/extender-configuration/scheduler-extender-configmap.yaml
-  cluster_role=deploy/extender-configuration/configmap-getter.yaml
-
-  if ! $is_test ; then
-    echo "Will proceed to generate the required K8s resources..."
-    # check if the necessary files exist. If they don't the commands below will fail anyway
-    if [ ! -f "$config_map" ]; then
-        echo "Critical error: $config_map doesn't exist. Can't configure the scheduler for version $scheduler_image. Exiting..."
-        exit 1
-    fi
-    if [ ! -f "$cluster_role" ]; then
-        echo "Critical error: $cluster_role doesn't exist. Can't configure the scheduler for version $scheduler_image. Exiting..."
-        exit 1
-    fi
-
-    if ! kubectl apply -f $config_map; then
-        echo "Unable to successfully apply $config_map. Will revert the change and exit."
-        kubectl delete -f $config_map
-        exit 1
-    fi
-
-    if ! kubectl apply -f $cluster_role; then
-        echo "Unable to successfully apply $cluster_role. Reverting the change... "
-        kubectl delete -f $cluster_role
-        echo " Reverting changes from $config_map as the resources from $cluster_role and $config_map are related."
-        kubectl delete -f $config_map
-        echo "Exit..."
-        exit 1
-    fi
-
-    # we aim to create this resource only once, as with the use of create the kubectl command below
-    # will return an error if the resource in question already exists
-    cluster_role_binding_result=$(kubectl get clusterrolebinding -A | grep scheduler-config-map)
-    if [ -z "$cluster_role_binding_result" ]; then
-        echo "Cluster role binding scheduler-config-map doesn't exist. Will proceed to create it..."
-        #Add clusterrole binding - default binding edit - to give kube-scheduler access to configmaps in kube-system.
-        kubectl create clusterrolebinding scheduler-config-map --clusterrole=configmapgetter --user=system:kube-scheduler
-    fi
-  fi
-  ## Add arguments to our kube-scheduler manifest. The arguments are:
-  ## 1) Policy configmap extender as arg to binary.
-  ## 2) Policy configmap namespace as arg to binary.
-  sed -e "/    - kube-scheduler/a\\
-    - --policy-configmap=scheduler-extender-policy\n    - --policy-configmap-namespace=kube-system" "$MANIFEST_FILE" -i
-else
-  echo "[IMPORTANT]Will proceed by using the kube-scheduler Configuration API instead for the scheduler extender. This API will be **USED** from $scheduler_image_version_22 onwards."
-  currentKubeSchedulerApiVersion=$scheduler_config_api_versions_v1beta2
-  echo "Kube Scheduler Configuration api version: $currentKubeSchedulerApiVersion"
-
-  if [ -z "$currentKubeSchedulerApiVersion" ]; then
-    echo "Unable to determine the correct API version for Kube Scheduler Configuration. We got: $currentKubeSchedulerApiVersion. Exiting..."
-    exit 1
-  fi
-
-  if [ ! -f "$scheduler_config_file_path" ]; then
-    echo "Critical error: $scheduler_config_file_path doesn't exist. Can't configure the scheduler for version $scheduler_image. Exiting..."
-    exit 1
-  fi
-  # update the scheduler's version
-  sed -i "s/XVERSIONX/$currentKubeSchedulerApiVersion/g" "$scheduler_config_file_path"
-
-  if [ ! -d "$scheduler_config_destination" ]; then
-    echo "Critical error. $scheduler_config_destination doesn't exist. Please check the cluster configuration. Exiting..."
-    exit 1
-  fi
-
-  if ! $is_test ; then
-    # copy the scheduler-config file to the expected folder
-    echo "Will proceed to copy the scheduler configuration to its destination path: $scheduler_config_destination."
-    cp "$scheduler_config_file_path" "$scheduler_config_destination"
-  fi
-
-  # generate the new path of the config file
-  scheduler_config_destination_path="$scheduler_config_destination/$scheduler_config_file"
-
-  ## Add arguments to our kube-scheduler manifest. The arguments are:
-  ## 1) Config file with the extender policy and other configuration
-  ## 2) Mount the configuration file to make sure it's accessible by K8s
-  sed -e "/    - kube-scheduler/a\\
-    - --config=$scheduler_config_destination_path" "$MANIFEST_FILE" -i
-  sed -e "/    volumeMounts:/a\\
-    - mountPath: $scheduler_config_destination_path\n      name: schedulerconfig\n      readOnly: true" "$MANIFEST_FILE" -i
-  sed -e "/  volumes:/a\\
-  - hostPath:\n      path: $scheduler_config_destination_path\n    name: schedulerconfig" "$MANIFEST_FILE" -i
+if [ -z "$KUBE_SCHEDULER_API_VERSION" ]; then
+  echo "Invalid KubeSchedulerConfiguration API version: $KUBE_SCHEDULER_API_VERSION. Exiting..."
+  exit 1
 fi
 
+if [ ! -f "$scheduler_config_file_path" ]; then
+  echo "Critical error: $scheduler_config_file_path doesn't exist. Can't configure the scheduler for version $scheduler_image. Exiting..."
+  exit 1
+fi
+# update the scheduler's version
+sed -i "s/XVERSIONX/$KUBE_SCHEDULER_API_VERSION/g" "$scheduler_config_file_path"
 
+if [ ! -d "$scheduler_config_destination" ]; then
+  echo "Critical error. $scheduler_config_destination doesn't exist. Please check the cluster configuration. Exiting..."
+  exit 1
+fi
+
+if ! $is_test ; then
+  # copy the scheduler-config file to the expected folder
+  echo "Will proceed to copy the scheduler configuration to its destination path: $scheduler_config_destination."
+  cp "$scheduler_config_file_path" "$scheduler_config_destination"
+fi
+
+# generate the new path of the config file
+scheduler_config_destination_path="$scheduler_config_destination/$scheduler_config_file"
+
+## Add arguments to our kube-scheduler manifest. The arguments are:
+## 1) Config file with the extender policy and other configuration
+## 2) Mount the configuration file to make sure it's accessible by K8s
+sed -e "/    - kube-scheduler/a\\
+    - --config=$scheduler_config_destination_path" "$MANIFEST_FILE" -i
+sed -e "/    volumeMounts:/a\\
+    - mountPath: $scheduler_config_destination_path\n      name: schedulerconfig\n      readOnly: true" "$MANIFEST_FILE" -i
+sed -e "/  volumes:/a\\
+  - hostPath:\n      path: $scheduler_config_destination_path\n    name: schedulerconfig" "$MANIFEST_FILE" -i
+
+### From v24 onwards the Kubernetes control plane labels have changes, node-role.kubernetes.io/master
+### has been replaced with node-role.kubernetes.io/control-plane. This means that the nodeAffinity nodeSelector
+### keys will be affected. The labels do not work together, so depending on the version of K8s used
+### we need to use one or the other
+
+set_node_affinity_expression_label_key
+echo "Determined that the appropriate nodeSelector key would be: $NODE_AFFINITY_LABEL_KEY"
+if [ "$CONTROL_PLANE_NODE_AFINITY_LABEL" != "$NODE_AFFINITY_LABEL_KEY"  ]; then
+  sed "s/control-plane/$NODE_AFFINITY_LABEL_KEY/g" "$TAS_DEPLOYMENT_FILE" -i
+fi
 
