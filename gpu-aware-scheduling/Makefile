@@ -2,7 +2,7 @@ ifneq ($(TAG),)
 IMAGE_TAG=:$(TAG)
 endif
 
-GOLICENSES_VERSION?=v1.2.1
+GOLICENSES_VERSION?=v1.5.0
 
 ifneq ("$(wildcard licenses/)","")
 LOCAL_LICENSES=TRUE

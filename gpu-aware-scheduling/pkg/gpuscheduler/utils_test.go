@@ -118,9 +118,11 @@ func TestGPUNameToLZeroDeviceId(t *testing.T) {
 }
 
 func TestPCIGroups(t *testing.T) {
+	defaultGroups := "0.1_2.3.4"
+
 	Convey("When the GPU belongs to a PCI Group", t, func() {
 		node := getMockNode(1, 1)
-		node.Labels[pciGroupLabel] = "0.1_2.3.4"
+		node.Labels[pciGroupLabel] = defaultGroups
 		So(getPCIGroup(node, "card0"), ShouldResemble, []string{"0", "1"})
 		So(getPCIGroup(node, "card1"), ShouldResemble, []string{"0", "1"})
 		So(getPCIGroup(node, "card2"), ShouldResemble, []string{"2", "3", "4"})
@@ -130,7 +132,7 @@ func TestPCIGroups(t *testing.T) {
 
 	Convey("When the GPU belongs to a PCI Group with multiple group labels", t, func() {
 		node := getMockNode(1, 1)
-		node.Labels[pciGroupLabel] = "0.1_2.3.4"
+		node.Labels[pciGroupLabel] = defaultGroups
 		node.Labels[pciGroupLabel+"2"] = "Z_5.6_7.8_11.12"
 		node.Labels[pciGroupLabel+"3"] = "Z_9.10"
 		So(getPCIGroup(node, "card6"), ShouldResemble, []string{"5", "6"})
@@ -140,7 +142,7 @@ func TestPCIGroups(t *testing.T) {
 
 	Convey("When I call addPCIGroupGPUs with a proper node and cards map", t, func() {
 		node := getMockNode(1, 1)
-		node.Labels[pciGroupLabel] = "0.1_2.3.4"
+		node.Labels[pciGroupLabel] = defaultGroups
 		cards := []string{}
 		cards = addPCIGroupGPUs(node, "card3", cards)
 

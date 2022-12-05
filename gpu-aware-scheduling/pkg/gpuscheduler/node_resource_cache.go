@@ -200,8 +200,14 @@ func NewCache(client kubernetes.Interface) *Cache {
 		nodeTileStatuses:      make(map[string]nodeTiles),
 	}
 
-	podInformer.Informer().AddEventHandler(c.createFilteringPodResourceHandler())
-	nodeInformer.Informer().AddEventHandler(c.createFilteringNodeResourceHandler())
+	_, err := podInformer.Informer().AddEventHandler(c.createFilteringPodResourceHandler())
+	_, err2 := nodeInformer.Informer().AddEventHandler(c.createFilteringNodeResourceHandler())
+
+	if err != nil || err2 != nil {
+		klog.Errorf("informer event handler init failure (%v, %v)", err, err2)
+
+		return nil
+	}
 
 	go func() { c.startPodWork(stopChannel) }()
 	go func() { c.startNodeWork(stopChannel) }()
