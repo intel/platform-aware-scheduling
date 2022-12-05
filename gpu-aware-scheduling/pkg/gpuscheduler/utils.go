@@ -224,9 +224,9 @@ func concatenateSplitLabel(node *v1.Node, labelName string) string {
 			klog.Warningf("concatenated chuck has invalid prefix: %s", continuingLabelValue[:len(labelControlChar)])
 
 			return ""
-		} else {
-			value += continuingLabelValue[len(labelControlChar):]
 		}
+
+		value += continuingLabelValue[len(labelControlChar):]
 
 		postFix++
 		continuingLabelValue, ok = node.Labels[labelName+strconv.Itoa(postFix)]
