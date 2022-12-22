@@ -1,5 +1,7 @@
 ## Power Driven Scheduling and Scaling with CPU telemetry in Kubernetes 
 
+**NOTICE: This is a demo to show how you can leverage scheduling and automatic scaling of workloads using TAS. This is not ready for production usage.**
+
 This guide will demonstrate intelligent scheduling and automatic scaling of power sensitive workloads in Kubernetes. Fine grained platform automation based on power can be leveraged to reduce resource consumption overall and increase individual workload performance by reducing misplacement of power-hungry workloads.
 
 Telemetry Aware Scheduling, a scheduling extension, and the Kubernetes native Horizontal Pod Autoscaler are used to enable cluster automation based on real time information about the current state of power usage on the node.
