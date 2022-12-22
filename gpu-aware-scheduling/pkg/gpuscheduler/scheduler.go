@@ -713,9 +713,11 @@ func addEmptyResourceMaps(gpus []string, nodeResourcesUsed nodeResources) {
 
 func addUnavailableToUsedResources(nodeResourcesUsed nodeResources, unavailableResources nodeResources) {
 	for card, res := range unavailableResources {
-		err := nodeResourcesUsed[card].addRM(res)
-		if err != nil {
-			klog.Warningf("failed to add unavailable resources to used: %w", err)
+		if usedResources := nodeResourcesUsed[card]; usedResources != nil {
+			err := usedResources.addRM(res)
+			if err != nil {
+				klog.Warningf("failed to add unavailable resources to used: %w", err)
+			}
 		}
 	}
 }
