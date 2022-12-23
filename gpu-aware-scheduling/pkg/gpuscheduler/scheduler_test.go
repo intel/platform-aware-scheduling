@@ -688,9 +688,9 @@ func TestGetNodeGPUListFromGpuNumbers(t *testing.T) {
 		node := v1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					gpuNumbersLabel:       "0.1.2.",
-					gpuNumbersLabel + "2": "5.8.9.",
-					gpuNumbersLabel + "3": "10"},
+					gpuNumbersLabel:       "0.1.2",
+					gpuNumbersLabel + "2": "Z.5.8.9",
+					gpuNumbersLabel + "3": "Z.10"},
 			},
 		}
 
@@ -897,7 +897,8 @@ func TestFilterWithXeLinkedDisabledTiles(t *testing.T) {
 					Labels: map[string]string{
 						"gpu.intel.com/gpu-numbers": "0.1.2.3",
 						"gpu.intel.com/tiles":       "4",
-						xeLinksLabel:                "0.0-1.0_1.0-0.0_2.1-3.2_3.2-2.1",
+						xeLinksLabel:                "0.0-1.0_1.0-0.0_2.1",
+						xeLinksLabel + "2":          "Z-3.2_3.2-2.1",
 					},
 				},
 				Status: v1.NodeStatus{
@@ -1031,7 +1032,8 @@ func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.
 	testCases := []testCase{
 		{
 			extraLabels: map[string]string{
-				xeLinksLabel: "0.0-1.0_1.0-0.0_2.1-3.2_3.2-2.1",
+				xeLinksLabel:       "0.0-1.0_1.0-0.0",
+				xeLinksLabel + "2": "Z_2.1-3.2_3.2-2.1",
 			},
 			extraAnnotations:       map[string]string{xelinkAnnotationName: trueValueString},
 			description:            "4 card xe-linked success case",
@@ -1042,8 +1044,9 @@ func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.
 		},
 		{
 			extraLabels: map[string]string{
-				xeLinksLabel:     "0.0-1.0_1.0-0.0_2.1-3.2_3.2-2.1",
-				numaMappingLabel: "0-0.1_1-2.3",
+				xeLinksLabel:           "0.0-1.0_1.0-0.0_2.1-3.2_3.2-2.1",
+				numaMappingLabel:       "0-0.1_1",
+				numaMappingLabel + "2": "Z-2.3",
 			},
 			extraAnnotations: map[string]string{
 				xelinkAnnotationName:     trueValueString,

@@ -25,6 +25,7 @@ const (
 	desiredIntBits    = 16
 	regexDesiredCount = 3
 	regexXeLinkCount  = 5
+	labelControlChar  = "Z"
 )
 
 // Globals for compiled regexps. No other global types here!
@@ -213,12 +214,20 @@ func isGPUInPCIGroup(gpuName, pciGroupGPUName string, node *v1.Node) bool {
 
 // concatenateSplitLabel returns the given label value and concatenates any
 // additional values for label names with a running number postfix starting with "2".
+// Subsequent values should start with the control character 'Z'.
 func concatenateSplitLabel(node *v1.Node, labelName string) string {
 	postFix := 2
 	value := node.Labels[labelName]
 
 	for continuingLabelValue, ok := node.Labels[labelName+strconv.Itoa(postFix)]; ok; {
-		value += continuingLabelValue
+		if !strings.HasPrefix(continuingLabelValue, labelControlChar) {
+			klog.Warningf("concatenated chuck has invalid prefix: %s", continuingLabelValue[:len(labelControlChar)])
+
+			return ""
+		} else {
+			value += continuingLabelValue[len(labelControlChar):]
+		}
+
 		postFix++
 		continuingLabelValue, ok = node.Labels[labelName+strconv.Itoa(postFix)]
 	}
@@ -348,7 +357,7 @@ func reorderPreferredTilesFirst(tiles []int, preferred []int) []int {
 func getXeLinkedTiles(gpuName string, node *v1.Node) map[int]bool {
 	xeLinkedTiles := map[int]bool{}
 
-	xeLinkLabelValue := node.Labels[xeLinksLabel]
+	xeLinkLabelValue := concatenateSplitLabel(node, xeLinksLabel)
 	lZeroDeviceID := gpuNameToLZeroDeviceID(gpuName, node)
 
 	if lZeroDeviceID == -1 || xeLinkLabelValue == "" {
@@ -410,7 +419,7 @@ func parseXeLink(link string) (linkInfo, error) {
 }
 
 func getXeLinkedGPUInfo(gpuName string, tileIndex int, node *v1.Node) (string, int) {
-	xeLinkLabelValue := node.Labels[xeLinksLabel]
+	xeLinkLabelValue := concatenateSplitLabel(node, xeLinksLabel)
 	lZeroDeviceID := gpuNameToLZeroDeviceID(gpuName, node)
 
 	if lZeroDeviceID == -1 || xeLinkLabelValue == "" {
@@ -456,7 +465,7 @@ func lZeroDeviceIDToGpuName(lZeroID int, node *v1.Node) string {
 }
 
 func numSortedGpuNums(node *v1.Node) []string {
-	gpuNums := node.Labels[gpuNumbersLabel]
+	gpuNums := concatenateSplitLabel(node, gpuNumbersLabel)
 
 	gpuNumSlice := strings.Split(gpuNums, ".")
 

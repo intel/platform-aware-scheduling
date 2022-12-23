@@ -130,9 +130,9 @@ func TestPCIGroups(t *testing.T) {
 
 	Convey("When the GPU belongs to a PCI Group with multiple group labels", t, func() {
 		node := getMockNode(1, 1)
-		node.Labels[pciGroupLabel] = "0.1_2.3.4_"
-		node.Labels[pciGroupLabel+"2"] = "5.6_7.8_11.12_"
-		node.Labels[pciGroupLabel+"3"] = "9.10"
+		node.Labels[pciGroupLabel] = "0.1_2.3.4"
+		node.Labels[pciGroupLabel+"2"] = "Z_5.6_7.8_11.12"
+		node.Labels[pciGroupLabel+"3"] = "Z_9.10"
 		So(getPCIGroup(node, "card6"), ShouldResemble, []string{"5", "6"})
 		So(getPCIGroup(node, "card9"), ShouldResemble, []string{"9", "10"})
 		So(getPCIGroup(node, "card20"), ShouldResemble, []string{})
@@ -326,8 +326,8 @@ func TestConcatenateSplitLabel(t *testing.T) {
 	Convey("When the label is split, it can be concatenated", t, func() {
 		node := getMockNode(1, 1)
 		node.Labels[pciGroupLabel] = "foo"
-		node.Labels[pciGroupLabel+"2"] = "bar"
-		node.Labels[pciGroupLabel+"3"] = "ber"
+		node.Labels[pciGroupLabel+"2"] = "Zbar"
+		node.Labels[pciGroupLabel+"3"] = "Zber"
 		result := concatenateSplitLabel(node, pciGroupLabel)
 		So(result, ShouldEqual, "foobarber")
 	})
