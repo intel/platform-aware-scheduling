@@ -778,9 +778,9 @@ func createGPUMaps(pod *v1.Pod, node *v1.Node, allGPUs []string) []map[string]bo
 	}
 
 	_, singleNumaRequested := pod.Annotations[singleNumaAnnotationName]
-	gpuNumaInformation, nodeHasNumaInfo := node.Labels[numaMappingLabel]
+	gpuNumaInformation := concatenateSplitLabel(node, numaMappingLabel)
 
-	if singleNumaRequested && nodeHasNumaInfo {
+	if singleNumaRequested && len(gpuNumaInformation) > 0 {
 		numaGroups := strings.Split(gpuNumaInformation, "_")
 
 		for _, numaGroup := range numaGroups {
