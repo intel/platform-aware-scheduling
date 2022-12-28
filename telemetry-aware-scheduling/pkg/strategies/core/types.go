@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 // core pkg contains the behaviour shared between all Violable and Enforceable strategies from a Telemetry Policy.
 
 package core

@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 // Package client telemetrypolicy/api/client provides an interface to interact with Policy CRD through a custom Client.
 package client
 

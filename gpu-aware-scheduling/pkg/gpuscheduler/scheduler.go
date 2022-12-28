@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 // Package gpuscheduler has the logic for the scheduler extender - including the server it starts and filter methods
 package gpuscheduler
 

@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 // Package controller provides a controller that can be used to watch policies in the Kubernetes API.
 // It registers strategies from those policies to an enforcer.
 package controller

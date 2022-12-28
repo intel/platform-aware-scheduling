@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 // Tests for the scheduler extender - including the server it starts and prioritize + filter methods - is implemented in this package.
 package telemetryscheduler
 

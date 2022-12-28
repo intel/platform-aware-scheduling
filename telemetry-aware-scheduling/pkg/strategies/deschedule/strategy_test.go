@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 // The deschedule strategy, violations conditions and enforcement behavior are defined in this package.
 // When a node is violating the deschedule strategy, the enforcer labels it as violating.
 // This label can then be used externally to act on the strategy violation.
