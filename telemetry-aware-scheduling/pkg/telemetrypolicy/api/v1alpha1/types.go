@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 // Package v1alpha1 describes the structure of the Telemetry Policy CRD.
 package v1alpha1
 

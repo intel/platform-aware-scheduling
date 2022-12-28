@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 package cache
 
 // This file contains mock methods and objects which are used to test across the TAS packages.

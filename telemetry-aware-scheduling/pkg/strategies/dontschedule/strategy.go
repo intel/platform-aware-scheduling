@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 // This is a semi-implemented strategy created to type dontschedule as a strategy.
 
 package dontschedule

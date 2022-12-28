@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 // Package telemetryscheduler logic contains specific code for TAS such as prioritize and filter methods.
 package telemetryscheduler
 

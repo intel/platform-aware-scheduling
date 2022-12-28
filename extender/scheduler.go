@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 // Package extender contains types and logic to respond to requests from a Kubernetes http scheduler extender.
 package extender
 

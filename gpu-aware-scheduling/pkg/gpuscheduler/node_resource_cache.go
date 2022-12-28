@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 // inspired by https://github.com/AliyunContainerService/gpushare-scheduler-extender
 
 package gpuscheduler
