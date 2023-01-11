@@ -20,8 +20,6 @@ spec:
       labels:
         k8s-app: {{ .Values.k8sAppName }}
         version: {{ .Values.version }}
-      annotations:
-        scheduler.alpha.kubernetes.io/critical-pod: ''
     spec:
       priorityClassName: system-node-critical
       containers:
