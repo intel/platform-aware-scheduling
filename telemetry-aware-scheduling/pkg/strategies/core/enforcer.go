@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 package core
 
 import (
@@ -122,7 +125,7 @@ func (e *MetricEnforcer) EnforceRegisteredStrategies(cache cache.Reader, timer t
 		<-timer.C
 
 		for registeredType := range e.RegisteredStrategies {
-			go e.enforceStrategy(registeredType, cache)
+			e.enforceStrategy(registeredType, cache)
 		}
 	}
 }

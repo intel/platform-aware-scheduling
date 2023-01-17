@@ -1,7 +1,10 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build !validation
 // +build !validation
 
-// nolint:testpackage
+//nolint:testpackage
 package gpuscheduler
 
 import (
@@ -27,10 +30,99 @@ func TestIsCompletePod(t *testing.T) {
 	})
 }
 
+func TestGetXeLinkedGPUInfo(t *testing.T) {
+	Convey("When Intel GPU numbers start from 1", t, func() {
+		node := v1.Node{}
+		node.Labels = map[string]string{
+			"gpu.intel.com/gpu-numbers": "1.10.11.2.3.4.5.6.7.8.9",
+			"gpu.intel.com/xe-links":    "5.0-6.0_6.0-5.0_1.0-2.1_2.1-1.0",
+		}
+
+		// remember links are in lzero identifiers, gpu names are numbered from devfs
+		// so 1.0-2.1 = card2-card3 if gpu numbers happen to start from 1 instead of 0
+		name, id := getXeLinkedGPUInfo("card2", 0, &node)
+		So(name, ShouldEqual, "card3")
+		So(id, ShouldEqual, 1)
+
+		// no link test
+		name, id = getXeLinkedGPUInfo("card8", 0, &node)
+		So(name, ShouldEqual, "")
+		So(id, ShouldEqual, -1)
+	})
+
+	Convey("When gpu-numbers are malformed", t, func() {
+		node := v1.Node{}
+		node.Labels = map[string]string{
+			"gpu.intel.com/gpu-numbers": "1.10.11.2.3.4.5.6.7.8.9.foobar",
+			"gpu.intel.com/xe-links":    "5.0-6.0_6.0-5.0_1.0-2.1_2.1-1.0",
+		}
+
+		name, id := getXeLinkedGPUInfo("card2", 0, &node)
+		So(name, ShouldEqual, "")
+		So(id, ShouldEqual, -1)
+	})
+
+	Convey("When xe-links are malformed", t, func() {
+		node := v1.Node{}
+		node.Labels = map[string]string{
+			"gpu.intel.com/gpu-numbers": "1.10.11.2.3.4.5.6.7.8.9",
+			"gpu.intel.com/xe-links":    "foobar_5.0-6.0_6.0-5.0_1.0-2.1_2.1-1.0",
+		}
+
+		name, id := getXeLinkedGPUInfo("card2", 0, &node)
+		So(name, ShouldEqual, "")
+		So(id, ShouldEqual, -1)
+	})
+}
+
+func TestLZeroDeviceIdToGpuName(t *testing.T) {
+	Convey("When Intel GPU numbers start from 1", t, func() {
+		node := v1.Node{}
+		node.Labels = map[string]string{
+			"gpu.intel.com/gpu-numbers": "1.10.11.2.3.4.5.6.7.8.9",
+		}
+
+		result := lZeroDeviceIDToGpuName(0, &node)
+		So(result, ShouldEqual, "card1")
+
+		result = lZeroDeviceIDToGpuName(1, &node)
+		So(result, ShouldEqual, "card2")
+
+		result = lZeroDeviceIDToGpuName(10, &node)
+		So(result, ShouldEqual, "card11")
+
+		result = lZeroDeviceIDToGpuName(0, &v1.Node{})
+		So(result, ShouldEqual, "")
+	})
+}
+
+func TestGPUNameToLZeroDeviceId(t *testing.T) {
+	Convey("When Intel GPU numbers start from 1", t, func() {
+		node := v1.Node{}
+		node.Labels = map[string]string{
+			"gpu.intel.com/gpu-numbers": "1.10.11.2.3.4.5.6.7.8.9",
+		}
+
+		result := gpuNameToLZeroDeviceID("card1", &node)
+		So(result, ShouldEqual, 0)
+
+		result = gpuNameToLZeroDeviceID("card2", &node)
+		So(result, ShouldEqual, 1)
+
+		result = gpuNameToLZeroDeviceID("card11", &node)
+		So(result, ShouldEqual, 10)
+
+		result = gpuNameToLZeroDeviceID("card12", &v1.Node{})
+		So(result, ShouldEqual, -1)
+	})
+}
+
 func TestPCIGroups(t *testing.T) {
+	defaultGroups := "0.1_2.3.4"
+
 	Convey("When the GPU belongs to a PCI Group", t, func() {
 		node := getMockNode(1, 1)
-		node.Labels[pciGroupLabel] = "0.1_2.3.4"
+		node.Labels[pciGroupLabel] = defaultGroups
 		So(getPCIGroup(node, "card0"), ShouldResemble, []string{"0", "1"})
 		So(getPCIGroup(node, "card1"), ShouldResemble, []string{"0", "1"})
 		So(getPCIGroup(node, "card2"), ShouldResemble, []string{"2", "3", "4"})
@@ -40,9 +132,9 @@ func TestPCIGroups(t *testing.T) {
 
 	Convey("When the GPU belongs to a PCI Group with multiple group labels", t, func() {
 		node := getMockNode(1, 1)
-		node.Labels[pciGroupLabel] = "0.1_2.3.4_"
-		node.Labels[pciGroupLabel+"2"] = "5.6_7.8_11.12_"
-		node.Labels[pciGroupLabel+"3"] = "9.10"
+		node.Labels[pciGroupLabel] = defaultGroups
+		node.Labels[pciGroupLabel+"2"] = "Z_5.6_7.8_11.12"
+		node.Labels[pciGroupLabel+"3"] = "Z_9.10"
 		So(getPCIGroup(node, "card6"), ShouldResemble, []string{"5", "6"})
 		So(getPCIGroup(node, "card9"), ShouldResemble, []string{"9", "10"})
 		So(getPCIGroup(node, "card20"), ShouldResemble, []string{})
@@ -50,7 +142,7 @@ func TestPCIGroups(t *testing.T) {
 
 	Convey("When I call addPCIGroupGPUs with a proper node and cards map", t, func() {
 		node := getMockNode(1, 1)
-		node.Labels[pciGroupLabel] = "0.1_2.3.4"
+		node.Labels[pciGroupLabel] = defaultGroups
 		cards := []string{}
 		cards = addPCIGroupGPUs(node, "card3", cards)
 
@@ -236,8 +328,8 @@ func TestConcatenateSplitLabel(t *testing.T) {
 	Convey("When the label is split, it can be concatenated", t, func() {
 		node := getMockNode(1, 1)
 		node.Labels[pciGroupLabel] = "foo"
-		node.Labels[pciGroupLabel+"2"] = "bar"
-		node.Labels[pciGroupLabel+"3"] = "ber"
+		node.Labels[pciGroupLabel+"2"] = "Zbar"
+		node.Labels[pciGroupLabel+"3"] = "Zber"
 		result := concatenateSplitLabel(node, pciGroupLabel)
 		So(result, ShouldEqual, "foobarber")
 	})

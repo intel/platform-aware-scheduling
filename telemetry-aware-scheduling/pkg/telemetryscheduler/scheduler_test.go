@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 // Tests for the scheduler extender - including the server it starts and prioritize + filter methods - is implemented in this package.
 package telemetryscheduler
 
@@ -5,7 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -113,7 +116,7 @@ func TestMetricsExtender_prescheduleChecks(t *testing.T) {
 		{name: "unlabelled pod",
 			fields: fields{*dummyClient, cache.MockSelfUpdatingCache(),
 				testPolicy1},
-			args: args{httptest.NewRequest("POST", "http://localhost/scheduler/prioritize", nil)},
+			args: args{httptest.NewRequest(http.MethodPost, "http://localhost/scheduler/prioritize", nil)},
 			metric: map[string]metrics.NodeMetric{
 				"node A": {Value: *resource.NewQuantity(100, resource.DecimalSI)},
 				"node B": {Value: *resource.NewQuantity(90, resource.DecimalSI)}},
@@ -143,7 +146,7 @@ func TestMetricsExtender_prescheduleChecks(t *testing.T) {
 				return
 			}
 			tt.args.r.Header.Add("Content-Type", "application/json")
-			tt.args.r.Body = ioutil.NopCloser(bytes.NewReader(argsAsJSON))
+			tt.args.r.Body = io.NopCloser(bytes.NewReader(argsAsJSON))
 			w := httptest.NewRecorder()
 			m.Prioritize(w, tt.args.r)
 			result := extender.HostPriorityList{}
@@ -183,7 +186,7 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 		{"get and return node test",
 			fields{*dummyClient, cache.MockSelfUpdatingCache(),
 				testPolicy1},
-			args{httptest.NewRequest("POST", "http://localhost/scheduler/prioritize", nil)},
+			args{httptest.NewRequest(http.MethodPost, "http://localhost/scheduler/prioritize", nil)},
 			map[string]metrics.NodeMetric{
 				"node A": {Value: *resource.NewQuantity(100, resource.DecimalSI)},
 				"node B": {Value: *resource.NewQuantity(90, resource.DecimalSI)}},
@@ -194,7 +197,7 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 		{"policy not found",
 			fields{*dummyClient, cache.MockSelfUpdatingCache(),
 				testPolicy2},
-			args{httptest.NewRequest("POST", "http://localhost/scheduler/prioritize", nil)},
+			args{httptest.NewRequest(http.MethodPost, "http://localhost/scheduler/prioritize", nil)},
 			map[string]metrics.NodeMetric{
 				"node A": {Value: *resource.NewQuantity(90, resource.DecimalSI)},
 				"node B": {Value: *resource.NewQuantity(100, resource.DecimalSI)}},
@@ -205,7 +208,7 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 		{"cache returns error if empty",
 			fields{*dummyClient, cache.MockEmptySelfUpdatingCache(),
 				testPolicy1},
-			args{httptest.NewRequest("POST", "http://localhost/scheduler/prioritize", nil)},
+			args{httptest.NewRequest(http.MethodPost, "http://localhost/scheduler/prioritize", nil)},
 			map[string]metrics.NodeMetric{"node A": {Value: *resource.NewQuantity(100, resource.DecimalSI)}},
 			prioritizerArgs1,
 			[]extender.HostPriority{{Host: "node B", Score: 10}},
@@ -213,7 +216,7 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 		},
 		{"malformed arguments return error", fields{*dummyClient, cache.MockEmptySelfUpdatingCache(),
 			testPolicy1},
-			args{httptest.NewRequest("POST", "http://localhost/scheduler/prioritize", nil)},
+			args{httptest.NewRequest(http.MethodPost, "http://localhost/scheduler/prioritize", nil)},
 			map[string]metrics.NodeMetric{"node A": {Value: *resource.NewQuantity(100, resource.DecimalSI)}},
 			extender.Args{},
 			[]extender.HostPriority{{Host: "node B", Score: 10}},
@@ -243,7 +246,7 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 				return
 			}
 			tt.args.r.Header.Add("Content-Type", "application/json")
-			tt.args.r.Body = ioutil.NopCloser(bytes.NewReader(argsAsJSON))
+			tt.args.r.Body = io.NopCloser(bytes.NewReader(argsAsJSON))
 			w := httptest.NewRecorder()
 			m.Prioritize(w, tt.args.r)
 			result := extender.HostPriorityList{}
@@ -308,7 +311,7 @@ func TestMetricsExtender_Filter(t *testing.T) {
 				metrics.NewDummyMetricsClient(metrics.InstanceOfMockMetricClientMap),
 				testPolicy1},
 			args: args{
-				httptest.NewRequest("POST", "http://localhost/scheduler/prioritize", nil),
+				httptest.NewRequest(http.MethodPost, "http://localhost/scheduler/prioritize", nil),
 				metrics.TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{10, 30})},
 			wanted: extender.FilterResult{Nodes: &v1.NodeList{}, NodeNames: &[]string{"node A"}, FailedNodes: map[string]string{}},
 		},
@@ -317,7 +320,7 @@ func TestMetricsExtender_Filter(t *testing.T) {
 				metrics.NewDummyMetricsClient(metrics.InstanceOfMockMetricClientMap),
 				testPolicy1},
 			args: args{
-				httptest.NewRequest("POST", "http://localhost/scheduler/prioritize", nil),
+				httptest.NewRequest(http.MethodPost, "http://localhost/scheduler/prioritize", nil),
 				metrics.TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{50, 30})},
 			wanted: extender.FilterResult{Nodes: &v1.NodeList{}, NodeNames: &[]string{"node A"}, FailedNodes: map[string]string{"node A": ""}},
 		},
@@ -344,7 +347,7 @@ func TestMetricsExtender_Filter(t *testing.T) {
 			if err != nil {
 				klog.InfoS(err.Error(), "component", "testing")
 			}
-			tt.args.r.Body = ioutil.NopCloser(bytes.NewReader(argsAsJSON))
+			tt.args.r.Body = io.NopCloser(bytes.NewReader(argsAsJSON))
 			tt.args.r.Header.Add("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 			m.Filter(w, tt.args.r)

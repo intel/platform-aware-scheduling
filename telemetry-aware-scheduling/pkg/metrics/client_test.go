@@ -1,9 +1,12 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 package metrics
 
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -36,7 +39,7 @@ func dummyRestClientConfig() *restclient.Config {
 		}
 	}()
 
-	tmpFile, err := ioutil.TempFile("", "cmdtests_temp")
+	tmpFile, err := os.CreateTemp("", "cmdtests_temp")
 	if err != nil {
 		klog.InfoS("Unable to create a fake client config", "component", "testing")
 		klog.Exit(err.Error())

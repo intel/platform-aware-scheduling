@@ -1,4 +1,7 @@
 # Health Metric Demo
+
+**NOTICE: This is a demo and it is not ready for production usage.**
+
 This document describes the implementation of a health metric telemetry policy using Telemetry Aware Scheduling.
 It will show the full process from applying the correct policy to descheduling based on platform metrics.
 

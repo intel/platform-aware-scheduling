@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 package main
 
 import (
@@ -7,6 +10,19 @@ import (
 	"github.com/intel/platform-aware-scheduling/extender"
 	"github.com/intel/platform-aware-scheduling/gpu-aware-scheduling/pkg/gpuscheduler"
 	"k8s.io/klog/v2"
+)
+
+// build variables need to be globals
+//
+//nolint:gochecknoglobals
+var (
+	goVersion = "value is set during build"
+	buildDate = "value is set during build"
+	version   = "value is set during build"
+)
+
+const (
+	l1 = klog.Level(1)
 )
 
 func main() {
@@ -25,6 +41,8 @@ func main() {
 	flag.StringVar(&balancedRes, "balancedResource", "", "enable resource balacing within a node")
 	klog.InitFlags(nil)
 	flag.Parse()
+
+	klog.V(l1).Infof("%s built on %s with go %s", version, buildDate, goVersion)
 
 	kubeClient, _, err := extender.GetKubeClient(kubeConfig)
 	if err != nil {

@@ -19,6 +19,10 @@ spec:
       - name: nginx
         image: nginx:latest
         imagePullPolicy: IfNotPresent
+        securityContext:
+          seccompProfile:
+            type: RuntimeDefault
+          allowPrivilegeEscalation: false
         resources:
           limits:
             telemetry/scheduling: 1

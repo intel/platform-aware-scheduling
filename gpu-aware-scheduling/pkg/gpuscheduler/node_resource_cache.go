@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 // inspired by https://github.com/AliyunContainerService/gpushare-scheduler-extender
 
 package gpuscheduler
@@ -43,7 +46,7 @@ const (
 	expectedGpuSplitCount    = 2
 )
 
-//nolint: gochecknoglobals // only mocked APIs are allowed as globals
+//nolint:gochecknoglobals // only mocked APIs are allowed as globals
 var (
 	internCacheAPI InternalCacheAPI
 )
@@ -55,7 +58,7 @@ var (
 	errBadArgs       = errors.New("bad args")
 )
 
-//nolint: gochecknoinits // only mocked APIs are allowed in here
+//nolint:gochecknoinits // only mocked APIs are allowed in here
 func init() {
 	internCacheAPI = &internalCacheAPI{}
 }
@@ -197,8 +200,14 @@ func NewCache(client kubernetes.Interface) *Cache {
 		nodeTileStatuses:      make(map[string]nodeTiles),
 	}
 
-	podInformer.Informer().AddEventHandler(c.createFilteringPodResourceHandler())
-	nodeInformer.Informer().AddEventHandler(c.createFilteringNodeResourceHandler())
+	_, err := podInformer.Informer().AddEventHandler(c.createFilteringPodResourceHandler())
+	_, err2 := nodeInformer.Informer().AddEventHandler(c.createFilteringNodeResourceHandler())
+
+	if err != nil || err2 != nil {
+		klog.Errorf("informer event handler init failure (%v, %v)", err, err2)
+
+		return nil
+	}
 
 	go func() { c.startPodWork(stopChannel) }()
 	go func() { c.startNodeWork(stopChannel) }()

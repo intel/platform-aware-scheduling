@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 package e2e
 
 import (
@@ -50,7 +53,7 @@ var (
 	cm             metrics.CustomMetricsClient
 )
 
-//init sets up the clients used for the end to end tests
+// init sets up the clients used for the end to end tests
 func init() {
 	if home := homedir.HomeDir(); home != "" {
 		kubeConfigPath = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "path to your kubeconfig file")
@@ -282,7 +285,7 @@ func getKeyValue(nodeLabel string) (key, value string) {
 	return strings.Split(nodeLabel, ":")[0], strings.Split(nodeLabel, ":")[1]
 }
 
-//TestAddAndDeletePolicy repeats a test to show an issue in repeatedly adding and deleting policies
+// TestAddAndDeletePolicy repeats a test to show an issue in repeatedly adding and deleting policies
 func TestAddAndDeletePolicy(t *testing.T) {
 	repeatTest(TestTASFilter, t, 5)
 }

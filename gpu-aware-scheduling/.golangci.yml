@@ -44,3 +44,4 @@ issues:
         - funlen
         - goimports
         - gofmt
+        - unparam

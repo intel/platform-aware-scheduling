@@ -1,7 +1,10 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build !validation
 // +build !validation
 
-// nolint:testpackage
+//nolint:testpackage
 package gpuscheduler
 
 import (
@@ -49,7 +52,7 @@ func TestNewCache(t *testing.T) {
 	})
 }
 
-//nolint: gochecknoglobals // only test resource
+//nolint:gochecknoglobals // only test resource
 var dummyCache *Cache
 
 func (c *Cache) reset() {

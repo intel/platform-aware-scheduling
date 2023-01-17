@@ -1,7 +1,10 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build !validation
 // +build !validation
 
-// nolint:testpackage
+//nolint:testpackage
 package gpuscheduler
 
 import (

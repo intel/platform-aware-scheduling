@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 // Package labeling provides the labeling strategy. Violation conditions and enforcement behavior are defined here.
 // When a node is violating the labeling strategy, the enforcer labels it as violating according to the policy label.
 // This label can then be used externally to act on the strategy violation.

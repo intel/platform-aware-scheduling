@@ -107,6 +107,13 @@ kubectl create secret tls extender-secret --cert /etc/kubernetes/<PATH_TO_CERT> 
 must match the scheduler configuration, so use those files. If you instead want to use your own cert, you need to configure the scheduler to match.
 </details>&nbsp;
 
+Note: From K8s v24+ the control-plane node labels have changed, from `node-role.kubernetes.io/master` to `node-role.kubernetes.io/control-plane`.
+This change affects how TAS gets deployed as the toleration and nodeAffinity rules have to be changed accordingly.
+In order to provide support for future versions of K8s, both of these rules have been changed to make use of the `node-role.kubernetes.io/control-plane`
+label [file](https://github.com/intel/platform-aware-scheduling/blob/master/telemetry-aware-scheduling/deploy/tas-deployment.yaml#L51-L62).
+If you are running a version of Kubernetes **older that v1.24**, you will need to change both rules in the file above to use
+`node-role.kubernetes.io/master`.  To see how this can be done automatically please see [this shell script](deploy/extender-configuration/configure-scheduler.sh)
+
 In order to deploy run:
 
 ``kubectl apply -f deploy/``

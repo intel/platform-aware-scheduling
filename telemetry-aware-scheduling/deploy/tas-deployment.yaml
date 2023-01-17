@@ -25,15 +25,18 @@ spec:
         - --key=/tas/cert/tls.key
         - --cacert=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
         - --v=2
-        image: intel/telemetry-aware-scheduling
+        image: intel/telemetry-aware-scheduling:0.4.0
         imagePullPolicy: IfNotPresent
         securityContext:
           capabilities:
-            drop:
-              - all
+            drop: [ 'ALL' ]
           readOnlyRootFilesystem: true
           runAsNonRoot: true
           runAsUser: 10001
+          allowPrivilegeEscalation: false
+          runAsGroup: 10001
+          seccompProfile:
+            type: RuntimeDefault
         volumeMounts:
         - name: certs
           mountPath: /tas/cert
@@ -49,8 +52,6 @@ spec:
         secret:
           secretName: extender-secret
       tolerations:
-      - key: node-role.kubernetes.io/master
-        operator: Exists
       - key: node-role.kubernetes.io/control-plane
         operator: Exists
       affinity:

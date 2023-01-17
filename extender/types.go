@@ -1,3 +1,7 @@
+// Copyright (C) 2022 Intel Corporation
+// Copyright 2019 The Kubernetes Authors.
+// SPDX-License-Identifier: Apache-2.0
+
 package extender
 
 import (

@@ -1,3 +1,6 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 // Package metrics instruments to read and cache Node Metrics from the custom metrics API.
 package metrics
 

@@ -1,7 +1,10 @@
+// Copyright (C) 2022 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build !validation
 // +build !validation
 
-// nolint:testpackage
+//nolint:testpackage
 package gpuscheduler
 
 import (
@@ -36,7 +39,7 @@ func getDummyExtender(objects ...runtime.Object) *GASExtender {
 	return NewGASExtender(clientset, true, true, "")
 }
 
-//nolint: gochecknoglobals // only test resource
+//nolint:gochecknoglobals // only test resource
 var emptyExtender *GASExtender
 
 func getEmptyExtender() *GASExtender {
@@ -108,6 +111,45 @@ func getMockPodSpecMultiCont() *v1.PodSpec {
 	}
 }
 
+func getMockPodSpecMultiContXeLinked(containerCount int) *v1.PodSpec {
+	containers := []v1.Container{}
+	for i := 0; i < containerCount; i++ {
+		containers = append(containers, v1.Container{
+			Resources: v1.ResourceRequirements{
+				Requests: v1.ResourceList{
+					"gpu.intel.com/i915":  resource.MustParse("2"),
+					"gpu.intel.com/tiles": resource.MustParse("2"),
+				},
+			},
+		})
+	}
+
+	return &v1.PodSpec{
+		Containers: containers,
+	}
+}
+
+func getMockPodSpecNCont(containerCount int) *v1.PodSpec {
+	containers := []v1.Container{}
+
+	for i := 1; i <= containerCount; i++ {
+		container := v1.Container{
+			Name: fmt.Sprintf("container%d", i),
+			Resources: v1.ResourceRequirements{
+				Requests: v1.ResourceList{
+					"gpu.intel.com/i915":       resource.MustParse("1"),
+					"gpu.intel.com/millicores": resource.MustParse("100"),
+				},
+			},
+		}
+		containers = append(containers, container)
+	}
+
+	return &v1.PodSpec{
+		Containers: containers,
+	}
+}
+
 func getMockPodSpecMultiContSamegpu() *v1.PodSpec {
 	return &v1.PodSpec{
 		Containers: []v1.Container{
@@ -168,21 +210,24 @@ func getMockNode(sharedDevCount, tileCountPerCard int, cardNames ...string) *v1.
 	}
 
 	cardCount := strconv.Itoa(len(cardNames) * sharedDevCount)
-	tileCount := strconv.Itoa(tileCountPerCard)
+	tileCount := strconv.Itoa(len(cardNames) * tileCountPerCard)
 	node.Status.Capacity["gpu.intel.com/i915"] = resource.MustParse(cardCount)
 	node.Status.Capacity["gpu.intel.com/tiles"] = resource.MustParse(tileCount)
 	node.Status.Allocatable["gpu.intel.com/i915"] = resource.MustParse(cardCount)
 	node.Status.Allocatable["gpu.intel.com/tiles"] = resource.MustParse(tileCount)
 
 	delim := ""
-
 	cardNameList := ""
+	gpuNumList := ""
+
 	for _, cardName := range cardNames {
 		cardNameList += delim + cardName
-		delim = ","
+		gpuNumList += delim + cardName[4:]
+		delim = "."
 	}
 
-	node.Labels["gpu.intel.com/cards"] = cardNameList
+	node.Labels[gpuListLabel] = cardNameList
+	node.Labels[gpuNumbersLabel] = gpuNumList
 
 	return &node
 }
@@ -308,10 +353,11 @@ func TestBindNode(t *testing.T) {
 	origCacheAPI := iCache
 	iCache = &mockCache
 	args := extender.BindingArgs{}
+	ctx := context.TODO()
 
 	Convey("When the args are empty", t, func() {
 		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(nil, errMock).Once()
-		result := gas.bindNode(&args)
+		result := gas.bindNode(ctx, &args)
 		So(result.Error, ShouldNotEqual, "")
 	})
 
@@ -320,7 +366,7 @@ func TestBindNode(t *testing.T) {
 	Convey("When node can't be read", t, func() {
 		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{}, nil).Once()
 		mockCache.On("FetchNode", mock.Anything, args.Node).Return(nil, errMock).Once()
-		result := gas.bindNode(&args)
+		result := gas.bindNode(ctx, &args)
 		So(result.Error, ShouldNotBeNil)
 	})
 
@@ -335,8 +381,9 @@ func TestBindNode(t *testing.T) {
 				},
 			},
 		}, nil).Once()
+		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}, nil).Once()
 		mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
-		result := gas.bindNode(&args)
+		result := gas.bindNode(ctx, &args)
 		So(result.Error, ShouldEqual, "will not fit")
 	})
 
@@ -348,7 +395,8 @@ func TestBindNode(t *testing.T) {
 		mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
 		mockCache.On("AdjustPodResourcesL",
 			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-		result := gas.bindNode(&args)
+		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}, nil).Once()
+		result := gas.bindNode(ctx, &args)
 		So(result.Error, ShouldEqual, "")
 	})
 
@@ -359,7 +407,7 @@ func TestBindNode(t *testing.T) {
 				UID: "foobar",
 			},
 		}, nil).Once()
-		result := gas.bindNode(&args)
+		result := gas.bindNode(ctx, &args)
 		So(result.Error, ShouldNotEqual, "")
 	})
 
@@ -375,6 +423,7 @@ func TestAllowlist(t *testing.T) {
 	iCache = &mockCache
 	args := extender.BindingArgs{}
 	args.Node = nodename
+	ctx := context.TODO()
 
 	for _, cardName := range []string{"card0", "card1"} {
 		cardName := cardName
@@ -390,7 +439,8 @@ func TestAllowlist(t *testing.T) {
 			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
 			mockCache.On("AdjustPodResourcesL",
 				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-			result := gas.bindNode(&args)
+			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
+			result := gas.bindNode(ctx, &args)
 			if cardName == "card0" {
 				So(result.Error, ShouldEqual, "")
 			} else {
@@ -411,6 +461,7 @@ func TestDenylist(t *testing.T) {
 	iCache = &mockCache
 	args := extender.BindingArgs{}
 	args.Node = nodename
+	ctx := context.TODO()
 
 	for _, cardName := range []string{"card0", "card1"} {
 		cardName := cardName
@@ -432,7 +483,8 @@ func TestDenylist(t *testing.T) {
 			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
 			mockCache.On("AdjustPodResourcesL",
 				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-			result := gas.bindNode(&args)
+			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
+			result := gas.bindNode(ctx, &args)
 			if cardName != "card0" {
 				So(result.Error, ShouldEqual, "")
 			} else {
@@ -453,6 +505,7 @@ func TestGPUDisabling(t *testing.T) {
 	iCache = &mockCache
 	args := extender.BindingArgs{}
 	args.Node = nodename
+	ctx := context.TODO()
 
 	for _, labelValue := range []string{pciGroupValue, trueValueString} {
 		labelValue := labelValue
@@ -477,7 +530,8 @@ func TestGPUDisabling(t *testing.T) {
 			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
 			mockCache.On("AdjustPodResourcesL",
 				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-			result := gas.bindNode(&args)
+			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
+			result := gas.bindNode(ctx, &args)
 			So(result.Error, ShouldEqual, "will not fit")
 		})
 	}
@@ -500,7 +554,7 @@ func TestDecodeRequest(t *testing.T) {
 
 	Convey("When decoding something not really JSON", t, func() {
 		request, err := http.NewRequestWithContext(context.Background(),
-			"POST", "http://foo/bar", bytes.NewBuffer([]byte("foo")))
+			http.MethodPost, "http://foo/bar", bytes.NewBuffer([]byte("foo")))
 		So(err, ShouldBeNil)
 		request.Header.Set("Content-Type", "application/json")
 		err = gas.decodeRequest("foo", request)
@@ -527,7 +581,7 @@ func TestPreferredGPU(t *testing.T) {
 			gpuMap)
 
 		So(len(cards), ShouldEqual, 1)
-		So(cards[0], ShouldEqual, "card0")
+		So(cards[0], ShouldResemble, Card{gpuName: "card0"})
 		So(err, ShouldBeNil)
 		So(preferred, ShouldBeFalse)
 	})
@@ -540,7 +594,7 @@ func TestPreferredGPU(t *testing.T) {
 			gpuMap)
 
 		So(len(cards), ShouldEqual, 1)
-		So(cards[0], ShouldEqual, "card2")
+		So(cards[0], ShouldResemble, Card{gpuName: "card2"})
 		So(err, ShouldBeNil)
 		So(preferred, ShouldBeTrue)
 	})
@@ -563,7 +617,7 @@ func TestFilter(t *testing.T) {
 			content, err := json.Marshal(map[string]string{"foo": "bar"})
 			So(err, ShouldBeNil)
 			request, err := http.NewRequestWithContext(context.Background(),
-				"POST", "http://foo/bar", bytes.NewBuffer(content))
+				http.MethodPost, "http://foo/bar", bytes.NewBuffer(content))
 			So(err, ShouldBeNil)
 			request.Header.Set("Content-Type", "application/json")
 			gas.Filter(&w, request)
@@ -592,7 +646,7 @@ func TestBind(t *testing.T) {
 			content, err := json.Marshal(map[string]string{"foo": "bar"})
 			So(err, ShouldBeNil)
 			request, err := http.NewRequestWithContext(context.Background(),
-				"POST", "http://foo/bar", bytes.NewBuffer(content))
+				http.MethodPost, "http://foo/bar", bytes.NewBuffer(content))
 			So(err, ShouldBeNil)
 			request.Header.Set("Content-Type", "application/json")
 			mockCache.On("FetchPod", mock.Anything, mock.Anything, mock.Anything).Return(nil, errMock).Once()
@@ -634,9 +688,9 @@ func TestGetNodeGPUListFromGpuNumbers(t *testing.T) {
 		node := v1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					gpuNumbersLabel:       "0.1.2.",
-					gpuNumbersLabel + "2": "5.8.9.",
-					gpuNumbersLabel + "3": "10"},
+					gpuNumbersLabel:       "0.1.2",
+					gpuNumbersLabel + "2": "Z.5.8.9",
+					gpuNumbersLabel + "3": "Z.10"},
 			},
 		}
 
@@ -662,7 +716,7 @@ func TestCreateTileAnnotation(t *testing.T) {
 		containerRequest := resourceMap{"gpu.intel.com/tiles": 1}
 
 		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Once()
-		result := gas.createTileAnnotation("card0", 1,
+		result := gas.createTileAnnotation(Card{gpuName: "card0"}, 1,
 			containerRequest, perGPUCapacity, node,
 			map[string][]int{}, noPreferredTiles)
 		So(len(result), ShouldEqual, len("card0:gt0"))
@@ -677,7 +731,7 @@ func TestCreateTileAnnotation(t *testing.T) {
 		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Once()
 		containerRequest = resourceMap{"gpu.intel.com/tiles": 4}
 		result = gas.createTileAnnotation(
-			"card1", 1, containerRequest, perGPUCapacity, node,
+			Card{gpuName: "card1"}, 1, containerRequest, perGPUCapacity, node,
 			map[string][]int{}, noPreferredTiles)
 		fmt.Sscanf(result, "card1:gt%d+gt%d+gt%d+gt%d",
 			&assignedIndices[0], &assignedIndices[1], &assignedIndices[2], &assignedIndices[3])
@@ -694,7 +748,7 @@ func TestCreateTileAnnotation(t *testing.T) {
 
 		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Once()
 		result := gas.createTileAnnotation(
-			"card0", 1, containerRequest, perGPUCapacity, node,
+			Card{gpuName: "card0"}, 1, containerRequest, perGPUCapacity, node,
 			map[string][]int{}, noPreferredTiles)
 		So(len(result), ShouldEqual, len("card0:gtx+gty"))
 		assignedIndices := []int{-1, -1, -1, -1}
@@ -710,7 +764,7 @@ func TestCreateTileAnnotation(t *testing.T) {
 		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(someTilesInUse).Once()
 		containerRequest = resourceMap{"gpu.intel.com/tiles": 2}
 		result = gas.createTileAnnotation(
-			"card0", 1, containerRequest, perGPUCapacity, node,
+			Card{gpuName: "card0"}, 1, containerRequest, perGPUCapacity, node,
 			map[string][]int{}, noPreferredTiles)
 
 		assignedIndices = []int{-1, -1, -1, -1}
@@ -728,7 +782,7 @@ func TestCreateTileAnnotation(t *testing.T) {
 
 		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(middleTileInUse).Once()
 		result := gas.createTileAnnotation(
-			"card0", 1, containerRequest, perGPUCapacity,
+			Card{gpuName: "card0"}, 1, containerRequest, perGPUCapacity,
 			node, map[string][]int{}, noPreferredTiles)
 		So(len(result), ShouldEqual, len("card0:gtx+gty+gtz"))
 		assignedIndices := []int{-1, -1, -1, -1}
@@ -791,10 +845,331 @@ func TestResourceBalancedCardsForContainerGPURequest(t *testing.T) {
 			gpuMap)
 
 		So(len(cards), ShouldEqual, 1)
-		So(cards[0], ShouldEqual, "card2")
+		So(cards[0], ShouldResemble, Card{gpuName: "card2"})
 		So(err, ShouldBeNil)
 		So(preferred, ShouldBeFalse)
 	})
+}
+
+func TestFilterWithXeLinkedDisabledTiles(t *testing.T) {
+	pod := getFakePod()
+	pod.Spec = *getMockPodSpecMultiContXeLinked(1)
+	pod.Annotations[xelinkAnnotationName] = trueValueString
+
+	clientset := fake.NewSimpleClientset(pod)
+	gas := NewGASExtender(clientset, false, false, "")
+
+	mockCache := MockCacheAPI{}
+	origCacheAPI := iCache
+	iCache = &mockCache
+	args := extender.BindingArgs{}
+	args.Node = nodename
+
+	type testCase struct {
+		extraLabels    map[string]string
+		description    string
+		expectedResult bool
+	}
+
+	testCases := []testCase{
+		{
+			description:    "when one tile is disabled and there is one good xe-link left",
+			extraLabels:    map[string]string{tasNSPrefix + "policy/" + tileDisableLabelPrefix + "card0_gt0": trueValueString},
+			expectedResult: false, // node does not fail (is not filtered)
+		},
+		{
+			description: "when two tiles are disabled and there are no good xe-links left",
+			extraLabels: map[string]string{tasNSPrefix + "policy/" + tileDisableLabelPrefix + "card0_gt0": trueValueString,
+				tasNSPrefix + "policy/" + tileDisableLabelPrefix + "card2_gt1": trueValueString},
+			expectedResult: true, // node fails (is filtered)
+		},
+	}
+
+	Convey("When node has four cards with two xelinks and one disabled xe-linked tile, pod should still fit", t, func() {
+		for _, tc := range testCases {
+			t.Logf("test %v", tc.description)
+
+			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+				Spec: *getMockPodSpecWithTile(1),
+			}, nil).Once()
+			node := v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"gpu.intel.com/gpu-numbers": "0.1.2.3",
+						"gpu.intel.com/tiles":       "4",
+						xeLinksLabel:                "0.0-1.0_1.0-0.0_2.1",
+						xeLinksLabel + "2":          "Z-3.2_3.2-2.1",
+					},
+				},
+				Status: v1.NodeStatus{
+					Capacity: v1.ResourceList{
+						"gpu.intel.com/i915":  resource.MustParse("4"),
+						"gpu.intel.com/tiles": resource.MustParse("16"),
+					},
+					Allocatable: v1.ResourceList{
+						"gpu.intel.com/i915":  resource.MustParse("4"),
+						"gpu.intel.com/tiles": resource.MustParse("16"),
+					},
+				},
+			}
+			for key, value := range tc.extraLabels {
+				node.Labels[key] = value
+			}
+			mockCache.On("FetchNode", mock.Anything, args.Node).Return(&node, nil).Once()
+
+			usedResources := nodeResources{"card0": resourceMap{"gpu.intel.com/i915": 0, "gpu.intel.com/tiles": 0}}
+
+			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(usedResources).Once()
+			mockCache.On("AdjustPodResourcesL",
+				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
+			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Twice()
+			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
+			nodeNames := []string{nodename}
+			args := extender.Args{}
+			args.NodeNames = &nodeNames
+			args.Pod = *pod
+
+			result := gas.filterNodes(&args)
+			So(result.Error, ShouldEqual, "")
+			_, ok := result.FailedNodes[nodename]
+			So(ok, ShouldEqual, tc.expectedResult)
+		}
+	})
+
+	iCache = origCacheAPI
+}
+
+func TestFilterWithNContainerSameGPU(t *testing.T) {
+	pod := getFakePod()
+	pod.Spec = *getMockPodSpecNCont(5)
+	pod.Annotations[samegpuAnnotationName] = "container1,container2,container3,container4,container5"
+
+	clientset := fake.NewSimpleClientset(pod)
+	gas := NewGASExtender(clientset, false, false, "")
+
+	mockCache := MockCacheAPI{}
+	origCacheAPI := iCache
+	iCache = &mockCache
+	args := extender.BindingArgs{}
+	args.Node = nodename
+
+	type testCase struct {
+		extraLabels    map[string]string
+		description    string
+		expectedResult bool
+	}
+
+	testCases := []testCase{
+		{
+			description:    "when there are 3 i915 left in cards, pod with 5 same-gpu containers should not fit",
+			expectedResult: true,
+		},
+	}
+
+	Convey("When node has 3 i915 left in cards, pod should not fit", t, func() {
+		for _, tc := range testCases {
+			t.Logf("test %v", tc.description)
+			node := v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"gpu.intel.com/gpu-numbers": "0.1",
+					},
+				},
+				Status: v1.NodeStatus{
+					Capacity: v1.ResourceList{
+						"gpu.intel.com/i915":       resource.MustParse("16"),
+						"gpu.intel.com/millicores": resource.MustParse("2000"),
+					},
+					Allocatable: v1.ResourceList{
+						"gpu.intel.com/i915":       resource.MustParse("16"),
+						"gpu.intel.com/millicores": resource.MustParse("2000"),
+					},
+				},
+			}
+			for key, value := range tc.extraLabels {
+				node.Labels[key] = value
+			}
+			mockCache.On("FetchNode", mock.Anything, args.Node).Return(&node, nil).Once()
+
+			usedResources := nodeResources{"card0": resourceMap{"gpu.intel.com/i915": 5, "gpu.intel.com/millicores": 500},
+				"card1": resourceMap{"gpu.intel.com/i915": 5, "gpu.intel.com/millicores": 500},
+			}
+
+			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(usedResources).Once()
+			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
+			nodeNames := []string{nodename}
+			args := extender.Args{}
+			args.NodeNames = &nodeNames
+			args.Pod = *pod
+
+			result := gas.filterNodes(&args)
+			So(result.Error, ShouldEqual, "")
+			_, ok := result.FailedNodes[nodename]
+			So(ok, ShouldEqual, tc.expectedResult)
+		}
+	})
+
+	iCache = origCacheAPI
+}
+
+func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.T) {
+	ctx := context.TODO()
+	origCacheAPI := iCache
+
+	args := extender.BindingArgs{}
+	args.Node = nodename
+
+	type testCase struct {
+		extraLabels            map[string]string
+		extraAnnotations       map[string]string
+		description            string
+		expectedCardAnnotation string
+		expectTimestamp        bool
+		expectError            bool
+		defaultTileCheck       bool
+	}
+
+	testCases := []testCase{
+		{
+			extraLabels: map[string]string{
+				xeLinksLabel:       "0.0-1.0_1.0-0.0",
+				xeLinksLabel + "2": "Z_2.1-3.2_3.2-2.1",
+			},
+			extraAnnotations:       map[string]string{xelinkAnnotationName: trueValueString},
+			description:            "4 card xe-linked success case",
+			expectError:            false,
+			expectedCardAnnotation: "card0,card1|card2,card3",
+			expectTimestamp:        true,
+			defaultTileCheck:       true,
+		},
+		{
+			extraLabels: map[string]string{
+				xeLinksLabel:           "0.0-1.0_1.0-0.0_2.1-3.2_3.2-2.1",
+				numaMappingLabel:       "0-0.1_1",
+				numaMappingLabel + "2": "Z-2.3",
+			},
+			extraAnnotations: map[string]string{
+				xelinkAnnotationName:     trueValueString,
+				singleNumaAnnotationName: trueValueString,
+			},
+			description:            "4 card single-numa xe-linked success case",
+			expectError:            false,
+			expectedCardAnnotation: "card0,card1|card2,card3",
+			expectTimestamp:        true,
+			defaultTileCheck:       true,
+		},
+		{
+			extraLabels: map[string]string{
+				xeLinksLabel:     "0.0-2.0_2.0-0.0_2.1-3.2_3.2-2.1",
+				numaMappingLabel: "0-0.1_1-2.3",
+			},
+			extraAnnotations: map[string]string{
+				xelinkAnnotationName:     trueValueString,
+				singleNumaAnnotationName: trueValueString,
+			},
+			description:            "4 card single-numa xe-linked fails if xe links span numa boundaries",
+			expectError:            true,
+			expectedCardAnnotation: "",
+			expectTimestamp:        false,
+			defaultTileCheck:       false,
+		},
+		{
+			extraLabels: map[string]string{
+				xeLinksLabel:     "0.0-2.0_2.0-0.0_2.1-3.2_3.2-2.1",
+				numaMappingLabel: "0-0.1_1-2.3",
+			},
+			extraAnnotations: map[string]string{xelinkAnnotationName: trueValueString},
+			description: "4 card single-numa xe-linked succeeds across numa boundaries " +
+				"when single numa is not requested",
+			expectError:            false,
+			expectedCardAnnotation: "card0,card2|card2,card3",
+			expectTimestamp:        true,
+			defaultTileCheck:       true,
+		},
+	}
+
+	Convey("When running scheduling logic with multi-container pod with tile request", t, func() {
+		for _, tc := range testCases {
+			pod := getFakePod()
+			mockNode := getMockNode(4, 4, "card0", "card1", "card2", "card3")
+			pod.Spec = *getMockPodSpecMultiContXeLinked(2)
+
+			clientset := fake.NewSimpleClientset(pod)
+			iCache = origCacheAPI
+			gas := NewGASExtender(clientset, false, false, "")
+			mockCache := MockCacheAPI{}
+			iCache = &mockCache
+
+			nodeRes := nodeResources{"card0": resourceMap{"gpu.intel.com/i915": 0, "gpu.intel.com/tiles": 0}}
+			noTilesInUse := nodeTiles{"card0": []int{}}
+
+			for key, value := range tc.extraLabels {
+				mockNode.Labels[key] = value
+			}
+
+			for key, value := range tc.extraAnnotations {
+				pod.Annotations[key] = value
+			}
+
+			cardAnnotation := ""
+			tileAnnotation := ""
+			timestampFound := false
+			applyCheck := func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+				patchAction, _ := action.(k8stesting.PatchAction)
+				patch := patchAction.GetPatch()
+
+				arr := []patchValue{}
+				merr := json.Unmarshal(patch, &arr)
+				if merr != nil {
+					return false, nil, fmt.Errorf("error %w", merr)
+				}
+
+				for _, patch := range arr {
+					switch {
+					case strings.Contains(patch.Path, tsAnnotationName):
+						timestampFound = true
+					case strings.Contains(patch.Path, cardAnnotationName):
+						cardAnnotation, _ = patch.Value.(string)
+					case strings.Contains(patch.Path, tileAnnotationName):
+						tileAnnotation, _ = patch.Value.(string)
+					}
+				}
+
+				return true, nil, nil
+			}
+
+			mockCache.On("FetchNode", mock.Anything, mock.Anything).Return(mockNode, nil).Once()
+			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeRes).Once()
+			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse)
+			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(pod, nil).Once()
+			mockCache.On("AdjustPodResourcesL",
+				mock.Anything, mock.Anything, mock.Anything,
+				mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+
+			clientset.Fake.PrependReactor("patch", "pods", applyCheck)
+			result := gas.bindNode(ctx, &args)
+			clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
+
+			So(cardAnnotation, ShouldEqual, tc.expectedCardAnnotation)
+			if tc.defaultTileCheck {
+				split := strings.Split(tileAnnotation, "|")
+				// Check the tile split between containers
+				So(len(split), ShouldEqual, 2)
+				So(strings.Count(split[0], "gt0"), ShouldEqual, 2)
+				So(strings.Count(split[1], "card2:gt1"), ShouldEqual, 1)
+				So(strings.Count(split[1], "card3:gt2"), ShouldEqual, 1)
+			}
+
+			So(timestampFound, ShouldEqual, tc.expectTimestamp)
+			if tc.expectError {
+				So(result.Error, ShouldNotEqual, "")
+			} else {
+				So(result.Error, ShouldEqual, "")
+			}
+		}
+	})
+
+	iCache = origCacheAPI
 }
 
 func TestRunSchedulingLogicWithMultiContainerTileResourceReq(t *testing.T) {
@@ -815,6 +1190,8 @@ func TestRunSchedulingLogicWithMultiContainerTileResourceReq(t *testing.T) {
 
 	nodeRes := nodeResources{"card0": resourceMap{"gpu.intel.com/i915": 0, "gpu.intel.com/tiles": 0}}
 	noTilesInUse := nodeTiles{"card0": []int{}}
+
+	ctx := context.TODO()
 
 	Convey("When running scheduling logic with multi-container pod with tile request", t, func() {
 		cardAnnotation := ""
@@ -853,7 +1230,7 @@ func TestRunSchedulingLogicWithMultiContainerTileResourceReq(t *testing.T) {
 			mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
 		clientset.Fake.PrependReactor("patch", "pods", applyCheck)
-		result := gas.bindNode(&args)
+		result := gas.bindNode(ctx, &args)
 		clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
 
 		So(cardAnnotation, ShouldEqual, "card0|card0")
@@ -886,6 +1263,7 @@ func TestTileDisablingDeschedulingAndPreference(t *testing.T) {
 	iCache = &mockCache
 	args := extender.BindingArgs{}
 	args.Node = nodename
+	ctx := context.TODO()
 
 	for _, labelPart := range []string{tileDisableLabelPrefix, tileDeschedLabelPrefix} {
 		Convey("When node has a tile disabled/descheduled-label and the node card is in it", t, func() {
@@ -916,7 +1294,7 @@ func TestTileDisablingDeschedulingAndPreference(t *testing.T) {
 			noTilesInUse := nodeTiles{"card0": []int{}}
 			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Once()
 
-			result := gas.bindNode(&args)
+			result := gas.bindNode(ctx, &args)
 			So(result.Error, ShouldEqual, "will not fit")
 		})
 	}
@@ -947,9 +1325,9 @@ func TestTileDisablingDeschedulingAndPreference(t *testing.T) {
 		mockCache.On("AdjustPodResourcesL",
 			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
 		noTilesInUse := nodeTiles{"card0": []int{}, "card1": []int{}}
-		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Once()
+		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Twice()
 
-		result := gas.bindNode(&args)
+		result := gas.bindNode(ctx, &args)
 		So(result.Error, ShouldEqual, "")
 	})
 
@@ -993,7 +1371,7 @@ func TestTileDisablingDeschedulingAndPreference(t *testing.T) {
 		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Once()
 
 		clientset.Fake.PrependReactor("patch", "pods", applyCheck)
-		result := gas.bindNode(&args)
+		result := gas.bindNode(ctx, &args)
 		clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
 
 		So(result.Error, ShouldEqual, "")
@@ -1046,10 +1424,10 @@ func TestTileDisablingDeschedulingAndPreference(t *testing.T) {
 			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
 
 		noTilesInUse := nodeTiles{"card0": []int{}}
-		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Once()
+		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Twice()
 
 		clientset.Fake.PrependReactor("patch", "pods", applyCheck)
-		result := gas.bindNode(&args)
+		result := gas.bindNode(ctx, &args)
 		clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
 
 		So(result.Error, ShouldEqual, "")
@@ -1101,6 +1479,7 @@ func TestTileSanitation(t *testing.T) {
 		mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(usedResources).Once()
 		mockCache.On("AdjustPodResourcesL",
 			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
+		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
 
 		nodeNames := []string{nodename}
 		args := extender.Args{}
@@ -1157,7 +1536,7 @@ func TestFilterWithDisabledTiles(t *testing.T) {
 		mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(usedResources).Once()
 		mockCache.On("AdjustPodResourcesL",
 			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-
+		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Twice()
 		nodeNames := []string{nodename}
 		args := extender.Args{}
 		args.NodeNames = &nodeNames
