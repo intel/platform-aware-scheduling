@@ -1,0 +1,7 @@
+# This is to ignore tas-rbac-accounts.yaml:23-25, without the '*' TAS will not work
+# To limit the amount of metrics we expose, we have other guard rails that we put in place before TAS: 
+# - we limit what metrics are available in the Custom Metrics API to just node metrics 
+# - node metrics are filtered at ingestion as we only use proc and sys metrics from the Node Exporter
+# - if customers need more metrics, they have to manually update all these components to surface them
+AVD-KSV-0046
+
