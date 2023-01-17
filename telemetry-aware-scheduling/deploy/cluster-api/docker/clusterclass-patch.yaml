@@ -1,0 +1,9 @@
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: ClusterClass
+spec:
+  patches:
+    - definitions:
+        - jsonPatches:
+            - op: add
+              # Note: we must add a dash - after files, as shown below. Else the patch application in KubeadmControlPlaneTemplate will fail!
+              path: /spec/template/spec/kubeadmConfigSpec/files/-
