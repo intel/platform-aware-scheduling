@@ -65,7 +65,7 @@ yq -i '. | select(.kind == "KubeadmControlPlane") = env(KCP_FINAL)' capi-quickst
 
 4. You will need to prepare the Helm Charts of the various components and join the TAS manifests together for convenience:
 
-First, under `telemetry-aware-scheduling/deploy/charts` tweak the charts if you need (e.g.
+First, under [telemetry-aware-scheduling/deploy/charts](../../../deploy/charts) tweak the charts if you need (e.g.
 additional metric scraping configurations), then render the charts:
 
 ```bash
@@ -97,7 +97,7 @@ metadata:
 
 The custom metrics adapter and the TAS deployment require TLS to be configured with a certificate and key.
 Information on how to generate correctly signed certs in kubernetes can be found [here](https://github.com/kubernetes-sigs/apiserver-builder-alpha/blob/master/docs/concepts/auth.md).
-Files ``serving-ca.crt`` and ``serving-ca.key`` should be in the current working directory.
+Files `serving-ca.crt` and `serving-ca.key` should be in the current working directory.
 
 Run the following:
 

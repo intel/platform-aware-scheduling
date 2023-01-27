@@ -56,7 +56,7 @@ clusterctl generate cluster capi-quickstart --flavor development \
 If Kind was running correctly, and the Docker provider was initialized with the previous command, the command will return nothing to indicate success.
 
 4. Merge the contents of the resources provided in [../shared/cluster-patch.yaml](../shared/cluster-patch.yaml), [kubeadmcontrolplanetemplate-patch.yaml](kubeadmcontrolplanetemplate-patch.yaml) and [clusterclass-patch.yaml](clusterclass-patch.yaml) with
-   the resources contained in your newly generated capi-quickstart.yaml.
+   the resources contained in your newly generated `capi-quickstart.yaml`.
 
 The new config will:
 - Configure TLS certificates for the extender
@@ -67,13 +67,13 @@ The new config will:
 - Add the necessary labels for ClusterResourceSet to take effect in the workload cluster.
 
 Therefore, we will:
-- Merge the contents of file `kubeadmcontrolplanetemplate-patch.yaml` into the KubeadmControlPlaneTemplate resource of capi-quickstart.yaml.
+- Merge the contents of file [kubeadmcontrolplanetemplate-patch.yaml](kubeadmcontrolplanetemplate-patch.yaml) into the KubeadmControlPlaneTemplate resource of capi-quickstart.yaml.
 - Replace entirely the KubeadmControlPlaneTemplate patch item with `path` `/spec/template/spec/kubeadmConfigSpec/files` with the item present in file `clusterclass-patch.yaml`.
-- Add the necessary labels to the Cluster resource of capi-quickstart.yaml.
+- Add the necessary labels to the Cluster resource of `capi-quickstart.yaml`.
 
 To do this, we provide some quick `yq` commands to automate the process, but you can also merge the files manually.
 
-Patch the KubeadmControlPlaneTemplate resource by merging the contents of `kubeadmcontrolplanetemplate-patch.yaml` with the one contained in `capi-quickstart.yaml`:
+Patch the KubeadmControlPlaneTemplate resource by merging the contents of  [kubeadmcontrolplanetemplate-patch.yaml](kubeadmcontrolplanetemplate-patch.yaml) with the one contained in `capi-quickstart.yaml`:
 ```bash
 # Extract KubeadmControlPlaneTemplate
 yq e '. | select(.kind == "KubeadmControlPlaneTemplate")' capi-quickstart.yaml > kubeadmcontrolplanetemplate.yaml
@@ -109,7 +109,7 @@ you should end up with something like [this](sample-capi-manifests.yaml).
 
 5. You will need to prepare the Helm Charts of the various components and join the TAS manifests together for convenience:
 
-First, under `telemetry-aware-scheduling/deploy/charts` tweak the charts if you need (e.g.
+First, under [telemetry-aware-scheduling/deploy/charts](../../../deploy/charts) tweak the charts if you need (e.g.
 additional metric scraping configurations), then render the charts:
 
 ```bash
@@ -141,7 +141,7 @@ metadata:
 
 The custom metrics adapter and the TAS deployment require TLS to be configured with a certificate and key.
 Information on how to generate correctly signed certs in kubernetes can be found [here](https://github.com/kubernetes-sigs/apiserver-builder-alpha/blob/master/docs/concepts/auth.md).
-Files ``serving-ca.crt`` and ``serving-ca.key`` should be in the current working directory.
+Files `serving-ca.crt` and `serving-ca.key` should be in the current working directory.
 
 Run the following:
 
