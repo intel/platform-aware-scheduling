@@ -50,7 +50,7 @@ clusterctl generate cluster capi-quickstart --flavor development \
 ```
 
 2. Merge the contents of the resources provided in `cluster-patch.yaml`, `kubeadmcontrolplanetemplate-patch.yaml` and `clusterclass-patch.yaml` with
-   `your-manifests.yaml`.
+   `capi-quickstart.yaml`.
 
 The new config will:
 - Configure TLS certificates for the extender
@@ -58,9 +58,6 @@ The new config will:
 - Place `KubeSchedulerConfiguration` into control plane nodes and pass the relative CLI flag to the scheduler.
 - Change the behavior of the pre-existing patch application of `/spec/template/spec/kubeadmConfigSpec/files` in `ClusterClass` 
 such that our new patch is not ignored/overwritten. For some more clarification on this, see [this issue](https://github.com/kubernetes-sigs/cluster-api/pull/7630).
-
-You will also need to add a label to the `Cluster` resource of your new cluster to allow ClusterResourceSets to target
-it (see `cluster-patch.yaml`). Simply add a label `scheduler: tas` in your `Cluster` resource present in `your-manifests.yaml`.
 
 3. You will need to prepare the Helm Charts of the various components and join the TAS manifests together for convenience:
 
@@ -140,7 +137,7 @@ Apply them to the management cluster with `kubectl apply -f ./shared/clusterreso
 
 6. Apply the cluster manifests
 
-Finally, you can apply your manifests `kubectl apply -f your-manifests.yaml`.
+Finally, you can apply your manifests `kubectl apply -f capi-quickstart.yaml`.
 The Telemetry Aware Scheduler will be running on your new cluster. You can connect to the workload cluster by
 exporting its kubeconfig:
 

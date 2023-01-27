@@ -18,7 +18,7 @@ clusterctl generate cluster scheduling-dev-wkld \
   --kubernetes-version v1.25.0 \
   --control-plane-machine-count=1 \
   --worker-machine-count=3 \
-  > your-manifests.yaml
+  > capi-quickstart.yaml
 ```
 
 Be aware that you will need to install a CNI such as Calico before the cluster will be usable. 
@@ -26,7 +26,7 @@ Calico works for the great majority of providers, so all configurations have bee
 For more information, see [Deploy a CNI solution](https://cluster-api.sigs.k8s.io/user/quick-start.html#deploy-a-cni-solution) in the CAPI quickstart.
 
 2. Merge the contents of the resources provided in `cluster-patch.yaml` and `kubeadmcontrolplane-patch.yaml` with
-   `your-manifests.yaml`.
+   `capi-quickstart.yaml`.
 
 If you move `KubeadmControlPlane` in its own file, you can use the convenient `yq` utility:
 
@@ -41,9 +41,6 @@ The new config will:
 - Configure TLS certificates for the extender
 - Change the `dnsPolicy` of the scheduler to `ClusterFirstWithHostNet`
 - Place `KubeSchedulerConfiguration` into control plane nodes and pass the relative CLI flag to the scheduler.
-
-You will also need to add a label to the `Cluster` resource of your new cluster to allow ClusterResourceSets to target
-it (see `cluster-patch.yaml`). Simply add a label `scheduler: tas` in your `Cluster` resource present in `your-manifests.yaml`.
 
 3. You will need to prepare the Helm Charts of the various components and join the TAS manifests together for convenience:
 
@@ -123,7 +120,7 @@ Apply them to the management cluster with `kubectl apply -f ./shared/clusterreso
 
 6. Apply the cluster manifests
 
-Finally, you can apply your manifests `kubectl apply -f your-manifests.yaml`.
+Finally, you can apply your manifests `kubectl apply -f capi-quickstart.yaml`.
 The Telemetry Aware Scheduler will be running on your new cluster.
 
 You can test if the scheduler actually works by following this guide:
