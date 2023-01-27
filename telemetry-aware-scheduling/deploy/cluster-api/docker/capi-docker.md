@@ -39,6 +39,14 @@ export EXP_CLUSTER_RESOURCE_SET=true
 
 3. Initialize the management cluster:
 
+Note to start the Kind cluster, you will need to run the following command:
+
+```bash
+kind create cluster --config kind-cluster-with-extramounts.yaml
+```
+
+then ,to initialize the Docker provider:
+
 ```bash
 clusterctl init --infrastructure docker
 ```
