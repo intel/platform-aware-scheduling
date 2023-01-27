@@ -1,5 +1,7 @@
 # Cluster API deployment - Generic provider
 
+** This guide is meant for local testing/development only, this is not meant for production usage.**
+
 ## Requirements
 
 - A management cluster provisioned in your infrastructure of choice and the relative tooling.

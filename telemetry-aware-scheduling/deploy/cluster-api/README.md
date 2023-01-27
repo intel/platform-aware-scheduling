@@ -1,5 +1,7 @@
 # Cluster API deployment
 
+** This guide is meant for local testing/development only, this is not meant for production usage.**
+
 ## Introduction
 
 Cluster API is a Kubernetes sub-project focused on providing declarative APIs and tooling to simplify provisioning, upgrading, and operating multiple Kubernetes clusters. [Learn more](https://cluster-api.sigs.k8s.io/introduction.html).
