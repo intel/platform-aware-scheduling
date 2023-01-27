@@ -1,9 +1,24 @@
-apiVersion: cluster.x-k8s.io/v1beta1
-kind: ClusterClass
-spec:
-  patches:
-    - definitions:
-        - jsonPatches:
-            - op: add
-              # Note: we must add a dash - after files, as shown below. Else the patch application in KubeadmControlPlaneTemplate will fail!
-              path: /spec/template/spec/kubeadmConfigSpec/files/-
+op: add
+path: /spec/template/spec/kubeadmConfigSpec/files/-
+valueFrom:
+  template: |
+    content: |
+      apiVersion: apiserver.config.k8s.io/v1
+      kind: AdmissionConfiguration
+      plugins:
+      - name: PodSecurity
+        configuration:
+          apiVersion: pod-security.admission.config.k8s.io/v1beta1
+          kind: PodSecurityConfiguration
+          defaults:
+            enforce: "{{ .podSecurityStandard.enforce }}"
+            enforce-version: "latest"
+            audit: "{{ .podSecurityStandard.audit }}"
+            audit-version: "latest"
+            warn: "{{ .podSecurityStandard.warn }}"
+            warn-version: "latest"
+          exemptions:
+            usernames: []
+            runtimeClasses: []
+            namespaces: [kube-system]
+    path: /etc/kubernetes/kube-apiserver-admission-pss.yaml

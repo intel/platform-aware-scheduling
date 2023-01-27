@@ -56,14 +56,56 @@ clusterctl generate cluster capi-quickstart --flavor development \
 If Kind was running correctly, and the Docker provider was initialized with the previous command, the command will return nothing to indicate success.
 
 4. Merge the contents of the resources provided in `../shared/cluster-patch.yaml`, `kubeadmcontrolplanetemplate-patch.yaml` and `clusterclass-patch.yaml` with
-   `capi-quickstart.yaml`.
+   the resources contained in `capi-quickstart.yaml`.
 
 The new config will:
 - Configure TLS certificates for the extender
 - Change the `dnsPolicy` of the scheduler to `ClusterFirstWithHostNet`
 - Place `KubeSchedulerConfiguration` into control plane nodes and pass the relative CLI flag to the scheduler.
-- Change the behavior of the pre-existing patch application of `/spec/template/spec/kubeadmConfigSpec/files` in `ClusterClass` 
-such that our new patch is not ignored/overwritten. For some more clarification on this, see [this issue](https://github.com/kubernetes-sigs/cluster-api/pull/7630).
+- Change the behavior of the pre-existing patch application of `/spec/template/spec/kubeadmConfigSpec/files` in `ClusterClass`
+  such that our new patch is not ignored/overwritten. For some more clarification on this, see [this issue](https://github.com/kubernetes-sigs/cluster-api/pull/7630).
+- Add the necessary labels for ClusterResourceSet to take effect in the workload cluster.
+
+Therefore, we will:
+- Merge the contents of file `kubeadmcontrolplanetemplate-patch.yaml` into the KubeadmControlPlaneTemplate resource of capi-quickstart.yaml.
+- Replace entirely the KubeadmControlPlaneTemplate patch item with `path` `/spec/template/spec/kubeadmConfigSpec/files` with the item present in file `clusterclass-patch.yaml`.
+- Add the necessary labels to the Cluster resource of capi-quickstart.yaml.
+
+To do this, we provide some quick `yq` commands to automate the process, but you can also merge the files manually.
+
+Patch the KubeadmControlPlaneTemplate resource by merging the contents of `kubeadmcontrolplanetemplate-patch.yaml` with the one contained in `capi-quickstart.yaml`:
+```bash
+# Extract KubeadmControlPlaneTemplate
+yq e '. | select(.kind == "KubeadmControlPlaneTemplate")' capi-quickstart.yaml > kubeadmcontrolplanetemplate.yaml
+# Merge patch
+yq eval-all '. as $item ireduce ({}; . *+ $item)' kubeadmcontrolplanetemplate.yaml kubeadmcontrolplanetemplate-patch.yaml > final-kubeadmcontrolplanetemplate.yaml
+# Replace the original KubeadmControlPlaneTemplate with the patched one
+export KCPT_FINAL=$(<final-kubeadmcontrolplanetemplate.yaml)
+yq -i '. | select(.kind == "KubeadmControlPlaneTemplate") = env(KCPT_FINAL)' capi-quickstart.yaml
+```
+
+Modify the ClusterClass patches to allow our patch to be applied:
+
+```bash
+# Extract ClusterClass
+yq e '. | select(.kind == "ClusterClass")' capi-quickstart.yaml > clusterclass.yaml
+export CC_PATCH=$(<clusterclass-patch.yaml)
+# Replace the original ClusterClass patch with the new one
+yq '(.spec.patches[].definitions[].jsonPatches[] | select(.path == "/spec/template/spec/kubeadmConfigSpec/files")) = env(CC_PATCH)' clusterclass.yaml > final-clusterclass.yaml
+# Replace the ClusterClass in capi-quickstart.yaml with the new one
+export CC_FINAL=$(<final-clusterclass.yaml)
+yq -i '. | select(.kind == "ClusterClass") = env(CC_FINAL)' capi-quickstart.yaml
+```
+
+Add the necessary labels to the Cluster resource:
+
+```bash
+# Extract Cluster
+yq e '. | select(.kind == "Cluster")' capi-quickstart.yaml > cluster.yaml
+yq -i eval-all '. as $item ireduce ({}; . *+ $item)' cluster.yaml ../shared/cluster-patch.yaml
+```
+
+you should end up with something like [this](sample-capi-manifests.yaml).
 
 5. You will need to prepare the Helm Charts of the various components and join the TAS manifests together for convenience:
 

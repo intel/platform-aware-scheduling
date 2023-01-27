@@ -39,19 +39,29 @@ For more information, see [Deploy a CNI solution](https://cluster-api.sigs.k8s.i
 3. Merge the contents of the resources provided in `../shared/cluster-patch.yaml` and `kubeadmcontrolplane-patch.yaml` with
    `capi-quickstart.yaml`.
 
-If you move `KubeadmControlPlane` in its own file, you can use the convenient `yq` utility:
+The new config will:
+- Configure TLS certificates for the extender
+- Change the `dnsPolicy` of the scheduler to `ClusterFirstWithHostNet`
+- Place `KubeSchedulerConfiguration` into control plane nodes and pass the relative CLI flag to the scheduler.
+- Add the necessary labels for ClusterResourceSet to take effect in the workload cluster.
+
+Therefore, we will:
+- Merge the contents of file `kubeadmcontrolplane-patch.yaml` into the KubeadmControlPlane resource of capi-quickstart.yaml.
+- Add the necessary labels to the Cluster resource of capi-quickstart.yaml.
+
+To do this, we provide some quick `yq` commands to automate the process, but you can also merge the files manually.
 
 > Note that if you are already using patches, `directory: /tmp/kubeadm/patches` must coincide, else the property will be
 > overwritten.
 
 ```bash
-yq eval-all '. as $item ireduce ({}; . *+ $item)' your-own-kubeadmcontrolplane.yaml kubeadmcontrolplane-patch.yaml > final-kubeadmcontrolplane.yaml
+# Extract KubeadmControlPlane
+yq e '. | select(.kind == "KubeadmControlPlane")' capi-quickstart.yaml > kubeadmcontrolplane.yaml
+yq eval-all '. as $item ireduce ({}; . *+ $item)' kubeadmcontrolplane.yaml kubeadmcontrolplane-patch.yaml > final-kubeadmcontrolplane.yaml
+# Replace the original KubeadmControlPlane with the patched one
+export KCP_FINAL=$(<final-kubeadmcontrolplane.yaml)
+yq -i '. | select(.kind == "KubeadmControlPlane") = env(KCP_FINAL)' capi-quickstart.yaml
 ```
-
-The new config will:
-- Configure TLS certificates for the extender
-- Change the `dnsPolicy` of the scheduler to `ClusterFirstWithHostNet`
-- Place `KubeSchedulerConfiguration` into control plane nodes and pass the relative CLI flag to the scheduler.
 
 4. You will need to prepare the Helm Charts of the various components and join the TAS manifests together for convenience:
 
