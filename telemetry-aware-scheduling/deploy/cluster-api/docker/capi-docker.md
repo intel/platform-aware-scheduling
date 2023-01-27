@@ -9,7 +9,8 @@ For the deployment using a generic provider, please refer to [Cluster API deploy
 - A management cluster provisioned in your infrastructure of choice and the relative tooling.
   See [Cluster API Quickstart](https://cluster-api.sigs.k8s.io/user/quick-start.html).
 - Run Kubernetes v1.22 or greater (tested on Kubernetes v1.25).
-- Docker
+- Docker (tested on Docker version 20.10.22)
+- Kind (tested on Kind version 0.17.0)
 
 ## Provision clusters with TAS installed using Cluster API
 
