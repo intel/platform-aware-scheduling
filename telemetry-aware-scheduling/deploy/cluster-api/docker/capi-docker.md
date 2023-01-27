@@ -49,7 +49,7 @@ clusterctl generate cluster capi-quickstart --flavor development \
   > capi-quickstart.yaml
 ```
 
-4. Merge the contents of the resources provided in `cluster-patch.yaml`, `kubeadmcontrolplanetemplate-patch.yaml` and `clusterclass-patch.yaml` with
+4. Merge the contents of the resources provided in `../shared/cluster-patch.yaml`, `kubeadmcontrolplanetemplate-patch.yaml` and `clusterclass-patch.yaml` with
    `capi-quickstart.yaml`.
 
 The new config will:

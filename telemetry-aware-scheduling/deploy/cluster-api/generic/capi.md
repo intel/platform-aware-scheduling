@@ -25,7 +25,7 @@ Be aware that you will need to install a CNI such as Calico before the cluster w
 Calico works for the great majority of providers, so all configurations have been provided for your convenience, i.e ClusterResourceSet, CRS label in Cluster and CRS ConfigMap). 
 For more information, see [Deploy a CNI solution](https://cluster-api.sigs.k8s.io/user/quick-start.html#deploy-a-cni-solution) in the CAPI quickstart.
 
-2. Merge the contents of the resources provided in `cluster-patch.yaml` and `kubeadmcontrolplane-patch.yaml` with
+2. Merge the contents of the resources provided in `../shared/cluster-patch.yaml` and `kubeadmcontrolplane-patch.yaml` with
    `capi-quickstart.yaml`.
 
 If you move `KubeadmControlPlane` in its own file, you can use the convenient `yq` utility:

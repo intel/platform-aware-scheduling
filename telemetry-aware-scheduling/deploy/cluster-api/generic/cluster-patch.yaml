@@ -3,3 +3,4 @@ kind: Cluster
 metadata:
   labels:
     scheduler: tas
+    cni: calico
