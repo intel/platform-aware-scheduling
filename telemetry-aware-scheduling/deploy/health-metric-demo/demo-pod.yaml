@@ -17,15 +17,46 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx:latest
+        image: nginx:1.23.3
         imagePullPolicy: IfNotPresent
         securityContext:
+          capabilities:
+            drop: [ 'ALL' ]
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
           seccompProfile:
             type: RuntimeDefault
           allowPrivilegeEscalation: false
+          runAsUser: 10001
+          runAsGroup: 10001
+        volumeMounts:
+        - name: nginx-cache
+          mountPath: /var/cache/nginx
+        - name: nginx-run
+          mountPath: /var/run
+        - name: conf
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        - name: tmp
+          mountPath: /tmp/nginx
         resources:
+          requests:
+            memory: "100Mi"
+            cpu: "50m"
           limits:
+            memory: "200Mi"
             telemetry/scheduling: 1
+            cpu: "100m"
+      volumes:
+      - name: nginx-cache
+        emptyDir: {}
+      - name: nginx-run
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
+      - name: conf
+        configMap:
+          name: nginx-conf
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
