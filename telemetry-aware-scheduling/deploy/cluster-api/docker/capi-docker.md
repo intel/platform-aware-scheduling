@@ -71,9 +71,9 @@ First, under `telemetry-aware-scheduling/deploy/charts` tweak the charts if you 
 additional metric scraping configurations), then render the charts:
 
 ```bash
-helm template ../charts/prometheus_node_exporter_helm_chart/ > prometheus-node-exporter.yaml
-helm template ../charts/prometheus_helm_chart/ > prometheus.yaml
-helm template ../charts/prometheus_custom_metrics_helm_chart > prometheus-custom-metrics.yaml
+helm template ../../charts/prometheus_node_exporter_helm_chart/ > prometheus-node-exporter.yaml
+helm template ../../charts/prometheus_helm_chart/ > prometheus.yaml
+helm template ../../charts/prometheus_custom_metrics_helm_chart > prometheus-custom-metrics.yaml
 ```
 
 You need to add namespaces resources, else resource application will fail. Prepend the following to `prometheus.yaml`:
@@ -139,7 +139,7 @@ kubectl apply -f '*-configmap.yaml'
 7. Apply the ClusterResourceSets
 
 ClusterResourceSets resources are already given to you in `../shared/clusterresourcesets.yaml`.
-Apply them to the management cluster with `kubectl apply -f ./shared/clusterresourcesets.yaml`
+Apply them to the management cluster with `kubectl apply -f ../shared/clusterresourcesets.yaml`
 
 8. Apply the cluster manifests
 
@@ -148,13 +148,13 @@ The Telemetry Aware Scheduler will be running on your new cluster. You can conne
 exporting its kubeconfig:
 
 ```bash
-clusterctl get kubeconfig ecoqube-dev > ecoqube-dev.kubeconfig
+clusterctl get kubeconfig capi-quickstart > capi-quickstart.kubeconfig
 ```
 
 Then, specifically for the CAPD docker, point the kubeconfig to the correct address of the HAProxy container:
 
 ```bash
-sed -i -e "s/server:.*/server: https:\/\/$(docker port ecoqube-dev-lb 6443/tcp | sed "s/0.0.0.0/127.0.0.1/")/g" ./ecoqube-dev.kubeconfig
+sed -i -e "s/server:.*/server: https:\/\/$(docker port capi-quickstart-lb 6443/tcp | sed "s/0.0.0.0/127.0.0.1/")/g" ./capi-quickstart.kubeconfig
 ```
 
 You can test if the scheduler actually works by following this guide:
