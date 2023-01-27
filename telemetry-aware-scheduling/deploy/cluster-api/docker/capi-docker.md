@@ -30,10 +30,11 @@ nodes:
 EOF
 ```
 
-2. Enable the `CLUSTER_TOPOLOGY` feature gate:
+2. Enable the `CLUSTER_TOPOLOGY` and `EXP_CLUSTER_RESOURCE_SET` feature gates:
 
 ```bash
 export CLUSTER_TOPOLOGY=true
+export EXP_CLUSTER_RESOURCE_SET=true
 ```
 
 3. Initialize the management cluster:

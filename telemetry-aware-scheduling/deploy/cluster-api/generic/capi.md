@@ -14,7 +14,13 @@ For the deployment using the Docker provider (local testing/development only), p
 
 We will provision a generic cluster with the TAS installed using Cluster API. This was tested using a the GCP provider.
 
-1. In your management cluster, with all your environment variables set to generate cluster definitions, run for example:
+1. Enable the `EXP_CLUSTER_RESOURCE_SET` feature gate:
+
+```bash
+export EXP_CLUSTER_RESOURCE_SET=true
+```
+
+2. In your management cluster, with all your environment variables set to generate cluster definitions, run for example:
 
 ```bash
 clusterctl generate cluster scheduling-dev-wkld \
@@ -30,7 +36,7 @@ Be aware that you will need to install a CNI such as Calico before the cluster w
 Calico works for the great majority of providers, so all configurations have been provided for your convenience, i.e. ClusterResourceSet, CRS label in Cluster and CRS ConfigMap). 
 For more information, see [Deploy a CNI solution](https://cluster-api.sigs.k8s.io/user/quick-start.html#deploy-a-cni-solution) in the CAPI quickstart.
 
-2. Merge the contents of the resources provided in `../shared/cluster-patch.yaml` and `kubeadmcontrolplane-patch.yaml` with
+3. Merge the contents of the resources provided in `../shared/cluster-patch.yaml` and `kubeadmcontrolplane-patch.yaml` with
    `capi-quickstart.yaml`.
 
 If you move `KubeadmControlPlane` in its own file, you can use the convenient `yq` utility:
@@ -47,7 +53,7 @@ The new config will:
 - Change the `dnsPolicy` of the scheduler to `ClusterFirstWithHostNet`
 - Place `KubeSchedulerConfiguration` into control plane nodes and pass the relative CLI flag to the scheduler.
 
-3. You will need to prepare the Helm Charts of the various components and join the TAS manifests together for convenience:
+4. You will need to prepare the Helm Charts of the various components and join the TAS manifests together for convenience:
 
 First, under `telemetry-aware-scheduling/deploy/charts` tweak the charts if you need (e.g.
 additional metric scraping configurations), then render the charts:
@@ -99,7 +105,7 @@ ClusterRole. We will join the TAS manifests together, so we can have a single Co
 yq '.' ../tas-*.yaml > tas.yaml
 ```
 
-4. Create and apply the ConfigMaps
+5. Create and apply the ConfigMaps
 
 ```bash
 kubectl create configmap custom-metrics-tls-secret-configmap --from-file=./custom-metrics-tls-secret.yaml -o yaml --dry-run=client > custom-metrics-tls-secret-configmap.yaml
@@ -118,12 +124,12 @@ Apply to the management cluster:
 kubectl apply -f '*-configmap.yaml'
 ```
 
-5. Apply the ClusterResourceSets
+6. Apply the ClusterResourceSets
 
 ClusterResourceSets resources are already given to you in `../shared/clusterresourcesets.yaml`.
 Apply them to the management cluster with `kubectl apply -f ./shared/clusterresourcesets.yaml`
 
-6. Apply the cluster manifests
+7. Apply the cluster manifests
 
 Finally, you can apply your manifests `kubectl apply -f capi-quickstart.yaml`.
 The Telemetry Aware Scheduler will be running on your new cluster.
