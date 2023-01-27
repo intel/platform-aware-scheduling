@@ -1,6 +1,6 @@
 # Cluster API deployment - Docker provider (for local testing/development only)
 
-** This guide is meant for local testing/development only, this is not meant for production usage.**
+**This guide is meant for local testing/development only, this is not meant for production usage.**
 
 For the deployment using a generic provider, please refer to [Cluster API deployment - Generic provider](capi.md).
 
@@ -55,8 +55,8 @@ clusterctl generate cluster capi-quickstart --flavor development \
 
 If Kind was running correctly, and the Docker provider was initialized with the previous command, the command will return nothing to indicate success.
 
-4. Merge the contents of the resources provided in `../shared/cluster-patch.yaml`, `kubeadmcontrolplanetemplate-patch.yaml` and `clusterclass-patch.yaml` with
-   the resources contained in `capi-quickstart.yaml`.
+4. Merge the contents of the resources provided in [../shared/cluster-patch.yaml](../shared/cluster-patch.yaml), [kubeadmcontrolplanetemplate-patch.yaml](kubeadmcontrolplanetemplate-patch.yaml) and [clusterclass-patch.yaml](clusterclass-patch.yaml) with
+   the resources contained in your newly generated capi-quickstart.yaml.
 
 The new config will:
 - Configure TLS certificates for the extender
@@ -180,7 +180,7 @@ kubectl apply -f '*-configmap.yaml'
 
 7. Apply the ClusterResourceSets
 
-ClusterResourceSets resources are already given to you in `../shared/clusterresourcesets.yaml`.
+ClusterResourceSets resources are already given to you in [../shared/clusterresourcesets.yaml](../shared/clusterresourcesets.yaml).
 Apply them to the management cluster with `kubectl apply -f ../shared/clusterresourcesets.yaml`
 
 8. Apply the cluster manifests

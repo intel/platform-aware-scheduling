@@ -1,6 +1,6 @@
 # Cluster API deployment - Generic provider
 
-** This guide is meant for local testing/development only, this is not meant for production usage.**
+**This guide is meant for local testing/development only, this is not meant for production usage.**
 
 For the deployment using the Docker provider (local testing/development only), please refer to [Cluster API deployment - Generic provider](capi.md).
 
@@ -36,8 +36,8 @@ Be aware that you will need to install a CNI such as Calico before the cluster w
 Calico works for the great majority of providers, so all configurations have been provided for your convenience, i.e. ClusterResourceSet, CRS label in Cluster and CRS ConfigMap). 
 For more information, see [Deploy a CNI solution](https://cluster-api.sigs.k8s.io/user/quick-start.html#deploy-a-cni-solution) in the CAPI quickstart.
 
-3. Merge the contents of the resources provided in `../shared/cluster-patch.yaml` and `kubeadmcontrolplane-patch.yaml` with
-   `capi-quickstart.yaml`.
+3. Merge the contents of the resources provided in [../shared/cluster-patch.yaml](../shared/cluster-patch.yaml) and [kubeadmcontrolplane-patch.yaml](kubeadmcontrolplane-patch.yaml) with
+   the resources contained in your newly generated `capi-quickstart.yaml`.
 
 The new config will:
 - Configure TLS certificates for the extender
@@ -136,7 +136,7 @@ kubectl apply -f '*-configmap.yaml'
 
 6. Apply the ClusterResourceSets
 
-ClusterResourceSets resources are already given to you in `../shared/clusterresourcesets.yaml`.
+ClusterResourceSets resources are already given to you in [../shared/clusterresourcesets.yaml](../shared/clusterresourcesets.yaml).
 Apply them to the management cluster with `kubectl apply -f ../shared/clusterresourcesets.yaml`
 
 7. Apply the cluster manifests
