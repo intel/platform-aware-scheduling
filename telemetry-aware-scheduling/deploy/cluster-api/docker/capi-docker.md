@@ -49,9 +49,6 @@ clusterctl generate cluster capi-quickstart --flavor development \
   > capi-quickstart.yaml
 ```
 
-Be aware that you will need to install a CNI such as Calico before the cluster will be usable. You may automate this
-step in the same way as we will see with TAS resources using ClusterResourceSets.
-
 2. Merge the contents of the resources provided in `cluster-patch.yaml`, `kubeadmcontrolplanetemplate-patch.yaml` and `clusterclass-patch.yaml` with
    `your-manifests.yaml`.
 
@@ -119,26 +116,27 @@ ClusterRole. We will join the TAS manifests together, so we can have a single Co
 
 4. Create and apply the ConfigMaps
 
-  ```bash
-  kubectl create configmap custom-metrics-tls-secret-configmap --from-file=./custom-metrics-tls-secret.yaml -o yaml --dry-run=client > custom-metrics-tls-secret-configmap.yaml
-  kubectl create configmap custom-metrics-configmap --from-file=./prometheus-custom-metrics.yaml -o yaml --dry-run=client > custom-metrics-configmap.yaml
-  kubectl create configmap prometheus-configmap --from-file=./prometheus.yaml -o yaml --dry-run=client > prometheus-configmap.yaml
-  kubectl create configmap prometheus-node-exporter-configmap --from-file=./prometheus-node-exporter.yaml -o yaml --dry-run=client > prometheus-node-exporter-configmap.yaml
-  kubectl create configmap tas-configmap --from-file=./tas.yaml -o yaml --dry-run=client > tas-configmap.yaml
-  kubectl create configmap tas-tls-secret-configmap --from-file=./tas-tls-secret.yaml -o yaml --dry-run=client > tas-tls-secret-configmap.yaml
-  kubectl create configmap extender-configmap --from-file=../extender-configuration/configmap-getter.yaml -o yaml --dry-run=client > extender-configmap.yaml
-  ```
+```bash
+kubectl create configmap custom-metrics-tls-secret-configmap --from-file=./custom-metrics-tls-secret.yaml -o yaml --dry-run=client > custom-metrics-tls-secret-configmap.yaml
+kubectl create configmap custom-metrics-configmap --from-file=./prometheus-custom-metrics.yaml -o yaml --dry-run=client > custom-metrics-configmap.yaml
+kubectl create configmap prometheus-configmap --from-file=./prometheus.yaml -o yaml --dry-run=client > prometheus-configmap.yaml
+kubectl create configmap prometheus-node-exporter-configmap --from-file=./prometheus-node-exporter.yaml -o yaml --dry-run=client > prometheus-node-exporter-configmap.yaml
+kubectl create configmap tas-configmap --from-file=./tas.yaml -o yaml --dry-run=client > tas-configmap.yaml
+kubectl create configmap tas-tls-secret-configmap --from-file=./tas-tls-secret.yaml -o yaml --dry-run=client > tas-tls-secret-configmap.yaml
+kubectl create configmap extender-configmap --from-file=../extender-configuration/configmap-getter.yaml -o yaml --dry-run=client > extender-configmap.yaml
+kubectl create configmap calico-configmap --from-file=../shared/calico-configmap.yaml -o yaml --dry-run=client > calico-configmap.yaml
+```
 
 Apply to the management cluster:
 
-  ```bash
-  kubectl apply -f '*-configmap.yaml'
-  ```
+```bash
+kubectl apply -f '*-configmap.yaml'
+```
 
 5. Apply the ClusterResourceSets
 
-ClusterResourceSets resources are already given to you in `clusterresourcesets.yaml`.
-Apply them to the management cluster with `kubectl apply -f clusterresourcesets.yaml`
+ClusterResourceSets resources are already given to you in `../shared/clusterresourcesets.yaml`.
+Apply them to the management cluster with `kubectl apply -f ./shared/clusterresourcesets.yaml`
 
 6. Apply the cluster manifests
 

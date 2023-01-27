@@ -21,8 +21,9 @@ clusterctl generate cluster scheduling-dev-wkld \
   > your-manifests.yaml
 ```
 
-Be aware that you will need to install a CNI such as Calico before the cluster will be usable. You may automate this
-step in the same way as we will see with TAS resources using ClusterResourceSets.
+Be aware that you will need to install a CNI such as Calico before the cluster will be usable. 
+Calico works for the great majority of providers, so all configurations have been provided for your convenience, i.e ClusterResourceSet, CRS label in Cluster and CRS ConfigMap). 
+For more information, see [Deploy a CNI solution](https://cluster-api.sigs.k8s.io/user/quick-start.html#deploy-a-cni-solution) in the CAPI quickstart.
 
 2. Merge the contents of the resources provided in `cluster-patch.yaml` and `kubeadmcontrolplane-patch.yaml` with
    `your-manifests.yaml`.
@@ -106,6 +107,7 @@ kubectl create configmap prometheus-node-exporter-configmap --from-file=./promet
 kubectl create configmap tas-configmap --from-file=./tas.yaml -o yaml --dry-run=client > tas-configmap.yaml
 kubectl create configmap tas-tls-secret-configmap --from-file=./tas-tls-secret.yaml -o yaml --dry-run=client > tas-tls-secret-configmap.yaml
 kubectl create configmap extender-configmap --from-file=../extender-configuration/configmap-getter.yaml -o yaml --dry-run=client > extender-configmap.yaml
+kubectl create configmap calico-configmap --from-file=../shared/calico-configmap.yaml -o yaml --dry-run=client > calico-configmap.yaml
 ```
 
 Apply to the management cluster:
@@ -116,8 +118,8 @@ kubectl apply -f '*-configmap.yaml'
 
 5. Apply the ClusterResourceSets
 
-ClusterResourceSets resources are already given to you in `clusterresourcesets.yaml`.
-Apply them to the management cluster with `kubectl apply -f clusterresourcesets.yaml`
+ClusterResourceSets resources are already given to you in `../shared/clusterresourcesets.yaml`.
+Apply them to the management cluster with `kubectl apply -f ./shared/clusterresourcesets.yaml`
 
 6. Apply the cluster manifests
 

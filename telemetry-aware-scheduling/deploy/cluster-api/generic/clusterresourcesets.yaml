@@ -81,3 +81,15 @@ spec:
   resources:
     - kind: ConfigMap
       name: extender-configmap
+---
+apiVersion: addons.cluster.x-k8s.io/v1alpha3
+kind: ClusterResourceSet
+metadata:
+  name: calico
+spec:
+  clusterSelector:
+    matchLabels:
+      cni: calico
+  resources:
+    - kind: ConfigMap
+      name: calico-configmap
