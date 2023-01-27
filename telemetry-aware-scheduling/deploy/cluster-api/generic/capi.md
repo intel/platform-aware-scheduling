@@ -127,4 +127,4 @@ Finally, you can apply your manifests `kubectl apply -f your-manifests.yaml`.
 The Telemetry Aware Scheduler will be running on your new cluster.
 
 You can test if the scheduler actually works by following this guide:
-[Health Metric Example](https://github.com/intel/platform-aware-scheduling/blob/25a646ece15aaf4c549d8152c4ffbbfc61f8a009/telemetry-aware-scheduling/docs/health-metric-example.md)
+[Health Metric Example](https://github.com/intel/platform-aware-scheduling/blob/master/telemetry-aware-scheduling/docs/health-metric-example.md)
