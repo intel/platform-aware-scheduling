@@ -23,7 +23,7 @@ export EXP_CLUSTER_RESOURCE_SET=true
 2. In your management cluster, with all your environment variables set to generate cluster definitions, run for example:
 
 ```bash
-clusterctl generate cluster scheduling-dev-wkld \
+clusterctl generate cluster capi-quickstart \
   --kubernetes-version v1.25.0 \
   --control-plane-machine-count=1 \
   --worker-machine-count=3 \
@@ -112,7 +112,7 @@ You also need the TAS manifests (Deployment, Policy CRD and RBAC accounts) and t
 ClusterRole. We will join the TAS manifests together, so we can have a single ConfigMap for convenience:
 
 ```bash
-yq '.' ../tas-*.yaml > tas.yaml
+yq '.' ../../tas-*.yaml > tas.yaml
 ```
 
 5. Create and apply the ConfigMaps
@@ -124,7 +124,7 @@ kubectl create configmap prometheus-configmap --from-file=./prometheus.yaml -o y
 kubectl create configmap prometheus-node-exporter-configmap --from-file=./prometheus-node-exporter.yaml -o yaml --dry-run=client > prometheus-node-exporter-configmap.yaml
 kubectl create configmap tas-configmap --from-file=./tas.yaml -o yaml --dry-run=client > tas-configmap.yaml
 kubectl create configmap tas-tls-secret-configmap --from-file=./tas-tls-secret.yaml -o yaml --dry-run=client > tas-tls-secret-configmap.yaml
-kubectl create configmap extender-configmap --from-file=../extender-configuration/configmap-getter.yaml -o yaml --dry-run=client > extender-configmap.yaml
+kubectl create configmap extender-configmap --from-file=../../extender-configuration/configmap-getter.yaml -o yaml --dry-run=client > extender-configmap.yaml
 kubectl create configmap calico-configmap --from-file=../shared/calico-configmap.yaml -o yaml --dry-run=client > calico-configmap.yaml
 ```
 
@@ -141,8 +141,26 @@ Apply them to the management cluster with `kubectl apply -f ../shared/clusterres
 
 7. Apply the cluster manifests
 
-Finally, you can apply your manifests `kubectl apply -f capi-quickstart.yaml`.
+Finally, you can apply your manifests:
+
+```bash
+kubectl apply -f capi-quickstart.yaml
+```
+
+Wait until the cluster is fully initialized. You can use the following command to check its status (it should take a few minutes).
+Note that both `INITIALIZED` and `API SERVER AVAILABLE` should be set to true:
+
+```bash
+watch -n 1 kubectl get kubeadmcontrolplane
+```
+
 The Telemetry Aware Scheduler will be running on your new cluster.
+
+You can connect to the workload cluster by exporting its kubeconfig:
+
+```bash
+clusterctl get kubeconfig capi-quickstart > capi-quickstart.kubeconfig
+```
 
 You can test if the scheduler actually works by following this guide:
 [Health Metric Example](https://github.com/intel/platform-aware-scheduling/blob/master/telemetry-aware-scheduling/docs/health-metric-example.md)

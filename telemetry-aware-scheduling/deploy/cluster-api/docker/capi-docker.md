@@ -6,8 +6,6 @@ For the deployment using a generic provider, please refer to [Cluster API deploy
 
 ## Requirements
 
-- A management cluster provisioned in your infrastructure of choice and the relative tooling.
-  See [Cluster API Quickstart](https://cluster-api.sigs.k8s.io/user/quick-start.html).
 - Run Kubernetes v1.22 or greater (tested on Kubernetes v1.25).
 - Docker (tested on Docker version 20.10.22)
 - Kind (tested on Kind version 0.17.0)
@@ -39,13 +37,13 @@ export EXP_CLUSTER_RESOURCE_SET=true
 
 3. Initialize the management cluster:
 
-Note to start the Kind cluster, you will need to run the following command:
+Note to start the Kind cluster, you will need to run the following command. See also [Cluster API Quickstart](https://cluster-api.sigs.k8s.io/user/quick-start.html):
 
 ```bash
 kind create cluster --config kind-cluster-with-extramounts.yaml
 ```
 
-then ,to initialize the Docker provider:
+then, to initialize the Docker provider:
 
 ```bash
 clusterctl init --infrastructure docker
@@ -56,7 +54,7 @@ Run the following to generate the default cluster manifests:
 ```bash
 clusterctl generate cluster capi-quickstart --flavor development \
   --kubernetes-version v1.25.0 \
-  --control-plane-machine-count=3 \
+  --control-plane-machine-count=1 \
   --worker-machine-count=3 \
   > capi-quickstart.yaml
 ```
@@ -110,7 +108,9 @@ Add the necessary labels to the Cluster resource:
 ```bash
 # Extract Cluster
 yq e '. | select(.kind == "Cluster")' capi-quickstart.yaml > cluster.yaml
-yq -i eval-all '. as $item ireduce ({}; . *+ $item)' cluster.yaml ../shared/cluster-patch.yaml
+yq eval-all '. as $item ireduce ({}; . *+ $item)' cluster.yaml ../shared/cluster-patch.yaml > final-cluster.yaml
+export C_FINAL=$(<final-cluster.yaml)
+yq -i '. | select(.kind == "Cluster") = env(C_FINAL)' capi-quickstart.yaml
 ```
 
 you should end up with something like [this](sample-capi-manifests.yaml).
@@ -164,7 +164,7 @@ You also need the TAS manifests (Deployment, Policy CRD and RBAC accounts) and t
 ClusterRole. We will join the TAS manifests together, so we can have a single ConfigMap for convenience:
 
 ```bash
-yq '.' ../tas-*.yaml > tas.yaml
+yq '.' ../../tas-*.yaml > tas.yaml
 ```
 
 6. Create and apply the ConfigMaps
@@ -176,7 +176,7 @@ kubectl create configmap prometheus-configmap --from-file=./prometheus.yaml -o y
 kubectl create configmap prometheus-node-exporter-configmap --from-file=./prometheus-node-exporter.yaml -o yaml --dry-run=client > prometheus-node-exporter-configmap.yaml
 kubectl create configmap tas-configmap --from-file=./tas.yaml -o yaml --dry-run=client > tas-configmap.yaml
 kubectl create configmap tas-tls-secret-configmap --from-file=./tas-tls-secret.yaml -o yaml --dry-run=client > tas-tls-secret-configmap.yaml
-kubectl create configmap extender-configmap --from-file=../extender-configuration/configmap-getter.yaml -o yaml --dry-run=client > extender-configmap.yaml
+kubectl create configmap extender-configmap --from-file=../../extender-configuration/configmap-getter.yaml -o yaml --dry-run=client > extender-configmap.yaml
 kubectl create configmap calico-configmap --from-file=../shared/calico-configmap.yaml -o yaml --dry-run=client > calico-configmap.yaml
 ```
 
@@ -193,15 +193,28 @@ Apply them to the management cluster with `kubectl apply -f ../shared/clusterres
 
 8. Apply the cluster manifests
 
-Finally, you can apply your manifests `kubectl apply -f capi-quickstart.yaml`.
-The Telemetry Aware Scheduler will be running on your new cluster. You can connect to the workload cluster by
-exporting its kubeconfig:
+Finally, you can apply your manifests:
+
+```bash
+kubectl apply -f capi-quickstart.yaml
+```
+
+Wait until the cluster is fully initialized. You can use the following command to check its status (it should take a few minutes).
+Note that both `INITIALIZED` and `API SERVER AVAILABLE` should be set to true:
+
+```bash
+watch -n 1 kubectl get kubeadmcontrolplane
+```
+
+The Telemetry Aware Scheduler will be running on your new cluster.
+
+You can connect to the workload cluster by exporting its kubeconfig:
 
 ```bash
 clusterctl get kubeconfig capi-quickstart > capi-quickstart.kubeconfig
 ```
 
-Then, specifically for the CAPD docker, point the kubeconfig to the correct address of the HAProxy container:
+Then, specifically for the CAPD provider, point the kubeconfig to the correct address of the HAProxy container:
 
 ```bash
 sed -i -e "s/server:.*/server: https:\/\/$(docker port capi-quickstart-lb 6443/tcp | sed "s/0.0.0.0/127.0.0.1/")/g" ./capi-quickstart.kubeconfig
