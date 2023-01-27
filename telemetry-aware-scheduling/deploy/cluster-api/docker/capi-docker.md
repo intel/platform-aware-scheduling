@@ -52,6 +52,8 @@ clusterctl generate cluster capi-quickstart --flavor development \
   > capi-quickstart.yaml
 ```
 
+If Kind was running correctly, and the Docker provider was initialized with the previous command, the command will return nothing to indicate success.
+
 4. Merge the contents of the resources provided in `../shared/cluster-patch.yaml`, `kubeadmcontrolplanetemplate-patch.yaml` and `clusterclass-patch.yaml` with
    `capi-quickstart.yaml`.
 

@@ -24,8 +24,10 @@ clusterctl generate cluster scheduling-dev-wkld \
   > capi-quickstart.yaml
 ```
 
+If Kind was running correctly, and the Docker provider was initialized with the previous command, the command will return nothing to indicate success.
+
 Be aware that you will need to install a CNI such as Calico before the cluster will be usable. 
-Calico works for the great majority of providers, so all configurations have been provided for your convenience, i.e ClusterResourceSet, CRS label in Cluster and CRS ConfigMap). 
+Calico works for the great majority of providers, so all configurations have been provided for your convenience, i.e. ClusterResourceSet, CRS label in Cluster and CRS ConfigMap). 
 For more information, see [Deploy a CNI solution](https://cluster-api.sigs.k8s.io/user/quick-start.html#deploy-a-cni-solution) in the CAPI quickstart.
 
 2. Merge the contents of the resources provided in `../shared/cluster-patch.yaml` and `kubeadmcontrolplane-patch.yaml` with
