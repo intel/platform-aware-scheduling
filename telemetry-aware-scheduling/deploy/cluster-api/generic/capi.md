@@ -2,6 +2,8 @@
 
 ** This guide is meant for local testing/development only, this is not meant for production usage.**
 
+For the deployment using the Docker provider (local testing/development only), please refer to [Cluster API deployment - Generic provider](capi.md).
+
 ## Requirements
 
 - A management cluster provisioned in your infrastructure of choice and the relative tooling.
@@ -12,7 +14,6 @@
 
 We will provision a generic cluster with the TAS installed using Cluster API. This was tested using a the GCP provider.
 
-For the deployment using the Docker provider (local testing/development only), please refer to [Cluster API deployment - Generic provider](capi.md).
 1. In your management cluster, with all your environment variables set to generate cluster definitions, run for example:
 
 ```bash

@@ -2,6 +2,8 @@
 
 ** This guide is meant for local testing/development only, this is not meant for production usage.**
 
+For the deployment using a generic provider, please refer to [Cluster API deployment - Generic provider](capi.md).
+
 ## Requirements
 
 - A management cluster provisioned in your infrastructure of choice and the relative tooling.
@@ -11,9 +13,7 @@
 
 ## Provision clusters with TAS installed using Cluster API
 
-We will provision a KinD cluster with the TAS installed using Cluster API. This guide is meant for local testing/development only.
-
-For the deployment using a generic provider, please refer to [Cluster API deployment - Generic provider](capi.md).
+We will provision a KinD cluster with the TAS installed using Cluster API.
 
 1. Run the following to set up a KinD cluster for CAPD:
 
