@@ -248,7 +248,7 @@ The below flags can be passed to the binary at run time.
 #### TAS Scheduler Extender
 name |type | description| usage | default|
 -----|------|-----|-------|-----|
-|kubeConfig| string |location of kubernetes configuration file | -kubeConfig /root/filename|~/.kube/config
+|kubeConfig| string |location of kubernetes configuration file | -kubeConfig $PATH_TO_KUBE_CONFIG/config|$HOME/.kube/config
 |syncPeriod|duration string| interval between refresh of telemetry data|-syncPeriod 1m| 1s
 |port| int | port number on which the scheduler extender will listen| -port 32000 | 9001
 |cert| string | location of the cert file for the TLS endpoint | --cert=/root/cert.txt| /etc/kubernetes/pki/ca.crt
