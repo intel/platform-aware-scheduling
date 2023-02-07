@@ -108,3 +108,13 @@ jobs:
       codeBranch: ${{ needs.current_branch.outputs.extract_branch }}
       imageHash: "kindest/node:v1.25.3@sha256:f52781bc0d7a19fb6c405c2af83abfeb311f130707a0e219175677e366cc45d1"
 
+
+  end-to-end-test-local-K8s-v26:
+    uses: ./.github/workflows/end-to-end-test.yaml
+    needs: [ end-to-end-test-local-K8s-v25  ]
+    with:
+      runson: self-hosted-kind
+      cleanup: false
+      isLocal: "true"
+      codeBranch: ${{ needs.current_branch.outputs.extract_branch }}
+      imageHash: "kindest/node:v1.26.0@sha256:691e24bd2417609db7e589e1a479b902d2e209892a10ce375fab60a8407c7352"

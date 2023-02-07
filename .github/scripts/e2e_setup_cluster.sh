@@ -17,9 +17,7 @@ KIND_IMAGE="kindest/node:v1.24.0@sha256:0866296e693efe1fed79d5e6c7af8df71fc73ae4
 [ -n "$1" ] && KIND_IMAGE=$1
 SCHEDULER_VERSION=""
 KUBE_SCHEDULER_API_VERSION=""
-CONTROL_PLANE_NODE_AFINITY_LABEL="control-plane"
-NODE_AFFINITY_LABEL_KEY=$CONTROL_PLANE_NODE_AFINITY_LABEL
-
+TAS_DEPLOYMENT_FILE="${root}/telemetry-aware-scheduling/deploy/tas-deployment.yaml"
 # private registry set-up variables
 CHANGE_MIRROR_REPO="false"
 [ -n "$2" ] && CHANGE_MIRROR_REPO=$2
@@ -180,11 +178,15 @@ check_requirements() {
   done
 }
 
-set_node_affinity_expression_label_key() {
+set_node_affinity_and_tolerations() {
   scheduler_image_version_24=24
   [ -z "${SCHEDULER_VERSION}" ] && echo "### Unable to get K8s scheduler value, got $SCHEDULER_VERSION. Exit..." && exit 1
   if [ "$SCHEDULER_VERSION" -lt $scheduler_image_version_24  ]; then
-    NODE_AFFINITY_LABEL_KEY="master"
+      sed "s/control-plane/master/g" "$TAS_DEPLOYMENT_FILE" -i
+  elif [ "$SCHEDULER_VERSION" -eq $scheduler_image_version_24  ]; then
+    # add master toleration as it's needed for K8s v1.24
+    sed -e "/    tolerations:/a\\
+      - key: node-role.kubernetes.io/master\n        operator: Exists" "$TAS_DEPLOYMENT_FILE" -i
   fi
 }
 
@@ -248,8 +250,5 @@ docker cp kind-control-plane:/etc/kubernetes/pki/ca.key "${mount_dir}/certs/clie
 
 kubectl create secret tls extender-secret --cert "${mount_dir}/certs/client.crt" --key "${mount_dir}/certs/client.key"
 sed "s/intel\/telemetry-aware-scheduling.*$/tasextender/g" "${root}/telemetry-aware-scheduling/deploy/tas-deployment.yaml" -i
-set_node_affinity_expression_label_key
-if [ "$CONTROL_PLANE_NODE_AFINITY_LABEL" != "$NODE_AFFINITY_LABEL_KEY"  ]; then
-  sed "s/control-plane/$NODE_AFFINITY_LABEL_KEY/g" "$TAS_DEPLOYMENT_FILE" -i
-fi
+set_node_affinity_and_tolerations
 kubectl apply -f "${root}/telemetry-aware-scheduling/deploy/"
