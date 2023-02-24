@@ -38,7 +38,7 @@ const (
 	add                      = true
 	remove                   = false
 	workerWaitTime           = time.Millisecond * 100
-	informerInterval         = time.Second * 30
+	informerInterval         = 0
 	gpuDescheduleLabelPrefix = "gas-deschedule-pods-"
 	podDescheduleString      = "gpu.aware.scheduling~1deschedule-pod"
 	pciGroupValue            = "PCI_GROUP"
