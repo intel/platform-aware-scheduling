@@ -3,7 +3,7 @@ module github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling
 go 1.19
 
 require (
-	github.com/intel/platform-aware-scheduling/extender v0.4.0
+	github.com/intel/platform-aware-scheduling/extender v0.5.0
 	k8s.io/api v0.25.4
 	k8s.io/apimachinery v0.25.4
 	k8s.io/client-go v0.25.4
