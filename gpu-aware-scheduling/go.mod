@@ -3,7 +3,7 @@ module github.com/intel/platform-aware-scheduling/gpu-aware-scheduling
 go 1.19
 
 require (
-	github.com/intel/platform-aware-scheduling/extender v0.3.0
+	github.com/intel/platform-aware-scheduling/extender v0.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/smartystreets/goconvey v1.7.2
 	github.com/stretchr/testify v1.8.1
