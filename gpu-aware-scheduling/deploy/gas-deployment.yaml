@@ -23,6 +23,8 @@ spec:
         - "--cert=/gas/cert/tls.crt"
         - "--key=/gas/cert/tls.key"
         - "--cacert=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+        - "--burst=100"
+        - "--qps=50"
         - "--v=4"
         image: intel/gpu-extender
         imagePullPolicy: IfNotPresent

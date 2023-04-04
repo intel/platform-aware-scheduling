@@ -99,6 +99,8 @@ name |type | description| usage | default|
 |enableAllowlist| bool | enable POD-annotation based GPU allowlist feature | --enableAllowlist| false
 |enableDenylist| bool | enable POD-annotation based GPU denylist feature | --enableDenylist| false
 |balancedResource| string | enable named resource balancing between GPUs | --balancedResource| ""
+|burst| int | burst value to use with kube client | --burst| 10
+|qps| int | qps value to use with kube client | --qps| 5
 
 Some features are based on the labels put onto pods, for full features list see [usage doc](docs/usage.md)
 
