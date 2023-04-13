@@ -83,7 +83,7 @@ This policy has three strategies included:
 After the above policy is declared the Telemetry Policy Controller will begin updating metrics associated with it and tracking nodes that are violating the deschedule targets. At this point the controller logs should be printing out these metrics.
 
 ### scheduleonmetric
-The Scheduler Extender will evaluate metrics for pods ahead of their placement. To see it at work run ``kubectl apply -f demo-pod.yaml`` in the health-metric-demo directory.
+The Scheduler Extender will evaluate metrics for pods ahead of their placement. To see it at work run ``kubectl apply -f nginx-config-map.yaml; kubectl apply -f demo-pod.yaml`` in the health-metric-demo directory.
 The pod spec here is:
 
 ```
