@@ -31,12 +31,16 @@ A worked example for GAS is available [here](docs/usage.md)
 The deploy folder has all of the yaml files necessary to get GPU Aware Scheduling running in a Kubernetes cluster. Some additional steps are required to configure the generic scheduler.
 
 #### Extender configuration
-You should follow extender configuration instructions from the
+Recommended way: use the [configurator go tool](../configurator/README.md) to do the configuration.
+
+Alternativele you can use the `configure-scheduler.sh` script and instructions from the
 [Telemetry Aware Scheduling](../telemetry-aware-scheduling/README.md#Extender-configuration) and
 adapt those instructions to use GPU Aware Scheduling configurations, which can be found in the
 [deploy/extender-configuration](deploy/extender-configuration) folder.
 
 #### Deploy GAS
+Note: if you used the configurator instructions, you are probably already done and you can continue verifying the setup.
+
 GAS has been tested with Kubernetes 1.24. A yaml file for GAS is contained in the deploy folder
 along with its service and RBAC roles and permissions.
 
