@@ -1,0 +1,36 @@
+run:
+  tests: true
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  enable-all: true
+  disable:
+  - depguard
+
+linters-settings:
+  gofmt:
+    simplify: true
+  gofumpt:
+    lang-version: "1.19"
+  golint:
+    min-confidence: 0.9
+  govet:
+    check-shadowing: true
+    enable:
+    - "fieldalignment"
+  gocyclo:
+    min-complexity: 10
+  gocognit:
+    min-complexity: 19
+  funlen:
+    lines: 70
+  cyclop:
+    max-complexity: 10
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - funlen
+        - exhaustruct

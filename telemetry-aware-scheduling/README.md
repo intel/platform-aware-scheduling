@@ -46,6 +46,8 @@ If this pipeline isn't set up, and node level metrics aren't exposed through it,
 
 #### Extender configuration
 Note: a shell script that shows these steps can be found [here](deploy/extender-configuration). This script should be seen as a guide only, and will not work on most Kubernetes installations.
+
+Note: [Configurator go tool](../configurator/README.md) does the same tasks as the script but provides backups, dry-run option and shows what modifications will be / were done.
 <details>
 <summary>Instructions for non-root <a href="https://github.com/intel/platform-aware-scheduling/blob/master/telemetry-aware-scheduling/deploy/extender-configuration/configure-scheduler.sh">configure-scheduler.sh</a> script runners</summary>
 

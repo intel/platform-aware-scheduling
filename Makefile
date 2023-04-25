@@ -1,6 +1,6 @@
 TOPTARGETS := all clean image build test e2e
 
-SUBDIRS := $(wildcard *-aware-scheduling/.)
+SUBDIRS := $(wildcard *-aware-scheduling/.) configurator
 
 $(TOPTARGETS): $(SUBDIRS)
 $(SUBDIRS):
