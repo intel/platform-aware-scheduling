@@ -62,7 +62,7 @@ jobs:
     steps:
       - id: get-modules
         run: |
-          echo ${{ inputs.workingDir }} | echo "::set-output name=value::[\"$(sed -r 's/,/","/g')\"]"
+          echo ${{ inputs.workingDir }} | echo "value=[\"$(sed -r 's/,/","/g')\"]" >> $GITHUB_OUTPUT
 
   gofmt-imports:
     name: Gofmt & imports
