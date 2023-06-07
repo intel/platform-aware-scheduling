@@ -163,6 +163,11 @@ echo "Back-up complete and available at $BACKUP_DIR."
 ####### CLEAN_UP MANIFEST FILE
 # In case the previous run of this script was partially successful or unsuccessful, we'd like to start from a clean
 # state, independent of any previous runs
+# retrieve the scheduler config file name used in the manifest file, if any
+old_scheduler_config_file_path=$(grep "   - --config" "$MANIFEST_FILE" | cut -d "=" -f 2)
+old_scheduler_config_file=$(basename "$old_scheduler_config_file_path")
+echo "current scheduler config file name from manifest is: $old_scheduler_config_file"
+
 sed -i '/^    - --config/d' "$MANIFEST_FILE"
 sed -i '/^    - --policy-configmap/d' "$MANIFEST_FILE"
 sed -i '/^    - --policy-configmap-namespace/d' "$MANIFEST_FILE"
@@ -171,7 +176,12 @@ sed -i '/^  dnsPolicy: ClusterFirstWithHostNet/d' "$MANIFEST_FILE"
 scheduler_config_file=$(basename "$scheduler_config_file_path")
 # clean-up scheduler configuration
 sed -i '/hostPath/d'  "$MANIFEST_FILE"
-sed -i "/$scheduler_config_file/d" "$MANIFEST_FILE"
+# if we're updating the scheduler config name we need to clean the manifest file of the old scheduler config file name
+if [ -n "$old_scheduler_config_file" ] && [ "$old_scheduler_config_file" != "$scheduler_config_file" ]; then
+  sed -i "/$old_scheduler_config_file/d" "$MANIFEST_FILE"
+else
+  sed -i "/$scheduler_config_file/d" "$MANIFEST_FILE"
+fi
 sed -i '/name: schedulerconfig/d' "$MANIFEST_FILE"
 # clean-up certs configuration
 sed -i '/certs/d' "$MANIFEST_FILE"
