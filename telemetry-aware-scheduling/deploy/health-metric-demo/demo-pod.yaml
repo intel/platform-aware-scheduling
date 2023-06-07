@@ -1,3 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf
+data:
+  nginx.conf: |
+    worker_processes  auto;
+
+    error_log  /tmp/nginx/error.log warn;
+    pid        /tmp/nginx/nginx.pid;
+
+    events {
+      worker_connections  1024;
+    }
+
+    http {
+      server {
+        listen 8090; # specify a port higher than 1024 if running as non-root user
+        location / {
+          add_header Content-Type text/plain;
+          return 200 'hello world';
+      }
+     }
+    }
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
