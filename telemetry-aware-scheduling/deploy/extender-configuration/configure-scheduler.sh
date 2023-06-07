@@ -148,6 +148,18 @@ echo "Version of the image used in the kube scheduler is: $SCHEDULER_VERSION"
 get_kube_scheduler_api_version
 echo "Version of the KubeScheduler API: $KUBE_SCHEDULER_API_VERSION"
 
+# backup manifest file before changing it
+echo "Backing up $MANIFEST_FILE..."
+BACKUP_DIR=$(mktemp -p "$scheduler_config_destination" -t backup-manifest-XXX -d)
+echo "Back-up dir is $BACKUP_DIR..."
+# exit it we can't back-up
+cp "$MANIFEST_FILE" "$BACKUP_DIR"
+if [ ! "$(ls -A "$BACKUP_DIR")" ]; then
+     echo "Take action $BACKUP_DIR is empty. Copy command failed, exiting...."
+fi
+
+echo "Back-up complete and available at $BACKUP_DIR."
+
 ####### CLEAN_UP MANIFEST FILE
 # In case the previous run of this script was partially successful or unsuccessful, we'd like to start from a clean
 # state, independent of any previous runs
