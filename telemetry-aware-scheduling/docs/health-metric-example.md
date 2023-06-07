@@ -144,8 +144,10 @@ This should produce extender logs like:
 ```
 We can see that only two of our three nodes was deemed suitable because it didn't break the dontschedule rule declared in our Telemetry Scheduling Policy.
 
-### Deschedule 
-Descheduler can be installed as a binary with the instructions from the [project repo](https://github.com/kubernetes-sigs/descheduler.) A policy file in the health-metric-demo should be passed to the descheduler as a flag.
+### Deschedule
+Descheduler can be installed as a binary with the instructions from the [project repo](https://github.com/kubernetes-sigs/descheduler.). Please make sure to install version ***0.23.1*** of the Descheduler available [here](https://github.com/kubernetes-sigs/descheduler/tree/v0.23.1). You can use older versions, but make sure you do not use versions ***> 0.23.1  (0.24.0 and so on)*** as there seem to be compatibility issues between the two. https://github.com/intel/platform-awarescheduling/issues/90#issuecomment-1169012485 links to an issue cut to the Descheduler project team to try to find a solution to this problem.
+
+A policy file in the health-metric-demo should be passed to the descheduler as a flag.
 
 Assuming descheduler is on the $PATH the command to run it is:
 
