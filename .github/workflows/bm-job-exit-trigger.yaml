@@ -33,7 +33,7 @@ jobs:
           ANSIBLE_DIR=$(which ansible)
           if [[ -n "$ANSIBLE_DIR" ]]; then
             echo $ANSIBLE_DIR
-            echo "::set-output name=ANSIBLE-DIR::$(echo $ANSIBLE_DIR)"            
+            echo "ANSIBLE-DIR=$(echo $ANSIBLE_DIR)" >> $GITHUB_OUTPUT
           fi
       - name: Check CNO-CI repo name and branch
         id: check-cno-ci-params
@@ -46,9 +46,9 @@ jobs:
           CNO_CI_BRANCH=$(grep 'branch=' $CNO_CI_CONFIG_FOLDER | cut -d '=' -f 2)
           echo $CNO_CI_BRANCH
           if [[ -n "$CNO_CI_REPO" ]]; then
-            echo "::set-output name=CNO-CI-REPO-NAME::$(echo $CNO_CI_REPO)"
+            echo "CNO-CI-REPO-NAME=$(echo $CNO_CI_REPO)" >> $GITHUB_OUTPUT
           fi
           if [[ -n "$CNO_CI_BRANCH" ]]; then
-            echo "::set-output name=CNO-CI-BRANCH-NAME::$(echo $CNO_CI_BRANCH)"
+            echo "CNO-CI-BRANCH-NAME=$(echo $CNO_CI_BRANCH)" >> $GITHUB_OUTPUT
           fi
 

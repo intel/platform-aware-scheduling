@@ -21,13 +21,13 @@ jobs:
         id: extract_branch
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
-            echo "::set-output name=BRANCH::$(echo ${GITHUB_REF#refs/heads/})"
+            echo "BRANCH=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
           elif [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
-            echo "::set-output name=BRANCH::$(echo ${GITHUB_HEAD_REF})"
+            echo "BRANCH=$(echo ${GITHUB_HEAD_REF})" >> $GITHUB_OUTPUT
           elif [[ "${GITHUB_EVENT_NAME}" == "schedule" ]]; then
-            echo "::set-output name=BRANCH::$(echo ${GITHUB_REF#refs/heads/})"
+            echo "BRANCH=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=BRANCH::INVALID_EVENT_BRANCH_UNKNOWN"
+            echo "BRANCH=INVALID_EVENT_BRANCH_UNKNOWN" >> $GITHUB_OUTPUT
           fi
       - name: Clean up TAS script folder
         run: rm -rvf ${{ inputs.ci-cno-tas-ansible-folder }} && mkdir ${{ inputs.ci-cno-tas-ansible-folder  }}

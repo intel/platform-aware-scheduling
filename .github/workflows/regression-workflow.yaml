@@ -30,11 +30,11 @@ jobs:
         id: extract_branch
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == "schedule" ]]; then
-            echo "::set-output name=BRANCH::$(echo ${GITHUB_REF#refs/heads/})"
+            echo "BRANCH=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
           elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            echo "::set-output name=BRANCH::${{ inputs.codeBranch  }}"
+            echo "BRANCH=${{ inputs.codeBranch  }}" >> $GITHUB_OUTPUT
           else
-            echo "::set-output name=BRANCH::INVALID_EVENT_BRANCH_UNKNOWN"
+            echo "BRANCH=INVALID_EVENT_BRANCH_UNKNOWN" >> $GITHUB_OUTPUT
           fi
 
   end-to-end-test-local-K8s-v19:
