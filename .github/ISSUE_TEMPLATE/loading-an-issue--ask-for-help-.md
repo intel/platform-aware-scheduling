@@ -18,7 +18,16 @@ Please describe accurately the steps to reproduce the behavior.
 A clear and concise description of what you expected to happen.
 
 **Logs**
-If applicable, add the relevant logs to help explain your problem.
+If applicable, add the relevant logs to help explain your problem. 
+Please consider adding at least the logs from the kube-scheduler and telemetry-aware-scheduling pods (if installed).
+
+***kube-scheduler logs***
+```
+```
+
+***telemetry-aware-scheduling logs***
+```
+```
 
 **Environment (please complete the following information):**
 Let us know what K8s version, distribution, and if you are deploying in BM, VM, or within a Cloud provider.
