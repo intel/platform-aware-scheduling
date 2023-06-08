@@ -897,8 +897,8 @@ func TestFilterWithXeLinkedDisabledTiles(t *testing.T) {
 					Labels: map[string]string{
 						"gpu.intel.com/gpu-numbers": "0.1.2.3",
 						"gpu.intel.com/tiles":       "4",
-						xeLinksLabel:                "0.0-1.0_1.0-0.0_2.1",
-						xeLinksLabel + "2":          "Z-3.2_3.2-2.1",
+						xeLinksLabel:                "0.0-1.0_2.1",
+						xeLinksLabel + "2":          "Z-3.2",
 					},
 				},
 				Status: v1.NodeStatus{
@@ -1032,8 +1032,7 @@ func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.
 	testCases := []testCase{
 		{
 			extraLabels: map[string]string{
-				xeLinksLabel:       "0.0-1.0_1.0-0.0",
-				xeLinksLabel + "2": "Z_2.1-3.2_3.2-2.1",
+				xeLinksLabel: "0.0-1.0_2.1-3.2",
 			},
 			extraAnnotations:       map[string]string{xelinkAnnotationName: trueValueString},
 			description:            "4 card xe-linked success case",
@@ -1044,7 +1043,19 @@ func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.
 		},
 		{
 			extraLabels: map[string]string{
-				xeLinksLabel:           "0.0-1.0_1.0-0.0_2.1-3.2_3.2-2.1",
+				xeLinksLabel:       "0.0-1.0",
+				xeLinksLabel + "2": "Z_2.1-3.2",
+			},
+			extraAnnotations:       map[string]string{xelinkAnnotationName: trueValueString},
+			description:            "4 card xe-linked success case",
+			expectError:            false,
+			expectedCardAnnotation: "card0,card1|card2,card3",
+			expectTimestamp:        true,
+			defaultTileCheck:       true,
+		},
+		{
+			extraLabels: map[string]string{
+				xeLinksLabel:           "0.0-1.0_2.1-3.2",
 				numaMappingLabel:       "0-0.1_1",
 				numaMappingLabel + "2": "Z-2.3",
 			},
@@ -1060,7 +1071,7 @@ func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.
 		},
 		{
 			extraLabels: map[string]string{
-				xeLinksLabel:     "0.0-2.0_2.0-0.0_2.1-3.2_3.2-2.1",
+				xeLinksLabel:     "0.0-2.0_2.1-3.2",
 				numaMappingLabel: "0-0.1_1-2.3",
 			},
 			extraAnnotations: map[string]string{
@@ -1075,7 +1086,7 @@ func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.
 		},
 		{
 			extraLabels: map[string]string{
-				xeLinksLabel:     "0.0-2.0_2.0-0.0_2.1-3.2_3.2-2.1",
+				xeLinksLabel:     "0.0-2.0_2.1-3.2",
 				numaMappingLabel: "0-0.1_1-2.3",
 			},
 			extraAnnotations: map[string]string{xelinkAnnotationName: trueValueString},

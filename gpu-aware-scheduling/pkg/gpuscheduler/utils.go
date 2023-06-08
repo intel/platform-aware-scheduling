@@ -368,15 +368,22 @@ func getXeLinkedTiles(gpuName string, node *v1.Node) map[int]bool {
 
 	for _, linkPair := range xeLinkSlice {
 		submatches := xeLinkReg.FindStringSubmatch(linkPair)
-		if len(submatches) == regexXeLinkCount {
-			if submatches[1] == strconv.Itoa(lZeroDeviceID) {
-				tileNumber, err := strconv.Atoi(submatches[2])
-				if err == nil {
-					xeLinkedTiles[tileNumber] = true
-				}
-			}
-		} else {
+		if len(submatches) != regexXeLinkCount {
 			klog.Errorf("Malformed Xe Link label part: %v", linkPair)
+
+			return xeLinkedTiles
+		}
+
+		if submatches[1] == strconv.Itoa(lZeroDeviceID) {
+			tileNumber, err := strconv.Atoi(submatches[2])
+			if err == nil {
+				xeLinkedTiles[tileNumber] = true
+			}
+		} else if submatches[3] == strconv.Itoa(lZeroDeviceID) {
+			tileNumber, err := strconv.Atoi(submatches[4])
+			if err == nil {
+				xeLinkedTiles[tileNumber] = true
+			}
 		}
 	}
 
