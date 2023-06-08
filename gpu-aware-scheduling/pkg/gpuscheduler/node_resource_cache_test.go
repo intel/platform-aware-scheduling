@@ -75,13 +75,13 @@ func getDummyCache() *Cache {
 }
 
 func TestCacheFilters(t *testing.T) {
-	c := getDummyCache()
+	dummyCache := getDummyCache()
 
 	Convey("When the object is wrong type", t, func() {
 		s := "wrong object"
-		result := c.podFilter(s)
+		result := dummyCache.podFilter(s)
 		So(result, ShouldBeFalse)
-		result = c.nodeFilter(s)
+		result = dummyCache.nodeFilter(s)
 		So(result, ShouldBeFalse)
 	})
 	Convey("When the object is DeleteFinalStateUnknown", t, func() {
@@ -89,44 +89,44 @@ func TestCacheFilters(t *testing.T) {
 			Key: "unknown",
 			Obj: &v1.Pod{},
 		}
-		result := c.podFilter(unknown)
+		result := dummyCache.podFilter(unknown)
 		So(result, ShouldBeFalse)
 		unknown.Obj = &v1.Node{}
-		result = c.nodeFilter(unknown)
+		result = dummyCache.nodeFilter(unknown)
 		So(result, ShouldBeFalse)
 	})
 }
 
 func TestPodCacheEventFunctions(t *testing.T) {
 	// we need a mock cache which doesn't call work() itself to avoid race conditions at work queue length checks
-	c := createMockCache()
+	mockCache := createMockCache()
 	badType := "bad type"
 
 	Convey("When trying to add a non-pod object to cache", t, func() {
-		wqLen := c.podWorkQueue.Len()
-		c.addPodToCache(badType)
-		So(c.podWorkQueue.Len(), ShouldEqual, wqLen)
+		wqLen := mockCache.podWorkQueue.Len()
+		mockCache.addPodToCache(badType)
+		So(mockCache.podWorkQueue.Len(), ShouldEqual, wqLen)
 	})
 
 	// annotated pod doesn't always get to cache during validation run,
 	// so let's do that here always
 	Convey("When a pod with a proper annotation is added to the cache", t, func() {
-		wqLen := c.podWorkQueue.Len()
+		wqLen := mockCache.podWorkQueue.Len()
 		pod := v1.Pod{}
 		pod.Annotations = map[string]string{}
 		pod.Annotations[cardAnnotationName] = properAnnotation
-		c.addPodToCache(&pod)
-		So(c.podWorkQueue.Len(), ShouldEqual, wqLen+1)
+		mockCache.addPodToCache(&pod)
+		So(mockCache.podWorkQueue.Len(), ShouldEqual, wqLen+1)
 	})
 	Convey("When trying to update a non-pod object in cache", t, func() {
-		wqLen := c.podWorkQueue.Len()
-		c.updatePodInCache(badType, badType)
-		So(c.podWorkQueue.Len(), ShouldEqual, wqLen)
+		wqLen := mockCache.podWorkQueue.Len()
+		mockCache.updatePodInCache(badType, badType)
+		So(mockCache.podWorkQueue.Len(), ShouldEqual, wqLen)
 	})
 	Convey("When trying to delete a non-pod object from cache", t, func() {
-		wqLen := c.podWorkQueue.Len()
-		c.deletePodFromCache(badType)
-		So(c.podWorkQueue.Len(), ShouldEqual, wqLen)
+		wqLen := mockCache.podWorkQueue.Len()
+		mockCache.deletePodFromCache(badType)
+		So(mockCache.podWorkQueue.Len(), ShouldEqual, wqLen)
 	})
 
 	unknown := cache.DeletedFinalStateUnknown{
@@ -135,41 +135,41 @@ func TestPodCacheEventFunctions(t *testing.T) {
 	}
 
 	Convey("When trying to delete a non-pod state-unknown-object from cache", t, func() {
-		wqLen := c.podWorkQueue.Len()
-		c.deletePodFromCache(unknown)
-		So(c.podWorkQueue.Len(), ShouldEqual, wqLen)
+		wqLen := mockCache.podWorkQueue.Len()
+		mockCache.deletePodFromCache(unknown)
+		So(mockCache.podWorkQueue.Len(), ShouldEqual, wqLen)
 	})
 	Convey("When deleting a proper POD from a proper namespace with a proper annotation", t, func() {
-		wqLen := c.podWorkQueue.Len()
+		wqLen := mockCache.podWorkQueue.Len()
 		pod := v1.Pod{}
 		pod.Name = properName
 		pod.Namespace = properName
-		c.annotatedPods[getKey(&pod)] = properAnnotation
-		c.deletePodFromCache(&pod)
-		So(c.podWorkQueue.Len(), ShouldEqual, wqLen+1)
+		mockCache.annotatedPods[getKey(&pod)] = properAnnotation
+		mockCache.deletePodFromCache(&pod)
+		So(mockCache.podWorkQueue.Len(), ShouldEqual, wqLen+1)
 	})
 }
 
 func TestNodeCacheEventFunctions(t *testing.T) {
 	// we need a mock cache which doesn't call work() itself to avoid race conditions at work queue length checks
-	c := createMockCache()
+	mockCache := createMockCache()
 	badType := "bad type"
 
 	Convey("When trying to add a non-node object to cache", t, func() {
-		wqLen := c.nodeWorkQueue.Len()
-		c.addNodeToCache(badType)
-		So(c.nodeWorkQueue.Len(), ShouldEqual, wqLen)
+		wqLen := mockCache.nodeWorkQueue.Len()
+		mockCache.addNodeToCache(badType)
+		So(mockCache.nodeWorkQueue.Len(), ShouldEqual, wqLen)
 	})
 
 	Convey("When trying to update a non-node object in cache", t, func() {
-		wqLen := c.nodeWorkQueue.Len()
-		c.updateNodeInCache(badType, badType)
-		So(c.nodeWorkQueue.Len(), ShouldEqual, wqLen)
+		wqLen := mockCache.nodeWorkQueue.Len()
+		mockCache.updateNodeInCache(badType, badType)
+		So(mockCache.nodeWorkQueue.Len(), ShouldEqual, wqLen)
 	})
 	Convey("When trying to delete a non-node object from cache", t, func() {
-		wqLen := c.nodeWorkQueue.Len()
-		c.deleteNodeFromCache(badType)
-		So(c.nodeWorkQueue.Len(), ShouldEqual, wqLen)
+		wqLen := mockCache.nodeWorkQueue.Len()
+		mockCache.deleteNodeFromCache(badType)
+		So(mockCache.nodeWorkQueue.Len(), ShouldEqual, wqLen)
 	})
 
 	unknown := cache.DeletedFinalStateUnknown{
@@ -178,21 +178,21 @@ func TestNodeCacheEventFunctions(t *testing.T) {
 	}
 
 	Convey("When trying to delete a non-node state-unknown-object from cache", t, func() {
-		wqLen := c.nodeWorkQueue.Len()
-		c.deleteNodeFromCache(unknown)
-		So(c.nodeWorkQueue.Len(), ShouldEqual, wqLen)
+		wqLen := mockCache.nodeWorkQueue.Len()
+		mockCache.deleteNodeFromCache(unknown)
+		So(mockCache.nodeWorkQueue.Len(), ShouldEqual, wqLen)
 	})
 	Convey("When deleting a proper Node from cache", t, func() {
-		wqLen := c.nodeWorkQueue.Len()
+		wqLen := mockCache.nodeWorkQueue.Len()
 		node := v1.Node{}
 		node.Name = properName
-		c.deleteNodeFromCache(&node)
-		So(c.nodeWorkQueue.Len(), ShouldEqual, wqLen+1)
+		mockCache.deleteNodeFromCache(&node)
+		So(mockCache.nodeWorkQueue.Len(), ShouldEqual, wqLen+1)
 	})
 }
 
 func TestHandlePodError(t *testing.T) {
-	c := getDummyCache()
+	dummyCache := getDummyCache()
 	item := podWorkQueueItem{
 		action: -1,
 		pod: &v1.Pod{
@@ -212,14 +212,14 @@ func TestHandlePodError(t *testing.T) {
 	}
 
 	Convey("When I call HandlePod with a bad action", t, func() {
-		forget, err := c.handlePod(item)
+		forget, err := dummyCache.handlePod(item)
 		So(forget, ShouldBeTrue)
 		So(err, ShouldNotBeNil)
 	})
 
 	Convey("When I call HandlePod with podAdded action", t, func() {
 		item.action = podAdded
-		forget, err := c.handlePod(item)
+		forget, err := dummyCache.handlePod(item)
 		So(forget, ShouldBeTrue)
 		So(err, ShouldBeNil)
 	})
@@ -241,60 +241,60 @@ func createMockCache() *Cache {
 
 func TestPodWork(t *testing.T) {
 	// to be able to call work() directly, we need a mock cache which doesn't call work() itself
-	c := createMockCache()
+	cache := createMockCache()
 
 	Convey("When working on a bad pod", t, func() {
-		wqLen := c.podWorkQueue.Len()
+		wqLen := cache.podWorkQueue.Len()
 		badPod := v1.Pod{}
 		item := podWorkQueueItem{
 			action: -1,
 			pod:    &badPod,
 		}
-		c.podWorkQueue.Add(item)
-		So(c.podWorkQueue.Len(), ShouldEqual, wqLen+1)
-		ret := c.podWork()
+		cache.podWorkQueue.Add(item)
+		So(cache.podWorkQueue.Len(), ShouldEqual, wqLen+1)
+		ret := cache.podWork()
 		So(ret, ShouldBeTrue)
-		So(c.podWorkQueue.Len(), ShouldEqual, wqLen)
+		So(cache.podWorkQueue.Len(), ShouldEqual, wqLen)
 	})
 	Convey("When the work queue is shutting down", t, func() {
-		c.podWorkQueue.ShutDown()
-		ret := c.podWork()
+		cache.podWorkQueue.ShutDown()
+		ret := cache.podWork()
 		So(ret, ShouldBeFalse)
 	})
 }
 
 func TestNodeWork(t *testing.T) {
 	// to be able to call work() directly, we need a mock cache which doesn't call work() itself
-	c := createMockCache()
+	cache := createMockCache()
 
 	Convey("When working on a bad node", t, func() {
-		wqLen := c.nodeWorkQueue.Len()
+		wqLen := cache.nodeWorkQueue.Len()
 		badNode := v1.Node{}
 		item := nodeWorkQueueItem{
 			action: -1,
 			node:   &badNode,
 		}
-		c.nodeWorkQueue.Add(item)
-		So(c.nodeWorkQueue.Len(), ShouldEqual, wqLen+1)
-		ret := c.nodeWork()
+		cache.nodeWorkQueue.Add(item)
+		So(cache.nodeWorkQueue.Len(), ShouldEqual, wqLen+1)
+		ret := cache.nodeWork()
 		So(ret, ShouldBeTrue)
-		So(c.nodeWorkQueue.Len(), ShouldEqual, wqLen)
+		So(cache.nodeWorkQueue.Len(), ShouldEqual, wqLen)
 	})
 	Convey("When the node work queue is shutting down", t, func() {
-		c.nodeWorkQueue.ShutDown()
-		ret := c.nodeWork()
+		cache.nodeWorkQueue.ShutDown()
+		ret := cache.nodeWork()
 		So(ret, ShouldBeFalse)
 	})
 }
 
 func TestAdjustTiles(t *testing.T) {
-	c := getDummyCache()
+	dummyCache := getDummyCache()
 
 	Convey("When node's tile statuses doesn't exist yet", t, func() {
-		c.nodeTileStatuses = make(map[string]nodeTiles)
-		c.adjustTiles(true, "node1", "card0:gt0+gt1")
+		dummyCache.nodeTileStatuses = make(map[string]nodeTiles)
+		dummyCache.adjustTiles(true, "node1", "card0:gt0+gt1")
 
-		statuses, ok := c.nodeTileStatuses["node1"]
+		statuses, ok := dummyCache.nodeTileStatuses["node1"]
 		So(ok, ShouldEqual, true)
 
 		tileInfo, ok := statuses["card0"]
@@ -305,11 +305,11 @@ func TestAdjustTiles(t *testing.T) {
 	})
 
 	Convey("When node's tile statuses are updated", t, func() {
-		c.nodeTileStatuses = make(map[string]nodeTiles)
-		c.adjustTiles(true, "node1", "card0:gt0+gt1")
-		c.adjustTiles(true, "node1", "card0:gt0+gt1+gt3")
+		dummyCache.nodeTileStatuses = make(map[string]nodeTiles)
+		dummyCache.adjustTiles(true, "node1", "card0:gt0+gt1")
+		dummyCache.adjustTiles(true, "node1", "card0:gt0+gt1+gt3")
 
-		statuses := c.nodeTileStatuses["node1"]
+		statuses := dummyCache.nodeTileStatuses["node1"]
 		tileInfo := statuses["card0"]
 		So(0, ShouldBeIn, tileInfo)
 		So(1, ShouldBeIn, tileInfo)
@@ -318,22 +318,22 @@ func TestAdjustTiles(t *testing.T) {
 	})
 
 	Convey("When node's tile statuses are removed", t, func() {
-		c.nodeTileStatuses = make(map[string]nodeTiles)
-		c.adjustTiles(true, "node1", "card0:gt0+gt1")
-		c.adjustTiles(false, "node1", "card0:gt0")
+		dummyCache.nodeTileStatuses = make(map[string]nodeTiles)
+		dummyCache.adjustTiles(true, "node1", "card0:gt0+gt1")
+		dummyCache.adjustTiles(false, "node1", "card0:gt0")
 
-		statuses := c.nodeTileStatuses["node1"]
+		statuses := dummyCache.nodeTileStatuses["node1"]
 		tileInfo := statuses["card0"]
 		So(0, ShouldNotBeIn, tileInfo)
 		So(1, ShouldBeIn, tileInfo)
 	})
 
 	Convey("When second gpu's tiles are reserved", t, func() {
-		c.nodeTileStatuses = make(map[string]nodeTiles)
-		c.adjustTiles(true, "node1", "card0:gt0+gt1")
-		c.adjustTiles(true, "node1", "card1:gt3+gt4")
+		dummyCache.nodeTileStatuses = make(map[string]nodeTiles)
+		dummyCache.adjustTiles(true, "node1", "card0:gt0+gt1")
+		dummyCache.adjustTiles(true, "node1", "card1:gt3+gt4")
 
-		statuses := c.nodeTileStatuses["node1"]
+		statuses := dummyCache.nodeTileStatuses["node1"]
 
 		_, ok := statuses["card0"]
 		So(ok, ShouldEqual, true)
@@ -347,14 +347,14 @@ func TestAdjustTiles(t *testing.T) {
 	})
 
 	Convey("When everything is reserved and released", t, func() {
-		c.nodeTileStatuses = make(map[string]nodeTiles)
-		c.adjustTiles(true, "node1", "card0:gt0+gt1")
-		c.adjustTiles(true, "node1", "card1:gt3+gt4")
+		dummyCache.nodeTileStatuses = make(map[string]nodeTiles)
+		dummyCache.adjustTiles(true, "node1", "card0:gt0+gt1")
+		dummyCache.adjustTiles(true, "node1", "card1:gt3+gt4")
 
-		c.adjustTiles(false, "node1", "card1:gt3+gt4")
-		c.adjustTiles(false, "node1", "card0:gt0+gt1")
+		dummyCache.adjustTiles(false, "node1", "card1:gt3+gt4")
+		dummyCache.adjustTiles(false, "node1", "card0:gt0+gt1")
 
-		statuses := c.nodeTileStatuses["node1"]
+		statuses := dummyCache.nodeTileStatuses["node1"]
 
 		tiles, ok := statuses["card0"]
 		So(ok, ShouldEqual, true)
@@ -367,24 +367,26 @@ func TestAdjustTiles(t *testing.T) {
 }
 
 func TestAdjustPodResources(t *testing.T) {
-	c := getDummyCache()
+	dummyCache := getDummyCache()
 
 	pod := v1.Pod{}
 	podContainer := v1.Container{Name: "foobarContainer"}
-	podRequests := v1.ResourceRequirements{Requests: v1.ResourceList{
-		"gpu.intel.com/tiles": resource.MustParse("1"),
-		"gpu.intel.com/i915":  resource.MustParse("1")},
+	podRequests := v1.ResourceRequirements{
+		Requests: v1.ResourceList{
+			"gpu.intel.com/tiles": resource.MustParse("1"),
+			"gpu.intel.com/i915":  resource.MustParse("1"),
+		},
 	}
 	podContainer.Resources = podRequests
 	pod.Spec.Containers = append(pod.Spec.Containers, podContainer)
 
 	Convey("When adjusting pod resources with pod with one container", t, func() {
-		c.nodeTileStatuses = make(map[string]nodeTiles)
-		err := c.adjustPodResources(&pod, true, "card0", "card0:gt0", "node1")
+		dummyCache.nodeTileStatuses = make(map[string]nodeTiles)
+		err := dummyCache.adjustPodResources(&pod, true, "card0", "card0:gt0", "node1")
 
 		So(err, ShouldEqual, nil)
 
-		statuses, ok := c.nodeTileStatuses["node1"]
+		statuses, ok := dummyCache.nodeTileStatuses["node1"]
 		So(ok, ShouldEqual, true)
 
 		tiles, ok := statuses["card0"]
@@ -394,11 +396,11 @@ func TestAdjustPodResources(t *testing.T) {
 	})
 
 	Convey("When adjusting pod resources back and forth", t, func() {
-		c.nodeTileStatuses = make(map[string]nodeTiles)
-		err1 := c.adjustPodResources(&pod, true, "card0", "card0:gt0", "node1")
-		err2 := c.adjustPodResources(&pod, false, "card0", "card0:gt0", "node1")
+		dummyCache.nodeTileStatuses = make(map[string]nodeTiles)
+		err1 := dummyCache.adjustPodResources(&pod, true, "card0", "card0:gt0", "node1")
+		err2 := dummyCache.adjustPodResources(&pod, false, "card0", "card0:gt0", "node1")
 
-		statuses := c.nodeTileStatuses["node1"]
+		statuses := dummyCache.nodeTileStatuses["node1"]
 
 		tiles, ok := statuses["card0"]
 		So(ok, ShouldEqual, true)
@@ -408,12 +410,12 @@ func TestAdjustPodResources(t *testing.T) {
 	})
 
 	Convey("When adjusting pod resources via L", t, func() {
-		c.nodeTileStatuses = make(map[string]nodeTiles)
-		err := c.adjustPodResourcesL(&pod, true, "card0", "card0:gt0", "node1")
+		dummyCache.nodeTileStatuses = make(map[string]nodeTiles)
+		err := dummyCache.adjustPodResourcesL(&pod, true, "card0", "card0:gt0", "node1")
 
 		So(err, ShouldEqual, nil)
 
-		statuses, ok := c.nodeTileStatuses["node1"]
+		statuses, ok := dummyCache.nodeTileStatuses["node1"]
 		So(ok, ShouldEqual, true)
 
 		tiles, ok := statuses["card0"]
@@ -480,7 +482,7 @@ func TestDeschedulingCards(t *testing.T) {
 	})
 
 	applied := 0
-	applyCheck := func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+	applyCheck := func(action k8stesting.Action) (bool, runtime.Object, error) {
 		patchAction, ok := action.(k8stesting.PatchAction)
 		if !ok {
 			return false, nil, nil
@@ -500,7 +502,7 @@ func TestDeschedulingCards(t *testing.T) {
 	}
 
 	removed := 0
-	removeCheck := func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+	removeCheck := func(action k8stesting.Action) (bool, runtime.Object, error) {
 		patchAction, ok := action.(k8stesting.PatchAction)
 		if !ok {
 			return false, nil, nil

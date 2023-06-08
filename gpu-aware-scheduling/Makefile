@@ -2,7 +2,7 @@ ifneq ($(TAG),)
 IMAGE_TAG=:$(TAG)
 endif
 
-GOLICENSES_VERSION?=v1.5.0
+GOLICENSES_VERSION?=v1.6.0
 BUILD_OUTPUT_DIR?=./bin
 
 ifneq ("$(wildcard licenses/)","")
@@ -40,7 +40,7 @@ image:
 	-f deploy/images/Dockerfile_gpu-extender ../ -t $(IMAGE_PATH)gpu-extender$(IMAGE_TAG)
 
 release-image: clean
-	docker build --build-arg GOLICENSES_VERSION=$(GOLICENSES_IN_GO_MOD) -f deploy/images/Dockerfile_gpu-extender ../ \
+	docker build --build-arg GOLICENSES_VERSION=$(GOLICENSES_VERSION) -f deploy/images/Dockerfile_gpu-extender ../ \
 	-t $(IMAGE_PATH)gpu-extender$(IMAGE_TAG)
 
 format:

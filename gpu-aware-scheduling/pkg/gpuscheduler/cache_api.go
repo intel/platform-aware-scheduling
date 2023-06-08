@@ -27,7 +27,8 @@ func (r *cacheAPI) GetNodeResourceStatus(cache *Cache, nodeName string) nodeReso
 }
 
 func (r *cacheAPI) AdjustPodResourcesL(cache *Cache, pod *v1.Pod, adj bool, annotation,
-	tileAnnotation, nodeName string) error {
+	tileAnnotation, nodeName string,
+) error {
 	return cache.adjustPodResourcesL(pod, adj, annotation, tileAnnotation, nodeName)
 }
 
