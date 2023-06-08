@@ -276,13 +276,13 @@ func (t *testWriter) WriteHeader(statusCode int) {
 }
 
 func TestErrorHandler(t *testing.T) {
-	w := testWriter{headerStatus: 0}
+	writer := testWriter{headerStatus: 0}
 
 	Convey("When error handler is called", t, func() {
 		gas := getEmptyExtender()
 
-		gas.errorHandler(&w, nil)
-		So(w.headerStatus, ShouldEqual, http.StatusNotFound)
+		gas.errorHandler(&writer, nil)
+		So(writer.headerStatus, ShouldEqual, http.StatusNotFound)
 	})
 }
 
@@ -581,7 +581,10 @@ func TestPreferredGPU(t *testing.T) {
 			gpuMap)
 
 		So(len(cards), ShouldEqual, 1)
-		So(cards[0], ShouldResemble, Card{gpuName: "card0"})
+		So(cards[0], ShouldResemble, Card{
+			gpuName:         "card0",
+			xeLinkedTileIds: []int{},
+		})
 		So(err, ShouldBeNil)
 		So(preferred, ShouldBeFalse)
 	})
@@ -594,7 +597,10 @@ func TestPreferredGPU(t *testing.T) {
 			gpuMap)
 
 		So(len(cards), ShouldEqual, 1)
-		So(cards[0], ShouldResemble, Card{gpuName: "card2"})
+		So(cards[0], ShouldResemble, Card{
+			gpuName:         "card2",
+			xeLinkedTileIds: []int{},
+		})
 		So(err, ShouldBeNil)
 		So(preferred, ShouldBeTrue)
 	})
@@ -604,14 +610,14 @@ func TestFilter(t *testing.T) {
 	gas := getEmptyExtender()
 
 	Convey("When Filter is called", t, func() {
-		w := testWriter{}
-		r := http.Request{}
+		writer := testWriter{}
+		request := http.Request{}
 		Convey("when args are fine but request body is empty", func() {
-			r.Method = http.MethodPost
-			r.ContentLength = 100
-			r.Header = http.Header{}
-			r.Header.Set("Content-Type", "application/json")
-			gas.Filter(&w, &r)
+			request.Method = http.MethodPost
+			request.ContentLength = 100
+			request.Header = http.Header{}
+			request.Header.Set("Content-Type", "application/json")
+			gas.Filter(&writer, &request)
 		})
 		Convey("when args are fine but request body is ok", func() {
 			content, err := json.Marshal(map[string]string{"foo": "bar"})
@@ -620,7 +626,7 @@ func TestFilter(t *testing.T) {
 				http.MethodPost, "http://foo/bar", bytes.NewBuffer(content))
 			So(err, ShouldBeNil)
 			request.Header.Set("Content-Type", "application/json")
-			gas.Filter(&w, request)
+			gas.Filter(&writer, request)
 		})
 	})
 }
@@ -633,14 +639,14 @@ func TestBind(t *testing.T) {
 	iCache = &mockCache
 
 	Convey("When Bind is called", t, func() {
-		w := testWriter{}
-		r := http.Request{}
+		writer := testWriter{}
+		request := http.Request{}
 		Convey("when args are fine but request body is empty", func() {
-			r.Method = http.MethodPost
-			r.ContentLength = 100
-			r.Header = http.Header{}
-			r.Header.Set("Content-Type", "application/json")
-			gas.Bind(&w, &r)
+			request.Method = http.MethodPost
+			request.ContentLength = 100
+			request.Header = http.Header{}
+			request.Header.Set("Content-Type", "application/json")
+			gas.Bind(&writer, &request)
 		})
 		Convey("when args are fine but request body is ok", func() {
 			content, err := json.Marshal(map[string]string{"foo": "bar"})
@@ -650,7 +656,7 @@ func TestBind(t *testing.T) {
 			So(err, ShouldBeNil)
 			request.Header.Set("Content-Type", "application/json")
 			mockCache.On("FetchPod", mock.Anything, mock.Anything, mock.Anything).Return(nil, errMock).Once()
-			gas.Bind(&w, request)
+			gas.Bind(&writer, request)
 		})
 	})
 
@@ -676,7 +682,8 @@ func TestGetNodeGPUListFromGpuNumbers(t *testing.T) {
 		node := v1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
-					gpuNumbersLabel: "0.1.2"},
+					gpuNumbersLabel: "0.1.2",
+				},
 			},
 		}
 
@@ -690,7 +697,8 @@ func TestGetNodeGPUListFromGpuNumbers(t *testing.T) {
 				Labels: map[string]string{
 					gpuNumbersLabel:       "0.1.2",
 					gpuNumbersLabel + "2": "Z.5.8.9",
-					gpuNumbersLabel + "3": "Z.10"},
+					gpuNumbersLabel + "3": "Z.10",
+				},
 			},
 		}
 
@@ -834,8 +842,10 @@ func TestResourceBalancedCardsForContainerGPURequest(t *testing.T) {
 	containerRequest := resourceMap{"gpu.intel.com/i915": 1, "gpu.intel.com/foo": 1}
 	perGPUCapacity := resourceMap{"gpu.intel.com/i915": 1, "gpu.intel.com/foo": 4}
 
-	nodeResourcesUsed := nodeResources{"card0": resourceMap{"gpu.intel.com/foo": 1},
-		"card1": resourceMap{"gpu.intel.com/foo": 2}, "card2": resourceMap{}}
+	nodeResourcesUsed := nodeResources{
+		"card0": resourceMap{"gpu.intel.com/foo": 1},
+		"card1": resourceMap{"gpu.intel.com/foo": 2}, "card2": resourceMap{},
+	}
 	gpuMap := map[string]bool{"card0": true, "card1": true, "card2": true}
 
 	Convey("When GPUs are resource balanced, the least consumed GPU should be used", t, func() {
@@ -845,7 +855,10 @@ func TestResourceBalancedCardsForContainerGPURequest(t *testing.T) {
 			gpuMap)
 
 		So(len(cards), ShouldEqual, 1)
-		So(cards[0], ShouldResemble, Card{gpuName: "card2"})
+		So(cards[0], ShouldResemble, Card{
+			gpuName:         "card2",
+			xeLinkedTileIds: []int{},
+		})
 		So(err, ShouldBeNil)
 		So(preferred, ShouldBeFalse)
 	})
@@ -879,15 +892,17 @@ func TestFilterWithXeLinkedDisabledTiles(t *testing.T) {
 		},
 		{
 			description: "when two tiles are disabled and there are no good xe-links left",
-			extraLabels: map[string]string{tasNSPrefix + "policy/" + tileDisableLabelPrefix + "card0_gt0": trueValueString,
-				tasNSPrefix + "policy/" + tileDisableLabelPrefix + "card2_gt1": trueValueString},
+			extraLabels: map[string]string{
+				tasNSPrefix + "policy/" + tileDisableLabelPrefix + "card0_gt0": trueValueString,
+				tasNSPrefix + "policy/" + tileDisableLabelPrefix + "card2_gt1": trueValueString,
+			},
 			expectedResult: true, // node fails (is filtered)
 		},
 	}
 
 	Convey("When node has four cards with two xelinks and one disabled xe-linked tile, pod should still fit", t, func() {
-		for _, tc := range testCases {
-			t.Logf("test %v", tc.description)
+		for _, testCase := range testCases {
+			t.Logf("test %v", testCase.description)
 
 			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
 				Spec: *getMockPodSpecWithTile(1),
@@ -912,7 +927,7 @@ func TestFilterWithXeLinkedDisabledTiles(t *testing.T) {
 					},
 				},
 			}
-			for key, value := range tc.extraLabels {
+			for key, value := range testCase.extraLabels {
 				node.Labels[key] = value
 			}
 			mockCache.On("FetchNode", mock.Anything, args.Node).Return(&node, nil).Once()
@@ -932,7 +947,7 @@ func TestFilterWithXeLinkedDisabledTiles(t *testing.T) {
 			result := gas.filterNodes(&args)
 			So(result.Error, ShouldEqual, "")
 			_, ok := result.FailedNodes[nodename]
-			So(ok, ShouldEqual, tc.expectedResult)
+			So(ok, ShouldEqual, testCase.expectedResult)
 		}
 	})
 
@@ -967,8 +982,8 @@ func TestFilterWithNContainerSameGPU(t *testing.T) {
 	}
 
 	Convey("When node has 3 i915 left in cards, pod should not fit", t, func() {
-		for _, tc := range testCases {
-			t.Logf("test %v", tc.description)
+		for _, testCase := range testCases {
+			t.Logf("test %v", testCase.description)
 			node := v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
@@ -986,12 +1001,13 @@ func TestFilterWithNContainerSameGPU(t *testing.T) {
 					},
 				},
 			}
-			for key, value := range tc.extraLabels {
+			for key, value := range testCase.extraLabels {
 				node.Labels[key] = value
 			}
 			mockCache.On("FetchNode", mock.Anything, args.Node).Return(&node, nil).Once()
 
-			usedResources := nodeResources{"card0": resourceMap{"gpu.intel.com/i915": 5, "gpu.intel.com/millicores": 500},
+			usedResources := nodeResources{
+				"card0": resourceMap{"gpu.intel.com/i915": 5, "gpu.intel.com/millicores": 500},
 				"card1": resourceMap{"gpu.intel.com/i915": 5, "gpu.intel.com/millicores": 500},
 			}
 
@@ -1005,7 +1021,7 @@ func TestFilterWithNContainerSameGPU(t *testing.T) {
 			result := gas.filterNodes(&args)
 			So(result.Error, ShouldEqual, "")
 			_, ok := result.FailedNodes[nodename]
-			So(ok, ShouldEqual, tc.expectedResult)
+			So(ok, ShouldEqual, testCase.expectedResult)
 		}
 	})
 
@@ -1100,7 +1116,7 @@ func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.
 	}
 
 	Convey("When running scheduling logic with multi-container pod with tile request", t, func() {
-		for _, tc := range testCases {
+		for _, testCase := range testCases {
 			pod := getFakePod()
 			mockNode := getMockNode(4, 4, "card0", "card1", "card2", "card3")
 			pod.Spec = *getMockPodSpecMultiContXeLinked(2)
@@ -1114,18 +1130,18 @@ func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.
 			nodeRes := nodeResources{"card0": resourceMap{"gpu.intel.com/i915": 0, "gpu.intel.com/tiles": 0}}
 			noTilesInUse := nodeTiles{"card0": []int{}}
 
-			for key, value := range tc.extraLabels {
+			for key, value := range testCase.extraLabels {
 				mockNode.Labels[key] = value
 			}
 
-			for key, value := range tc.extraAnnotations {
+			for key, value := range testCase.extraAnnotations {
 				pod.Annotations[key] = value
 			}
 
 			cardAnnotation := ""
 			tileAnnotation := ""
 			timestampFound := false
-			applyCheck := func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+			applyCheck := func(action k8stesting.Action) (bool, runtime.Object, error) {
 				patchAction, _ := action.(k8stesting.PatchAction)
 				patch := patchAction.GetPatch()
 
@@ -1161,8 +1177,8 @@ func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.
 			result := gas.bindNode(ctx, &args)
 			clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
 
-			So(cardAnnotation, ShouldEqual, tc.expectedCardAnnotation)
-			if tc.defaultTileCheck {
+			So(cardAnnotation, ShouldEqual, testCase.expectedCardAnnotation)
+			if testCase.defaultTileCheck {
 				split := strings.Split(tileAnnotation, "|")
 				// Check the tile split between containers
 				So(len(split), ShouldEqual, 2)
@@ -1171,8 +1187,8 @@ func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.
 				So(strings.Count(split[1], "card3:gt2"), ShouldEqual, 1)
 			}
 
-			So(timestampFound, ShouldEqual, tc.expectTimestamp)
-			if tc.expectError {
+			So(timestampFound, ShouldEqual, testCase.expectTimestamp)
+			if testCase.expectError {
 				So(result.Error, ShouldNotEqual, "")
 			} else {
 				So(result.Error, ShouldEqual, "")
@@ -1208,7 +1224,7 @@ func TestRunSchedulingLogicWithMultiContainerTileResourceReq(t *testing.T) {
 		cardAnnotation := ""
 		tileAnnotation := ""
 		timestampFound := false
-		applyCheck := func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		applyCheck := func(action k8stesting.Action) (bool, runtime.Object, error) {
 			patchAction, _ := action.(k8stesting.PatchAction)
 			patch := patchAction.GetPatch()
 
@@ -1293,10 +1309,12 @@ func TestTileDisablingDeschedulingAndPreference(t *testing.T) {
 				Status: v1.NodeStatus{
 					Capacity: v1.ResourceList{
 						"gpu.intel.com/i915":  resource.MustParse("1"),
-						"gpu.intel.com/tiles": resource.MustParse("1")},
+						"gpu.intel.com/tiles": resource.MustParse("1"),
+					},
 					Allocatable: v1.ResourceList{
 						"gpu.intel.com/i915":  resource.MustParse("1"),
-						"gpu.intel.com/tiles": resource.MustParse("1")},
+						"gpu.intel.com/tiles": resource.MustParse("1"),
+					},
 				},
 			}, nil).Once()
 			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
@@ -1326,10 +1344,12 @@ func TestTileDisablingDeschedulingAndPreference(t *testing.T) {
 			Status: v1.NodeStatus{
 				Capacity: v1.ResourceList{
 					"gpu.intel.com/i915":  resource.MustParse("2"),
-					"gpu.intel.com/tiles": resource.MustParse("2")},
+					"gpu.intel.com/tiles": resource.MustParse("2"),
+				},
 				Allocatable: v1.ResourceList{
 					"gpu.intel.com/i915":  resource.MustParse("2"),
-					"gpu.intel.com/tiles": resource.MustParse("2")},
+					"gpu.intel.com/tiles": resource.MustParse("2"),
+				},
 			},
 		}, nil).Once()
 		mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
@@ -1344,7 +1364,7 @@ func TestTileDisablingDeschedulingAndPreference(t *testing.T) {
 
 	Convey("When node has a preferred card label and fits", t, func() {
 		applied := false
-		applyCheck := func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		applyCheck := func(action k8stesting.Action) (bool, runtime.Object, error) {
 			patchAction, _ := action.(k8stesting.PatchAction)
 			requiredStr := "card1"
 			patch := patchAction.GetPatch()
@@ -1391,7 +1411,7 @@ func TestTileDisablingDeschedulingAndPreference(t *testing.T) {
 
 	Convey("When node has a tile preferred-label", t, func() {
 		applied := false
-		applyCheck := func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
+		applyCheck := func(action k8stesting.Action) (bool, runtime.Object, error) {
 			patchAction, _ := action.(k8stesting.PatchAction)
 			requiredStr := "card0:gt3"
 			patch := patchAction.GetPatch()
@@ -1627,7 +1647,8 @@ func TestSanitizeSamegpuResourcesRequest(t *testing.T) {
 			// success
 			samegpuIndexes = map[int]bool{0: true}
 			resourceRequests = []resourceMap{
-				{"gpu.intel.com/i915": 1,
+				{
+					"gpu.intel.com/i915":       1,
 					"gpu.intel.com/millicores": 100,
 					"gpu.intel.com/memory.max": 8589934592,
 				},

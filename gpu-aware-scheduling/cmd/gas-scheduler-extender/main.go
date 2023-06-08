@@ -23,7 +23,7 @@ var (
 )
 
 const (
-	l1             = klog.Level(1)
+	logL1          = klog.Level(1)
 	defaultQPS     = 5
 	defaultBurst   = 10
 	maxQPSandBurst = 1000
@@ -44,12 +44,13 @@ func main() {
 	flag.BoolVar(&enableAllowlist, "enableAllowlist", false, "enable allowed GPUs annotation (csv list of names)")
 	flag.BoolVar(&enableDenylist, "enableDenylist", false, "enable denied GPUs annotation (csv list of names)")
 	flag.StringVar(&balancedRes, "balancedResource", "", "enable resource balacing within a node")
-	flag.UintVar(&burst, "burst", defaultBurst, fmt.Sprintf("burst value used with kube client (limited to %d)", maxQPSandBurst))
+	flag.UintVar(&burst, "burst", defaultBurst, fmt.Sprintf("burst value used with kube client (limited to %d)",
+		maxQPSandBurst))
 	flag.UintVar(&qps, "qps", defaultQPS, fmt.Sprintf("qps value used with kube client (limited to %d)", maxQPSandBurst))
 	klog.InitFlags(nil)
 	flag.Parse()
 
-	klog.V(l1).Infof("%s built on %s with go %s", version, buildDate, goVersion)
+	klog.V(logL1).Infof("%s built on %s with go %s", version, buildDate, goVersion)
 
 	for _, ptr := range []*uint{&qps, &burst} {
 		if *ptr > maxQPSandBurst {
@@ -59,7 +60,6 @@ func main() {
 	}
 
 	kubeClient, _, err := extender.GetKubeClientExt(kubeConfig, int(burst), float32(qps))
-
 	if err != nil {
 		klog.Error("couldn't get kube client, cannot continue: ", err.Error())
 		os.Exit(1)

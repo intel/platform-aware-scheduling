@@ -163,13 +163,13 @@ func NewCache(client kubernetes.Interface) *Cache {
 	podLister := podInformer.Lister()
 	stopChannel := signalHandler()
 
-	klog.V(l1).Info("starting shared informer factory (cache)")
+	klog.V(logL1).Info("starting shared informer factory (cache)")
 
 	go sharedInformerFactory.Start(stopChannel)
 
 	syncOk := internCacheAPI.WaitForCacheSync(stopChannel, nodeInformer.Informer().HasSynced)
 	if syncOk {
-		klog.V(l2).Info("node cache created and synced successfully")
+		klog.V(logL2).Info("node cache created and synced successfully")
 	} else {
 		klog.Error("Couldn't sync clientgo cache for nodes")
 
@@ -178,14 +178,14 @@ func NewCache(client kubernetes.Interface) *Cache {
 
 	syncOk = internCacheAPI.WaitForCacheSync(stopChannel, podInformer.Informer().HasSynced)
 	if syncOk {
-		klog.V(l2).Info("POD cache created and synced successfully")
+		klog.V(logL2).Info("POD cache created and synced successfully")
 	} else {
 		klog.Error("Couldn't sync clientgo cache for PODs")
 
 		return nil
 	}
 
-	c := Cache{
+	cache := Cache{
 		clientset:             client,
 		sharedInformerFactory: sharedInformerFactory,
 		nodeLister:            nodeLister,
@@ -193,15 +193,16 @@ func NewCache(client kubernetes.Interface) *Cache {
 		nodeWorkQueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "nodeWorkQueue"),
 		podLister:             podLister,
 		annotatedPods:         make(map[string]string),
+		nodeStatuses:          make(map[string]nodeResources),
+		nodeTileStatuses:      make(map[string]nodeTiles),
 		previousDeschedCards:  make(map[string][]string),
 		previousDeschedTiles:  make(map[string][]string),
 		podDeschedStatuses:    make(map[string]bool),
-		nodeStatuses:          make(map[string]nodeResources),
-		nodeTileStatuses:      make(map[string]nodeTiles),
+		rwmutex:               sync.RWMutex{},
 	}
 
-	_, err := podInformer.Informer().AddEventHandler(c.createFilteringPodResourceHandler())
-	_, err2 := nodeInformer.Informer().AddEventHandler(c.createFilteringNodeResourceHandler())
+	_, err := podInformer.Informer().AddEventHandler(cache.createFilteringPodResourceHandler())
+	_, err2 := nodeInformer.Informer().AddEventHandler(cache.createFilteringNodeResourceHandler())
 
 	if err != nil || err2 != nil {
 		klog.Errorf("informer event handler init failure (%v, %v)", err, err2)
@@ -209,24 +210,24 @@ func NewCache(client kubernetes.Interface) *Cache {
 		return nil
 	}
 
-	go func() { c.startPodWork(stopChannel) }()
-	go func() { c.startNodeWork(stopChannel) }()
+	go func() { cache.startPodWork(stopChannel) }()
+	go func() { cache.startNodeWork(stopChannel) }()
 
-	return &c
+	return &cache
 }
 
 func (c *Cache) podFilter(obj interface{}) bool {
 	var pod *v1.Pod
 
-	var ok bool
+	var ok1 bool
 
 	switch t := obj.(type) {
 	case *v1.Pod:
 		pod, _ = obj.(*v1.Pod)
 	case cache.DeletedFinalStateUnknown:
-		pod, ok = t.Obj.(*v1.Pod)
+		pod, ok1 = t.Obj.(*v1.Pod)
 
-		if !ok {
+		if !ok1 {
 			return false
 		}
 	default:
@@ -239,15 +240,15 @@ func (c *Cache) podFilter(obj interface{}) bool {
 func (c *Cache) nodeFilter(obj interface{}) bool {
 	var node *v1.Node
 
-	var ok bool
+	var ok1 bool
 
 	switch t := obj.(type) {
 	case *v1.Node:
 		node, _ = obj.(*v1.Node)
 	case cache.DeletedFinalStateUnknown:
-		node, ok = t.Obj.(*v1.Node)
+		node, ok1 = t.Obj.(*v1.Node)
 
-		if !ok {
+		if !ok1 {
 			return false
 		}
 	default:
@@ -260,9 +261,9 @@ func (c *Cache) nodeFilter(obj interface{}) bool {
 // This must be called with rwmutex unlocked
 // set add=true to add, false to remove resources.
 func (c *Cache) adjustPodResourcesL(pod *v1.Pod, adj bool, annotation, tileAnnotation, nodeName string) error {
-	klog.V(l4).Infof("adjustPodResourcesL %v %v", nodeName, pod.Name)
+	klog.V(logL4).Infof("adjustPodResourcesL %v %v", nodeName, pod.Name)
 	c.rwmutex.Lock()
-	klog.V(l5).Infof("adjustPodResourcesL %v %v locked", nodeName, pod.Name)
+	klog.V(logL5).Infof("adjustPodResourcesL %v %v locked", nodeName, pod.Name)
 	defer c.rwmutex.Unlock()
 
 	err := c.adjustPodResources(pod, adj, annotation, tileAnnotation, nodeName)
@@ -289,28 +290,35 @@ func (c *Cache) newCopyNodeStatus(nodeName string) nodeResources {
 // This must be called with the rwmutex at least read-locked.
 // set adj=true to add, false to remove resources.
 func (c *Cache) checkPodResourceAdjustment(containerRequests []resourceMap,
-	nodeName string, containerCards []string, adj bool) error {
+	nodeName string, containerCards []string, adj bool,
+) error {
 	if len(containerRequests) != len(containerCards) || nodeName == "" {
 		klog.Errorf("bad args, node %v pod creqs %v ccards %v", nodeName, containerRequests, containerCards)
 
 		return errBadArgs
 	}
 
+	return c.checkPodResourceAdjustmentImpl(containerRequests, nodeName, containerCards, adj)
+}
+
+func (c *Cache) checkPodResourceAdjustmentImpl(containerRequests []resourceMap,
+	nodeName string, containerCards []string, adj bool,
+) error {
 	numContainers := len(containerRequests)
 	nodeRes := c.newCopyNodeStatus(nodeName)
 
 	var err error
 
-	for i := 0; i < numContainers; i++ {
+	for index := 0; index < numContainers; index++ {
 		// get slice of card names from the CSV list of container nr i
-		cardNames := strings.Split(containerCards[i], ",")
+		cardNames := strings.Split(containerCards[index], ",")
 		numCards := len(cardNames)
 
-		if numCards == 0 || len(containerCards[i]) == 0 {
+		if numCards == 0 || len(containerCards[index]) == 0 {
 			continue
 		}
 
-		request := containerRequests[i].newCopy()
+		request := containerRequests[index].newCopy()
 
 		err = request.divide(numCards)
 		if err != nil {
@@ -403,6 +411,14 @@ func (c *Cache) adjustTiles(adj bool, nodeName, tileAnnotation string) {
 	}
 }
 
+func (c *Cache) blindAdjustResources(adj bool, srcResMap, dstResMap resourceMap) {
+	if adj { // add
+		_ = dstResMap.addRM(srcResMap)
+	} else {
+		_ = dstResMap.subtractRM(srcResMap)
+	}
+}
+
 // This must be called with rwmutex locked
 // set adj=true to add, false to remove resources.
 func (c *Cache) adjustPodResources(pod *v1.Pod, adj bool, annotation, tileAnnotation, nodeName string) error {
@@ -420,16 +436,16 @@ func (c *Cache) adjustPodResources(pod *v1.Pod, adj bool, annotation, tileAnnota
 
 	// now that we have checked, error checks are omitted below
 	numContainers := len(containerRequests)
-	for i := 0; i < numContainers; i++ {
+	for index := 0; index < numContainers; index++ {
 		// get slice of card names from the CSV list of container nr i
-		cardNames := strings.Split(containerCards[i], ",")
+		cardNames := strings.Split(containerCards[index], ",")
 		numCards := len(cardNames)
 
-		if numCards == 0 || len(containerCards[i]) == 0 {
+		if numCards == 0 || len(containerCards[index]) == 0 {
 			continue
 		}
 
-		err = containerRequests[i].divide(numCards)
+		err = containerRequests[index].divide(numCards)
 		if err != nil {
 			return err
 		}
@@ -444,11 +460,7 @@ func (c *Cache) adjustPodResources(pod *v1.Pod, adj bool, annotation, tileAnnota
 				c.nodeStatuses[nodeName][cardName] = resourceMap{}
 			}
 
-			if adj { // add
-				_ = c.nodeStatuses[nodeName][cardName].addRM(containerRequests[i])
-			} else {
-				_ = c.nodeStatuses[nodeName][cardName].subtractRM(containerRequests[i])
-			}
+			c.blindAdjustResources(adj, containerRequests[index], c.nodeStatuses[nodeName][cardName])
 		}
 	}
 
@@ -465,7 +477,7 @@ func (c *Cache) adjustPodResources(pod *v1.Pod, adj bool, annotation, tileAnnota
 	return nil
 }
 
-func signalHandler() (stopChannel <-chan struct{}) {
+func signalHandler() <-chan struct{} {
 	stopChan := make(chan struct{})
 	//nolint:gomnd
 	signalChan := make(chan os.Signal, 2)
@@ -542,7 +554,7 @@ func (c *Cache) addNodeToCache(nodeObj interface{}) {
 	c.nodeWorkQueue.Add(item)
 }
 
-func (c *Cache) updateNodeInCache(oldNodeObj, newNodeObj interface{}) {
+func (c *Cache) updateNodeInCache(_, newNodeObj interface{}) {
 	node, ok := newNodeObj.(*v1.Node)
 	if !ok {
 		klog.Warningf("cannot convert to *v1.Node: %v", newNodeObj)
@@ -560,20 +572,20 @@ func (c *Cache) updateNodeInCache(oldNodeObj, newNodeObj interface{}) {
 
 func (c *Cache) deleteNodeFromCache(nodeObj interface{}) {
 	var node *v1.Node
-	switch t := nodeObj.(type) {
+	switch aType := nodeObj.(type) {
 	case *v1.Node:
-		node = t
+		node = aType
 	case cache.DeletedFinalStateUnknown:
 		var ok bool
-		node, ok = t.Obj.(*v1.Node)
+		node, ok = aType.Obj.(*v1.Node)
 
 		if !ok {
-			klog.Warningf("cannot convert to *v1.Node: %v", t.Obj)
+			klog.Warningf("cannot convert to *v1.Node: %v", aType.Obj)
 
 			return
 		}
 	default:
-		klog.Warningf("cannot convert to *v1.Node: %v", t)
+		klog.Warningf("cannot convert to *v1.Node: %v", aType)
 
 		return
 	}
@@ -595,8 +607,8 @@ func (c *Cache) addPodToCache(podObj interface{}) {
 	}
 
 	// if POD does not have the necessary annotation, working on it is futile, then update must be waited for
-	annotation, ok := pod.Annotations[cardAnnotationName]
-	if !ok {
+	annotation, ok2 := pod.Annotations[cardAnnotationName]
+	if !ok2 {
 		return
 	}
 
@@ -613,7 +625,7 @@ func (c *Cache) addPodToCache(podObj interface{}) {
 	c.podWorkQueue.Add(item)
 }
 
-func (c *Cache) updatePodInCache(oldPodObj, newPodObj interface{}) {
+func (c *Cache) updatePodInCache(_, newPodObj interface{}) {
 	newPod, ok := newPodObj.(*v1.Pod)
 	if !ok {
 		klog.Warningf("conversion of newObj -> pod failed: %v", newPodObj)
@@ -622,8 +634,8 @@ func (c *Cache) updatePodInCache(oldPodObj, newPodObj interface{}) {
 	}
 
 	// if POD does not have the necessary annotation, can't work on it yet
-	annotation, ok := newPod.Annotations[cardAnnotationName]
-	if !ok {
+	annotation, ok2 := newPod.Annotations[cardAnnotationName]
+	if !ok2 {
 		return
 	}
 
@@ -647,26 +659,26 @@ func (c *Cache) updatePodInCache(oldPodObj, newPodObj interface{}) {
 }
 
 func (c *Cache) deletePodFromCache(podObj interface{}) {
-	klog.V(l4).Infof("deletePodFromCache")
+	klog.V(logL4).Infof("deletePodFromCache")
 	c.rwmutex.RLock() // reads c.annotatedPods
-	klog.V(l5).Infof("deletePodFromCache locked")
+	klog.V(logL5).Infof("deletePodFromCache locked")
 	defer c.rwmutex.RUnlock()
 
 	var pod *v1.Pod
-	switch t := podObj.(type) {
+	switch aType := podObj.(type) {
 	case *v1.Pod:
-		pod = t
+		pod = aType
 	case cache.DeletedFinalStateUnknown:
 		var ok bool
-		pod, ok = t.Obj.(*v1.Pod)
+		pod, ok = aType.Obj.(*v1.Pod)
 
 		if !ok {
-			klog.Warningf("cannot convert to *v1.Pod: %v", t.Obj)
+			klog.Warningf("cannot convert to *v1.Pod: %v", aType.Obj)
 
 			return
 		}
 	default:
-		klog.Warningf("cannot convert to *v1.Pod: %v", t)
+		klog.Warningf("cannot convert to *v1.Pod: %v", aType)
 
 		return
 	}
@@ -674,7 +686,7 @@ func (c *Cache) deletePodFromCache(podObj interface{}) {
 	key := getKey(pod)
 	_, annotatedPod := c.annotatedPods[key]
 
-	klog.V(l4).Infof("delete pod %s in ns %s annotated:%v", pod.Name, pod.Namespace, annotatedPod)
+	klog.V(logL4).Infof("delete pod %s in ns %s annotated:%v", pod.Name, pod.Namespace, annotatedPod)
 
 	if !annotatedPod {
 		return
@@ -695,12 +707,12 @@ func (c *Cache) startNodeWork(stopChannel <-chan struct{}) {
 	defer c.nodeWorkQueue.ShutDown()
 	defer runtime.HandleCrash()
 
-	klog.V(l2).Info("starting node worker")
+	klog.V(logL2).Info("starting node worker")
 
 	// block calling goroutine
 	wait.Until(c.nodeWorkerRun, workerWaitTime, stopChannel)
 
-	klog.V(l2).Info("node worker shutting down")
+	klog.V(logL2).Info("node worker shutting down")
 }
 
 // This steals the calling goroutine and blocks doing work.
@@ -708,37 +720,39 @@ func (c *Cache) startPodWork(stopChannel <-chan struct{}) {
 	defer c.podWorkQueue.ShutDown()
 	defer runtime.HandleCrash()
 
-	klog.V(l2).Info("starting pod worker")
+	klog.V(logL2).Info("starting pod worker")
 
 	// block calling goroutine
 	wait.Until(c.podWorkerRun, workerWaitTime, stopChannel)
 
-	klog.V(l2).Info("pod worker shutting down")
+	klog.V(logL2).Info("pod worker shutting down")
 }
 
 func (c *Cache) podWorkerRun() {
+	//nolint:revive
 	for c.podWork() {
 	}
 }
 
 func (c *Cache) nodeWorkerRun() {
+	//nolint:revive
 	for c.nodeWork() {
 	}
 }
 
 func (c *Cache) nodeWork() bool {
-	klog.V(l5).Info("node worker started")
+	klog.V(logL5).Info("node worker started")
 
 	itemI, quit := c.nodeWorkQueue.Get()
 
 	if quit {
-		klog.V(l2).Info("node worker quitting")
+		klog.V(logL2).Info("node worker quitting")
 
 		return false
 	}
 
 	defer c.nodeWorkQueue.Done(itemI)
-	defer klog.V(l5).Info("node worker ended work")
+	defer klog.V(logL5).Info("node worker ended work")
 
 	item, ok := itemI.(nodeWorkQueueItem)
 
@@ -763,18 +777,18 @@ func (c *Cache) nodeWork() bool {
 }
 
 func (c *Cache) podWork() bool {
-	klog.V(l5).Info("pod worker started")
+	klog.V(logL5).Info("pod worker started")
 
 	itemI, quit := c.podWorkQueue.Get()
 
 	if quit {
-		klog.V(l2).Info("pod worker quitting")
+		klog.V(logL2).Info("pod worker quitting")
 
 		return false
 	}
 
 	defer c.podWorkQueue.Done(itemI)
-	defer klog.V(l5).Info("pod worker ended work")
+	defer klog.V(logL5).Info("pod worker ended work")
 
 	item, ok := itemI.(podWorkQueueItem)
 
@@ -827,9 +841,9 @@ func (c *Cache) fetchPod(ns, name string) (*v1.Pod, error) {
 
 // getNodeTileStatus returns a copy of current tile status for a node.
 func (c *Cache) getNodeTileStatus(nodeName string) nodeTiles {
-	klog.V(l4).Infof("getNodeTileStatus %v", nodeName)
+	klog.V(logL4).Infof("getNodeTileStatus %v", nodeName)
 	c.rwmutex.RLock()
-	klog.V(l5).Infof("getNodeTileStatus %v locked", nodeName)
+	klog.V(logL5).Infof("getNodeTileStatus %v locked", nodeName)
 	defer c.rwmutex.RUnlock()
 
 	dstNodeTiles := nodeTiles{}
@@ -844,9 +858,9 @@ func (c *Cache) getNodeTileStatus(nodeName string) nodeTiles {
 
 // getNodeResourceStatus returns a copy of current resource status for a node (map of per card resource maps).
 func (c *Cache) getNodeResourceStatus(nodeName string) nodeResources {
-	klog.V(l4).Infof("getNodeResourceStatus %v", nodeName)
+	klog.V(logL4).Infof("getNodeResourceStatus %v", nodeName)
 	c.rwmutex.RLock()
-	klog.V(l5).Infof("getNodeResourceStatus %v locked", nodeName)
+	klog.V(logL5).Infof("getNodeResourceStatus %v locked", nodeName)
 	defer c.rwmutex.RUnlock()
 
 	dstNodeResources := nodeResources{}
@@ -942,9 +956,18 @@ func (c *Cache) handlePodDescheduleLabeling(deschedule bool, pod *v1.Pod) error 
 	}
 
 	_, err := c.clientset.CoreV1().Pods(pod.GetNamespace()).Patch(
-		context.TODO(), pod.GetName(), types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+		context.TODO(), pod.GetName(), types.JSONPatchType, payloadBytes, metav1.PatchOptions{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "",
+				APIVersion: "",
+			},
+			DryRun:          []string{},
+			Force:           new(bool),
+			FieldManager:    "",
+			FieldValidation: "",
+		})
 	if err == nil {
-		klog.V(l4).Infof("Pod %s labeled successfully.", pod.GetName())
+		klog.V(logL4).Infof("Pod %s labeled successfully.", pod.GetName())
 
 		return nil
 	}
@@ -954,84 +977,107 @@ func (c *Cache) handlePodDescheduleLabeling(deschedule bool, pod *v1.Pod) error 
 	return fmt.Errorf("pod label failed: %w", err)
 }
 
+func createListOptions(selector string) *metav1.ListOptions {
+	return &metav1.ListOptions{
+		TypeMeta:             metav1.TypeMeta{Kind: "", APIVersion: ""},
+		LabelSelector:        "",
+		FieldSelector:        selector,
+		Watch:                false,
+		AllowWatchBookmarks:  false,
+		ResourceVersion:      "",
+		ResourceVersionMatch: "",
+		TimeoutSeconds:       new(int64),
+		Limit:                0,
+		Continue:             "",
+		SendInitialEvents:    nil,
+	}
+}
+
+func (c *Cache) handleNodeUpdated(item nodeWorkQueueItem) error {
+	// add and remove related labels
+	// calculate set of cards that trigger descheduling and compare it to the previous
+	// set of cards. then if it has changed, move to study pods/containers for changes.
+	descheduledCards := calculateCardsFromDescheduleLabels(item.node)
+	descheduledTiles := calculateTilesFromDescheduleLabels(item.node)
+
+	sort.Strings(descheduledCards)
+	sort.Strings(descheduledTiles)
+
+	prevDescheduleCards := c.previousDeschedCards[item.nodeName]
+	prevDescheduleTiles := c.previousDeschedTiles[item.nodeName]
+
+	if reflect.DeepEqual(descheduledCards, prevDescheduleCards) &&
+		reflect.DeepEqual(descheduledTiles, prevDescheduleTiles) {
+		return nil
+	}
+
+	selector, err := fields.ParseSelector("spec.nodeName=" + item.nodeName +
+		",status.phase=" + string(v1.PodRunning))
+	if err != nil {
+		klog.Error(err.Error())
+
+		return fmt.Errorf("error with fetching object: %w", err)
+	}
+
+	runningPodList, err := c.clientset.CoreV1().Pods(v1.NamespaceAll).List(context.TODO(),
+		*createListOptions(selector.String()))
+	if err != nil {
+		klog.Error(err.Error())
+
+		return fmt.Errorf("error with listing pods: %w", err)
+	}
+
+	for index := range runningPodList.Items {
+		podName := runningPodList.Items[index].Name
+		needDeschedule := (isDeschedulingNeededCards(&runningPodList.Items[index], descheduledCards) ||
+			isDeschedulingNeededTiles(&runningPodList.Items[index], descheduledTiles))
+
+		// change pod's descheduling label based on the need (if it doesn't exist vs. if it does)
+		if needDeschedule != c.podDeschedStatuses[podName] {
+			if err := c.handlePodDescheduleLabeling(needDeschedule, &runningPodList.Items[index]); err != nil {
+				return err
+			}
+
+			c.podDeschedStatuses[podName] = needDeschedule
+		}
+	}
+
+	// update previous descheduling cards
+	c.previousDeschedCards[item.nodeName] = descheduledCards
+	c.previousDeschedTiles[item.nodeName] = descheduledTiles
+
+	return nil
+}
+
 func (c *Cache) handleNode(item nodeWorkQueueItem) error {
-	klog.V(l4).Infof("handleNode %s", item.nodeName)
+	klog.V(logL4).Infof("handleNode %s", item.nodeName)
 
 	c.rwmutex.Lock() // reads and writes c. fields
-	klog.V(l5).Infof("handleNode %v locked", item.nodeName)
+	klog.V(logL5).Infof("handleNode %v locked", item.nodeName)
 	defer c.rwmutex.Unlock()
+
+	var err error
 
 	switch item.action {
 	case nodeAdded:
 		fallthrough
 	case nodeUpdated:
-		// add and remove related labels
-		// calculate set of cards that trigger descheduling and compare it to the previous
-		// set of cards. then if it has changed, move to study pods/containers for changes.
-		descheduledCards := calculateCardsFromDescheduleLabels(item.node)
-		descheduledTiles := calculateTilesFromDescheduleLabels(item.node)
-
-		sort.Strings(descheduledCards)
-		sort.Strings(descheduledTiles)
-
-		prevDescheduleCards := c.previousDeschedCards[item.nodeName]
-		prevDescheduleTiles := c.previousDeschedTiles[item.nodeName]
-
-		if reflect.DeepEqual(descheduledCards, prevDescheduleCards) &&
-			reflect.DeepEqual(descheduledTiles, prevDescheduleTiles) {
-			return nil
-		}
-
-		selector, err := fields.ParseSelector("spec.nodeName=" + item.nodeName +
-			",status.phase=" + string(v1.PodRunning))
-
-		if err != nil {
-			klog.Error(err.Error())
-
-			return fmt.Errorf("error with fetching object: %w", err)
-		}
-
-		runningPodList, err := c.clientset.CoreV1().Pods(v1.NamespaceAll).List(context.TODO(), metav1.ListOptions{
-			FieldSelector: selector.String(),
-		})
-
-		if err != nil {
-			klog.Error(err.Error())
-
-			return fmt.Errorf("error with listing pods: %w", err)
-		}
-
-		for i := range runningPodList.Items {
-			podName := runningPodList.Items[i].Name
-			needDeschedule := (isDeschedulingNeededCards(&runningPodList.Items[i], descheduledCards) ||
-				isDeschedulingNeededTiles(&runningPodList.Items[i], descheduledTiles))
-
-			// change pod's descheduling label based on the need (if it doesn't exist vs. if it does)
-			if needDeschedule != c.podDeschedStatuses[podName] {
-				if err := c.handlePodDescheduleLabeling(needDeschedule, &runningPodList.Items[i]); err != nil {
-					return err
-				}
-
-				c.podDeschedStatuses[podName] = needDeschedule
-			}
-		}
-
-		// update previous descheduling cards
-		c.previousDeschedCards[item.nodeName] = descheduledCards
-		c.previousDeschedTiles[item.nodeName] = descheduledTiles
+		err = c.handleNodeUpdated(item)
 	case nodeDeleted:
 		delete(c.previousDeschedCards, item.nodeName)
 		delete(c.previousDeschedTiles, item.nodeName)
 	}
 
-	return nil
+	return err
 }
 
-func (c *Cache) handlePod(item podWorkQueueItem) (forget bool, err error) {
-	klog.V(l4).Infof("handlePod %s in ns %s", item.name, item.ns)
+func (c *Cache) handlePod(item podWorkQueueItem) (bool, error) {
+	var err error
+
+	klog.V(logL4).Infof("handlePod %s in ns %s", item.name, item.ns)
 
 	c.rwmutex.Lock() // adjusts podresources
-	klog.V(l5).Infof("handlePod %v locked", item.name)
+	klog.V(logL5).Infof("handlePod %v locked", item.name)
 	defer c.rwmutex.Unlock()
 
 	msg := ""
@@ -1071,7 +1117,7 @@ func (c *Cache) handlePod(item podWorkQueueItem) (forget bool, err error) {
 		err = errUnknownAction
 	}
 
-	klog.V(l4).Infof(msg)
+	klog.V(logL4).Infof(msg)
 
 	c.printNodeStatus(item.pod.Spec.NodeName)
 
@@ -1079,7 +1125,7 @@ func (c *Cache) handlePod(item podWorkQueueItem) (forget bool, err error) {
 }
 
 func (c *Cache) printNodeStatus(nodeName string) {
-	if klog.V(l4).Enabled() {
+	if klog.V(logL4).Enabled() {
 		klog.Info(nodeName, ":")
 		resources, ok := c.nodeStatuses[nodeName]
 
@@ -1089,9 +1135,9 @@ func (c *Cache) printNodeStatus(nodeName string) {
 			}
 		}
 
-		tileUsage, ok := c.nodeTileStatuses[nodeName]
+		tileUsage, ok2 := c.nodeTileStatuses[nodeName]
 
-		if ok {
+		if ok2 {
 			for key, value := range tileUsage {
 				klog.Info("    ", key, " used tiles:", value)
 			}

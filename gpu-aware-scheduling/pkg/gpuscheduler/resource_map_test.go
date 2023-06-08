@@ -18,57 +18,57 @@ const (
 )
 
 func TestDivision(t *testing.T) {
-	rm := resourceMap{key: 2}
+	resMap := resourceMap{key: 2}
 
 	Convey("When I divide a rm with -1", t, func() {
-		err := rm.divide(-1)
-		So(rm[key], ShouldEqual, 2)
+		err := resMap.divide(-1)
+		So(resMap[key], ShouldEqual, 2)
 		So(err, ShouldNotBeNil)
 	})
 	Convey("When I divide a rm with 1", t, func() {
-		err := rm.divide(1)
-		So(rm[key], ShouldEqual, 2)
+		err := resMap.divide(1)
+		So(resMap[key], ShouldEqual, 2)
 		So(err, ShouldBeNil)
 	})
 	Convey("When I divide a rm with 2", t, func() {
-		err := rm.divide(2)
-		So(rm[key], ShouldEqual, 1)
+		err := resMap.divide(2)
+		So(resMap[key], ShouldEqual, 1)
 		So(err, ShouldBeNil)
 	})
 }
 
 func TestAdd(t *testing.T) {
 	int64Max := int64(9223372036854775807)
-	rm := resourceMap{key: 2}
+	resMap := resourceMap{key: 2}
 
 	Convey("When I add to RM 9223372036854775805", t, func() {
-		err := rm.add(key, (int64Max - 2))
-		So(rm[key], ShouldEqual, int64Max)
+		err := resMap.add(key, (int64Max - 2))
+		So(resMap[key], ShouldEqual, int64Max)
 		So(err, ShouldBeNil)
 	})
 	Convey("When I still add to RM 1", t, func() {
-		err := rm.add(key, 1)
-		So(rm[key], ShouldEqual, int64Max)
+		err := resMap.add(key, 1)
+		So(resMap[key], ShouldEqual, int64Max)
 		So(err, ShouldEqual, errOverflow)
 	})
 }
 
 func TestSubtract(t *testing.T) {
-	rm := resourceMap{key: 2}
+	resMap := resourceMap{key: 2}
 
 	Convey("When I subtract an unknown key from RM", t, func() {
-		err := rm.subtract("bar", 2)
-		So(rm[key], ShouldEqual, 2)
+		err := resMap.subtract("bar", 2)
+		So(resMap[key], ShouldEqual, 2)
 		So(err, ShouldNotBeNil)
 	})
 	Convey("When I subtract 1 from RM", t, func() {
-		err := rm.subtract(key, 1)
-		So(rm[key], ShouldEqual, 1)
+		err := resMap.subtract(key, 1)
+		So(resMap[key], ShouldEqual, 1)
 		So(err, ShouldBeNil)
 	})
 	Convey("When I again subtract 2 from RM", t, func() {
-		err := rm.subtract(key, 2)
-		So(rm[key], ShouldEqual, 0)
+		err := resMap.subtract(key, 2)
+		So(resMap[key], ShouldEqual, 0)
 		So(err, ShouldBeNil)
 	})
 }
@@ -77,7 +77,7 @@ func TestAddRM(t *testing.T) {
 	int64Max := int64(9223372036854775807)
 	key2 := "foo2"
 	key3 := "foo3"
-	rm := resourceMap{key: 2, key2: 3}
+	rm1 := resourceMap{key: 2, key2: 3}
 	rm2 := resourceMap{key: 4, key2: 5, key3: int64Max}
 	rm3 := resourceMap{key: 2, key2: 3, key3: int64Max}
 
@@ -89,10 +89,10 @@ func TestAddRM(t *testing.T) {
 		So(err, ShouldEqual, errOverflow)
 	})
 	Convey("When I add RM to another RM which fits", t, func() {
-		err := rm.addRM(rm2)
-		So(rm[key], ShouldEqual, 6)
-		So(rm[key2], ShouldEqual, 8)
-		So(rm[key3], ShouldEqual, int64Max)
+		err := rm1.addRM(rm2)
+		So(rm1[key], ShouldEqual, 6)
+		So(rm1[key2], ShouldEqual, 8)
+		So(rm1[key3], ShouldEqual, int64Max)
 		So(err, ShouldBeNil)
 	})
 }

@@ -34,26 +34,29 @@ var (
 	xeLinkReg   = regexp.MustCompile(regexXeLink)
 )
 
-type DisabledTilesMap map[string][]int
-type DescheduledTilesMap map[string][]int
-type PreferredTilesMap map[string][]int
+type (
+	DisabledTilesMap    map[string][]int
+	DescheduledTilesMap map[string][]int
+	PreferredTilesMap   map[string][]int
+)
 
 // Return all resources requests and samegpuSearchmap indicating which resourceRequests
 // should be counted together. samegpuSearchmap is same length as samegpuContainerNames arg,
 // Key is index of allResource item, value is true if container was listed in same-gpu annotation.
 func containerRequests(pod *v1.Pod, samegpuContainerNames map[string]bool) (
-	map[int]bool, []resourceMap) {
+	map[int]bool, []resourceMap,
+) {
 	samegpuSearchMap := map[int]bool{}
 	allResources := []resourceMap{}
 
 	for idx, container := range pod.Spec.Containers {
-		rm := resourceMap{}
+		resMap := resourceMap{}
 
 		for name, quantity := range container.Resources.Requests {
 			resourceName := name.String()
 			if strings.HasPrefix(resourceName, gpuPrefix) {
 				value, _ := quantity.AsInt64()
-				rm[resourceName] = value
+				resMap[resourceName] = value
 			}
 		}
 
@@ -61,7 +64,7 @@ func containerRequests(pod *v1.Pod, samegpuContainerNames map[string]bool) (
 			samegpuSearchMap[idx] = true
 		}
 
-		allResources = append(allResources, rm)
+		allResources = append(allResources, resMap)
 	}
 
 	return samegpuSearchMap, allResources
@@ -81,26 +84,27 @@ func addPCIGroupGPUs(node *v1.Node, card string, cards []string) []string {
 	return cards
 }
 
+func extractCardAndTile(cardTileCombo string) (string, int, error) {
+	card := ""
+	tile := -1
+
+	values := cardTileReg.FindStringSubmatch(cardTileCombo)
+	if len(values) != regexDesiredCount {
+		return card, tile, errExtractFail
+	}
+
+	card = "card" + values[1]
+	tile, _ = strconv.Atoi(values[2])
+
+	return card, tile, nil
+}
+
 func createTileMapping(labels map[string]string) (
-	DisabledTilesMap, DescheduledTilesMap, PreferredTilesMap) {
+	DisabledTilesMap, DescheduledTilesMap, PreferredTilesMap,
+) {
 	disabled := DisabledTilesMap{}
 	descheduled := DescheduledTilesMap{}
 	preferred := PreferredTilesMap{}
-
-	extractCardAndTile := func(cardTileCombo string) (card string, tile int, err error) {
-		card = ""
-		tile = -1
-
-		values := cardTileReg.FindStringSubmatch(cardTileCombo)
-		if len(values) != regexDesiredCount {
-			return card, tile, errExtractFail
-		}
-
-		card = "card" + values[1]
-		tile, _ = strconv.Atoi(values[2])
-
-		return card, tile, nil
-	}
 
 	for label, value := range labels {
 		stripped, ok := labelWithoutTASNS(label)
@@ -162,7 +166,8 @@ func createDisabledTileMapping(labels map[string]string) map[string][]int {
 
 // creates two card to tile-index maps where first is disabled and second is preferred mapping.
 func createDisabledAndPreferredTileMapping(labels map[string]string) (
-	DisabledTilesMap, PreferredTilesMap) {
+	DisabledTilesMap, PreferredTilesMap,
+) {
 	dis, des, pref := createTileMapping(labels)
 
 	combineMappings(des, dis)
@@ -219,7 +224,7 @@ func concatenateSplitLabel(node *v1.Node, labelName string) string {
 	postFix := 2
 	value := node.Labels[labelName]
 
-	for continuingLabelValue, ok := node.Labels[labelName+strconv.Itoa(postFix)]; ok; {
+	for continuingLabelValue, ok1 := node.Labels[labelName+strconv.Itoa(postFix)]; ok1; {
 		if !strings.HasPrefix(continuingLabelValue, labelControlChar) {
 			klog.Warningf("concatenated chuck has invalid prefix: %s", continuingLabelValue[:len(labelControlChar)])
 
@@ -229,7 +234,7 @@ func concatenateSplitLabel(node *v1.Node, labelName string) string {
 		value += continuingLabelValue[len(labelControlChar):]
 
 		postFix++
-		continuingLabelValue, ok = node.Labels[labelName+strconv.Itoa(postFix)]
+		continuingLabelValue, ok1 = node.Labels[labelName+strconv.Itoa(postFix)]
 	}
 
 	return value
@@ -398,7 +403,12 @@ type linkInfo struct {
 }
 
 func parseXeLink(link string) (linkInfo, error) {
-	lInfo := linkInfo{}
+	lInfo := linkInfo{
+		lZeroDeviceID:          0,
+		lZeroSubdeviceID:       0,
+		linkedLZeroDeviceID:    0,
+		linkedLZeroSubdeviceID: 0,
+	}
 
 	submatches := xeLinkReg.FindStringSubmatch(link)
 

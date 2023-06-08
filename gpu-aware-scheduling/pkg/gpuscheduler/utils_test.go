@@ -40,14 +40,14 @@ func TestGetXeLinkedGPUInfo(t *testing.T) {
 
 		// remember links are in lzero identifiers, gpu names are numbered from devfs
 		// so 1.0-2.1 = card2-card3 if gpu numbers happen to start from 1 instead of 0
-		name, id := getXeLinkedGPUInfo("card2", 0, &node)
+		name, linkedLZeroSubdeviceID := getXeLinkedGPUInfo("card2", 0, &node)
 		So(name, ShouldEqual, "card3")
-		So(id, ShouldEqual, 1)
+		So(linkedLZeroSubdeviceID, ShouldEqual, 1)
 
 		// no link test
-		name, id = getXeLinkedGPUInfo("card8", 0, &node)
+		name, linkedLZeroSubdeviceID = getXeLinkedGPUInfo("card8", 0, &node)
 		So(name, ShouldEqual, "")
-		So(id, ShouldEqual, -1)
+		So(linkedLZeroSubdeviceID, ShouldEqual, -1)
 	})
 
 	Convey("When gpu-numbers are malformed", t, func() {

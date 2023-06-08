@@ -7,18 +7,13 @@ linters:
   enable-all: true
   disable:
     - paralleltest
-    - gomoddirectives
     - exhaustivestruct
-    - varnamelen
-    - gofumpt
-    - nonamedreturns
-    - exhaustruct
 
 linters-settings:
   gofmt:
     simplify: true
   gofumpt:
-    lang-version: "1.18"
+    lang-version: "1.19"
   golint:
     min-confidence: 0.9
   govet:
@@ -26,13 +21,13 @@ linters-settings:
     enable:
     - "fieldalignment"
   gocyclo:
-    min-complexity: 15
+    min-complexity: 10
   gocognit:
     min-complexity: 31
   funlen:
     lines: 70
   cyclop:
-    max-complexity: 12
+    max-complexity: 10
 
 issues:
   exclude-rules:
@@ -45,3 +40,7 @@ issues:
         - goimports
         - gofmt
         - unparam
+        - exhaustivestruct
+        - exhaustruct
+        - gocyclo
+        - cyclop

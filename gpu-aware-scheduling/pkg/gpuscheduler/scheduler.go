@@ -49,11 +49,11 @@ const (
 	gpuPluginResource        = gpuPrefix + "i915"
 	gpuTileResource          = gpuPrefix + "tiles"
 	numaMappingLabel         = gpuPrefix + "numa-gpu-map"
-	l1                       = klog.Level(1)
-	l2                       = klog.Level(2)
-	l3                       = klog.Level(3)
-	l4                       = klog.Level(4)
-	l5                       = klog.Level(5)
+	logL1                    = klog.Level(1)
+	logL2                    = klog.Level(2)
+	logL3                    = klog.Level(3)
+	logL4                    = klog.Level(4)
+	logL5                    = klog.Level(5)
 	maxLabelParts            = 2
 	numaSplitParts           = 2
 	base10                   = 10
@@ -99,20 +99,35 @@ type Card struct {
 
 // NewGASExtender returns a new GAS Extender.
 func NewGASExtender(clientset kubernetes.Interface, enableAllowlist,
-	enableDenylist bool, balanceResource string) *GASExtender {
+	enableDenylist bool, balanceResource string,
+) *GASExtender {
 	return &GASExtender{
-		cache:            iCache.NewCache(clientset),
 		clientset:        clientset,
+		cache:            iCache.NewCache(clientset),
+		balancedResource: balanceResource,
+		rwmutex:          sync.RWMutex{},
 		allowlistEnabled: enableAllowlist,
 		denylistEnabled:  enableDenylist,
-		balancedResource: balanceResource,
+	}
+}
+
+func createPatchOptions() *metav1.PatchOptions {
+	return &metav1.PatchOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "",
+			APIVersion: "",
+		},
+		DryRun:          []string{},
+		Force:           nil,
+		FieldManager:    "",
+		FieldValidation: "",
 	}
 }
 
 func (m *GASExtender) annotatePodBind(ctx context.Context, annotation, tileAnnotation string, pod *v1.Pod) error {
 	var err error
 
-	ts := strconv.FormatInt(time.Now().UnixNano(), base10)
+	timeStamp := strconv.FormatInt(time.Now().UnixNano(), base10)
 
 	var payload []patchValue
 
@@ -129,7 +144,7 @@ func (m *GASExtender) annotatePodBind(ctx context.Context, annotation, tileAnnot
 	payload = append(payload, patchValue{
 		Op:    "add",
 		Path:  "/metadata/annotations/" + tsAnnotationName,
-		Value: ts,
+		Value: timeStamp,
 	})
 
 	payload = append(payload, patchValue{
@@ -154,9 +169,9 @@ func (m *GASExtender) annotatePodBind(ctx context.Context, annotation, tileAnnot
 	}
 
 	_, err = m.clientset.CoreV1().Pods(pod.GetNamespace()).Patch(
-		ctx, pod.GetName(), types.JSONPatchType, payloadBytes, metav1.PatchOptions{})
+		ctx, pod.GetName(), types.JSONPatchType, payloadBytes, *createPatchOptions())
 	if err == nil {
-		klog.V(l2).Infof("Annotated pod %v with annotation %v", pod.GetName(), annotation)
+		klog.V(logL2).Infof("Annotated pod %v with annotation %v", pod.GetName(), annotation)
 	} else {
 		klog.Errorf("Pod %s annotating failed. Err %v", pod.GetName(), err.Error())
 		err = fmt.Errorf("pod %s annotation failed: %w", pod.GetName(), err)
@@ -183,7 +198,7 @@ func getNodeGPUList(node *v1.Node) []string {
 		return nil
 	}
 
-	var cards = []string{}
+	cards := []string{}
 
 	if gpuNumbersValue := concatenateSplitLabel(node, gpuNumbersLabel); gpuNumbersValue != "" {
 		cards = getCardNameSlice(gpuNumbersValue)
@@ -272,12 +287,12 @@ func (m *GASExtender) isGPUUsable(gpuName string, node *v1.Node, pod *v1.Pod) bo
 // 3) there is an allowlist-annotation in the Pod, and it contains the given GPU name -> true.
 func (m *GASExtender) isGPUAllowed(gpuName string, pod *v1.Pod) bool {
 	if !m.allowlistEnabled || pod.Annotations == nil {
-		klog.V(l5).InfoS("gpu allowed", "gpuName", gpuName, "podName", pod.Name, "allowlistEnabled", m.allowlistEnabled)
+		klog.V(logL5).InfoS("gpu allowed", "gpuName", gpuName, "podName", pod.Name, "allowlistEnabled", m.allowlistEnabled)
 
 		return true
 	}
 
-	allow := false
+	var allow bool
 
 	csvAllowlist, ok := pod.Annotations[allowlistAnnotationName]
 	if ok {
@@ -287,7 +302,7 @@ func (m *GASExtender) isGPUAllowed(gpuName string, pod *v1.Pod) bool {
 		allow = true
 	}
 
-	klog.V(l4).InfoS("gpu allow status",
+	klog.V(logL4).InfoS("gpu allow status",
 		"allow", allow, "gpuName", gpuName, "podName", pod.Name, "allowlist", csvAllowlist)
 
 	return allow
@@ -299,7 +314,8 @@ func (m *GASExtender) isGPUAllowed(gpuName string, pod *v1.Pod) bool {
 // Otherwise, GPU is not considered denied. Usage of allowlist at the same time, might make it in practice denied.
 func (m *GASExtender) isGPUDenied(gpuName string, pod *v1.Pod) bool {
 	if !m.denylistEnabled || pod.Annotations == nil {
-		klog.V(l5).InfoS("gpu use not denied", "gpuName", gpuName, "podName", pod.Name, "denylistEnabled", m.denylistEnabled)
+		klog.V(logL5).InfoS("gpu use not denied",
+			"gpuName", gpuName, "podName", pod.Name, "denylistEnabled", m.denylistEnabled)
 
 		return false
 	}
@@ -312,7 +328,7 @@ func (m *GASExtender) isGPUDenied(gpuName string, pod *v1.Pod) bool {
 		deny = deniedGPUs[gpuName]
 	}
 
-	klog.V(l4).InfoS("gpu deny status", "deny", deny, "gpuName", gpuName, "podName", pod.Name, "denylist", csvDenylist)
+	klog.V(logL4).InfoS("gpu deny status", "deny", deny, "gpuName", gpuName, "podName", pod.Name, "denylist", csvDenylist)
 
 	return deny
 }
@@ -361,7 +377,8 @@ func movePreferredCardToFront(gpuNames []string, preferredCard string) {
 
 // The given gpuNames array must be sorted.
 func arrangeGPUNamesPerResourceAvailability(nodeResourcesUsed nodeResources,
-	gpuNames []string, balancedResource string) {
+	gpuNames []string, balancedResource string,
+) {
 	keys := make([]string, 0, len(gpuNames))
 	keys = append(keys, gpuNames...)
 
@@ -390,7 +407,8 @@ func getSortedGPUNamesForNode(nodeResourcesUsed nodeResources) []string {
 }
 
 func (m *GASExtender) createTileAnnotation(card Card, numCards int64, containerRequest, perGPUCapacity resourceMap,
-	node *v1.Node, currentlyAllocatingTilesMap map[string][]int, preferredTiles []int) string {
+	node *v1.Node, currentlyAllocatingTilesMap map[string][]int, preferredTiles []int,
+) string {
 	requestedTiles := containerRequest[gpuTileResource]
 
 	requestedTilesPerGPU := requestedTiles / numCards
@@ -439,7 +457,8 @@ func (m *GASExtender) createTileAnnotation(card Card, numCards int64, containerR
 }
 
 func (m *GASExtender) getFreeTiles(tileCapacityPerGPU int64, node *v1.Node,
-	gpuName string, currentlyAllocatingTilesMap map[string][]int) []int {
+	gpuName string, currentlyAllocatingTilesMap map[string][]int,
+) []int {
 	nTiles := iCache.GetNodeTileStatus(m.cache, node.Name)
 	freeTilesMap := map[int]bool{}
 
@@ -469,9 +488,10 @@ func (m *GASExtender) getFreeTiles(tileCapacityPerGPU int64, node *v1.Node,
 }
 
 func (m *GASExtender) checkGpuAvailability(gpuName string, node *v1.Node, pod *v1.Pod,
-	usedGPUmap map[string]bool, gpuMap map[string]bool) bool {
+	usedGPUmap map[string]bool, gpuMap map[string]bool,
+) bool {
 	if usedGPUmap[gpuName] {
-		klog.V(l4).Infof("gpu %v is already used for this container", gpuName)
+		klog.V(logL4).Infof("gpu %v is already used for this container", gpuName)
 
 		return false
 	}
@@ -482,7 +502,7 @@ func (m *GASExtender) checkGpuAvailability(gpuName string, node *v1.Node, pod *v
 
 	// skip GPUs which are not usable and continue to next if need be
 	if !m.isGPUUsable(gpuName, node, pod) {
-		klog.V(l4).Infof("node %v gpu %v is not usable, skipping it", node.Name, gpuName)
+		klog.V(logL4).Infof("node %v gpu %v is not usable, skipping it", node.Name, gpuName)
 
 		return false
 	}
@@ -506,26 +526,24 @@ func (m *GASExtender) findXeLinkedGPUPair(gpuNames []string,
 	nodeResourcesUsed nodeResources,
 	availableTiles, nodeTilesAllocating nodeTiles,
 	perGPUResourceRequest, perGPUCapacity resourceMap,
-	gpuMap, usedGPUmap map[string]bool) (cards []Card, err error) {
-	cards = []Card{}
-	err = errWontFit
+	gpuMap, usedGPUmap map[string]bool,
+) ([]Card, error) {
+	cards := []Card{}
+	err := errWontFit
 	found := false
 
 	for _, gpuName := range gpuNames {
 		usedResMap := nodeResourcesUsed[gpuName]
-		klog.V(l4).Info("Checking gpu ", gpuName)
+		klog.V(logL4).Info("Checking gpu ", gpuName)
 
-		if !m.checkGpuAvailability(gpuName, node, pod, usedGPUmap, gpuMap) {
-			continue
-		}
-
-		if !checkResourceCapacity(perGPUResourceRequest, perGPUCapacity, usedResMap) {
+		if !m.checkGpuAvailability(gpuName, node, pod, usedGPUmap, gpuMap) ||
+			!checkResourceCapacity(perGPUResourceRequest, perGPUCapacity, usedResMap) {
 			continue
 		}
 
 		for _, tileIndex := range availableTiles[gpuName] {
 			linkedGpuName, linkedTileID := getXeLinkedGPUInfo(gpuName, tileIndex, node)
-			klog.V(l4).Infof("Checking linked gpu %v tile id %v", gpuName, linkedTileID)
+			klog.V(logL4).Infof("Checking linked gpu %v tile id %v", gpuName, linkedTileID)
 
 			if !m.checkGpuAvailability(linkedGpuName, node, pod, usedGPUmap, gpuMap) {
 				continue
@@ -534,26 +552,22 @@ func (m *GASExtender) findXeLinkedGPUPair(gpuNames []string,
 			linkedGpuUsedResMap := nodeResourcesUsed[linkedGpuName]
 			if contains, _ := containsInt(availableTiles[linkedGpuName], linkedTileID); contains &&
 				checkResourceCapacity(perGPUResourceRequest, perGPUCapacity, linkedGpuUsedResMap) {
-				err = usedResMap.addRM(perGPUResourceRequest)
-				if err != nil {
-					return []Card{}, err
-				}
+				// can't fail, checked with checkResourceCapacity at around line 540
+				_ = usedResMap.addRM(perGPUResourceRequest)
 
-				err = linkedGpuUsedResMap.addRM(perGPUResourceRequest)
-				if err != nil {
-					err2 := usedResMap.subtractRM(perGPUResourceRequest)
-					klog.Errorf("resource addition failure: %v, subtraction result: %v", err.Error(), err2)
+				// can't fail, checked with checkResourceCapacity at around line 554
+				_ = linkedGpuUsedResMap.addRM(perGPUResourceRequest)
 
-					return []Card{}, err
-				}
-
-				klog.V(l4).Infof("gpu %v tile id %v and linked gpu %v tile id %v fits",
+				klog.V(logL4).Infof("gpu %v tile id %v and linked gpu %v tile id %v fits",
 					gpuName, tileIndex, linkedGpuName, linkedTileID)
 
 				found = true
+				err = nil
 
-				cards = append(cards, []Card{{gpuName: gpuName, xeLinkedTileIds: []int{tileIndex}},
-					{gpuName: linkedGpuName, xeLinkedTileIds: []int{linkedTileID}}}...)
+				cards = append(cards, []Card{
+					{gpuName: gpuName, xeLinkedTileIds: []int{tileIndex}},
+					{gpuName: linkedGpuName, xeLinkedTileIds: []int{linkedTileID}},
+				}...)
 				usedGPUmap[gpuName] = true
 				usedGPUmap[linkedGpuName] = true
 
@@ -577,8 +591,11 @@ func (m *GASExtender) getXELinkedCardsForContainerGPURequest(containerRequest, p
 	node *v1.Node, pod *v1.Pod,
 	nodeResourcesUsed nodeResources,
 	nodeTilesAllocating nodeTiles,
-	gpuMap map[string]bool) (cards []Card, preferred bool, err error) {
-	cards = []Card{}
+	gpuMap map[string]bool,
+) ([]Card, bool, error) {
+	var preferred bool
+
+	cards := []Card{}
 
 	if len(containerRequest) == 0 {
 		return cards, preferred, nil
@@ -611,7 +628,6 @@ func (m *GASExtender) getXELinkedCardsForContainerGPURequest(containerRequest, p
 
 		cardPair, err := m.findXeLinkedGPUPair(gpuNames, node, pod, nodeResourcesUsed, availableTiles, nodeTilesAllocating,
 			perGPUResourceRequest, perGPUCapacity, gpuMap, usedGPUmap)
-
 		if err != nil {
 			return []Card{}, preferred, err
 		}
@@ -627,13 +643,23 @@ func (m *GASExtender) getXELinkedCardsForContainerGPURequest(containerRequest, p
 func (m *GASExtender) getCardsForContainerGPURequest(containerRequest, perGPUCapacity resourceMap,
 	node *v1.Node, pod *v1.Pod,
 	nodeResourcesUsed nodeResources,
-	gpuMap map[string]bool) (cards []Card, preferred bool, err error) {
-	cards = []Card{}
-
+	gpuMap map[string]bool,
+) ([]Card, bool, error) {
 	if len(containerRequest) == 0 {
-		return cards, preferred, nil
+		return []Card{}, false, nil
 	}
 
+	return m.getCardsForContainerGPURequestImpl(containerRequest, perGPUCapacity, node, pod, nodeResourcesUsed, gpuMap)
+}
+
+func (m *GASExtender) getCardsForContainerGPURequestImpl(containerRequest, perGPUCapacity resourceMap,
+	node *v1.Node, pod *v1.Pod,
+	nodeResourcesUsed nodeResources,
+	gpuMap map[string]bool,
+) ([]Card, bool, error) {
+	var preferred bool
+
+	cards := []Card{}
 	usedGPUmap := map[string]bool{}
 
 	// figure out container resources per gpu
@@ -653,31 +679,33 @@ func (m *GASExtender) getCardsForContainerGPURequest(containerRequest, perGPUCap
 
 		for gpuIndex, gpuName := range gpuNames {
 			usedResMap := nodeResourcesUsed[gpuName]
-			klog.V(l4).Info("Checking gpu ", gpuName)
+			klog.V(logL4).Info("Checking gpu ", gpuName)
 
 			if !m.checkGpuAvailability(gpuName, node, pod, usedGPUmap, gpuMap) {
 				continue
 			}
 
 			if checkResourceCapacity(perGPUResourceRequest, perGPUCapacity, usedResMap) {
-				err := usedResMap.addRM(perGPUResourceRequest)
-				if err == nil {
-					fitted = true
+				// can't fail, checked with checkResourceCapacity above
+				_ = usedResMap.addRM(perGPUResourceRequest)
+				fitted = true
 
-					if gpuIndex == 0 && preferredCardAtFront {
-						preferred = true
-					}
-
-					cards = append(cards, Card{gpuName: gpuName})
-					usedGPUmap[gpuName] = true
+				if gpuIndex == 0 && preferredCardAtFront {
+					preferred = true
 				}
+
+				cards = append(cards, Card{
+					gpuName:         gpuName,
+					xeLinkedTileIds: []int{},
+				})
+				usedGPUmap[gpuName] = true
 
 				break
 			}
 		}
 
 		if !fitted {
-			klog.V(l4).Infof("pod %v will not fit node %v", pod.Name, node.Name)
+			klog.V(logL4).Infof("pod %v will not fit node %v", pod.Name, node.Name)
 
 			return nil, false, errWontFit
 		}
@@ -741,7 +769,6 @@ func combineSamegpuResourceRequests(indexMap map[int]bool, resourceRequests []re
 
 func (m *GASExtender) getNodeForName(name string) (*v1.Node, error) {
 	node, err := iCache.FetchNode(m.cache, name)
-
 	if err != nil {
 		klog.Warningf("Node %s couldn't be read or node vanished", name)
 
@@ -822,7 +849,7 @@ func (m *GASExtender) checkForSpaceAndRetrieveCards(pod *v1.Pod, node *v1.Node) 
 	}
 
 	gpus := getNodeGPUList(node)
-	klog.V(l4).Infof("Node %v gpu list: %v", node.Name, gpus)
+	klog.V(logL4).Infof("Node %v gpu list: %v", node.Name, gpus)
 	gpuCount := len(gpus)
 
 	if gpuCount == 0 {
@@ -832,8 +859,8 @@ func (m *GASExtender) checkForSpaceAndRetrieveCards(pod *v1.Pod, node *v1.Node) 
 	}
 
 	perGPUCapacity := getPerGPUResourceCapacity(node, gpuCount)
-	nodeResourcesUsed, err := m.readNodeResources(node.Name)
 
+	nodeResourcesUsed, err := m.readNodeResources(node.Name)
 	if err != nil {
 		klog.Warningf("Node %s resources couldn't be read or node vanished", node.Name)
 
@@ -849,14 +876,14 @@ func (m *GASExtender) checkForSpaceAndRetrieveCards(pod *v1.Pod, node *v1.Node) 
 	tilesPerGpu := perGPUCapacity[gpuTileResource]
 	unavailableResources := m.createUnavailableNodeResources(node, tilesPerGpu)
 
-	klog.V(l4).Infof("Node %v unavailable resources: %v", node.Name, unavailableResources)
+	klog.V(logL4).Infof("Node %v unavailable resources: %v", node.Name, unavailableResources)
 
 	// add unavailable resources as used, unavailable resources are
 	// (possible) unused resources but are marked as do-not-use externally
 	// e.g. too high temperature detected on a particular resource
 	addUnavailableToUsedResources(nodeResourcesUsed, unavailableResources)
 
-	klog.V(l4).Infof("Node %v used resources: %v", node.Name, nodeResourcesUsed)
+	klog.V(logL4).Infof("Node %v used resources: %v", node.Name, nodeResourcesUsed)
 
 	containerCards, preferred, err = m.checkForSpaceResourceRequests(
 		perGPUCapacity, pod, node, nodeResourcesUsed, gpuMaps)
@@ -865,7 +892,8 @@ func (m *GASExtender) checkForSpaceAndRetrieveCards(pod *v1.Pod, node *v1.Node) 
 }
 
 func (m *GASExtender) checkForSpaceResourceRequests(perGPUCapacity resourceMap, pod *v1.Pod, node *v1.Node,
-	nodeResourcesUsed nodeResources, gpuMaps []map[string]bool) ([][]Card, bool, error) {
+	nodeResourcesUsed nodeResources, gpuMaps []map[string]bool,
+) ([][]Card, bool, error) {
 	var err error
 
 	var cards []Card
@@ -892,9 +920,9 @@ func (m *GASExtender) checkForSpaceResourceRequests(perGPUCapacity resourceMap, 
 
 	nodeTilesAllocating := nodeTiles{}
 
-	for i, containerRequest := range allContainerRequests {
-		if samegpuIndexMap[i] {
-			klog.V(l4).Infof("found container %v in same-gpu list", i)
+	for index, containerRequest := range allContainerRequests {
+		if samegpuIndexMap[index] {
+			klog.V(logL4).Infof("found container %v in same-gpu list", index)
 
 			containerCards = append(containerCards, samegpuCard)
 
@@ -903,7 +931,7 @@ func (m *GASExtender) checkForSpaceResourceRequests(perGPUCapacity resourceMap, 
 
 		// loop through gpu maps per numa node, or all gpus if single numa allocation is not requested
 		for _, gpuMap := range gpuMaps {
-			klog.V(l4).Infof("getting cards for container %v", i)
+			klog.V(logL4).Infof("getting cards for container %v", index)
 
 			if _, ok := pod.Annotations[xelinkAnnotationName]; ok {
 				cards, preferred, err = m.getXELinkedCardsForContainerGPURequest(containerRequest, perGPUCapacity,
@@ -921,7 +949,7 @@ func (m *GASExtender) checkForSpaceResourceRequests(perGPUCapacity resourceMap, 
 		}
 
 		if err != nil {
-			klog.V(l4).Infof("Node %v container %v out of %v did not fit", node.Name, i+1, len(allContainerRequests))
+			klog.V(logL4).Infof("Node %v container %v out of %v did not fit", node.Name, index+1, len(allContainerRequests))
 
 			return containerCards, preferred, err
 		}
@@ -932,7 +960,8 @@ func (m *GASExtender) checkForSpaceResourceRequests(perGPUCapacity resourceMap, 
 
 func (m *GASExtender) getCardForSamegpu(samegpuIndexMap map[int]bool, allContainerRequests []resourceMap,
 	perGPUCapacity resourceMap, node *v1.Node, pod *v1.Pod, nodeResourcesUsed nodeResources,
-	gpuMap map[string]bool) ([]Card, bool, error) {
+	gpuMap map[string]bool,
+) ([]Card, bool, error) {
 	gpuMapCopy := deepCopySimpleMap(gpuMap)
 
 	if err := sanitizeSamegpuResourcesRequest(samegpuIndexMap, allContainerRequests); err != nil {
@@ -955,7 +984,7 @@ func (m *GASExtender) getCardForSamegpu(samegpuIndexMap map[int]bool, allContain
 	samegpuCard, preferred, err := m.getCardsForContainerGPURequest(
 		combinedResourcesRequest, perGPUCapacity, node, pod, nodeResourcesUsed, gpuMapCopy)
 	if err != nil {
-		klog.V(l4).Infof("Node %v same-gpu containers of pod %v did not fit", node.Name, pod.Name)
+		klog.V(logL4).Infof("Node %v same-gpu containers of pod %v did not fit", node.Name, pod.Name)
 
 		return []Card{}, false, err
 	}
@@ -969,8 +998,8 @@ func (m *GASExtender) getCardForSamegpu(samegpuIndexMap map[int]bool, allContain
 		return []Card{}, false, err
 	}
 
-	klog.V(l4).Infof("Pod %v same-gpu containers fit to node %v", pod.Name, node.Name)
-	klog.V(l4).Infof("Node %v used resources: %v", node.Name, nodeResourcesUsed)
+	klog.V(logL4).Infof("Pod %v same-gpu containers fit to node %v", pod.Name, node.Name)
+	klog.V(logL4).Infof("Node %v used resources: %v", node.Name, nodeResourcesUsed)
 
 	return samegpuCard, preferred, nil
 }
@@ -978,9 +1007,13 @@ func (m *GASExtender) getCardForSamegpu(samegpuIndexMap map[int]bool, allContain
 // convertNodeCardsToAnnotations converts given container cards into card and tile
 // annotation strings.
 func (m *GASExtender) convertNodeCardsToAnnotations(pod *v1.Pod,
-	node *v1.Node, containerCards [][]Card) (annotation, tileAnnotation string) {
+	node *v1.Node, containerCards [][]Card,
+) (string, string) {
+	annotation := ""
+	tileAnnotation := ""
 	gpuCount := len(getNodeGPUList(node))
-	klog.V(l4).Info("Node gpu count:", gpuCount)
+
+	klog.V(logL4).Info("Node gpu count:", gpuCount)
 
 	perGPUCapacity := getPerGPUResourceCapacity(node, gpuCount)
 
@@ -1059,7 +1092,8 @@ func (m *GASExtender) createUnavailableTilesStat(node *v1.Node, tilesPerGpu int,
 func (m *GASExtender) createAvailableXeLinkedTilesStat(node *v1.Node,
 	tileCapacityPerGPU int,
 	gpuNames []string,
-	nodeTilesAllocating nodeTiles) nodeTiles {
+	nodeTilesAllocating nodeTiles,
+) nodeTiles {
 	availableTiles := nodeTiles{}
 
 	unavailableTiles := m.createUnavailableTilesStat(node, tileCapacityPerGPU, nodeTilesAllocating)
@@ -1126,7 +1160,7 @@ func checkResourceCapacity(neededResources, capacity, used resourceMap) bool {
 
 		resCapacity, ok := capacity[resName]
 		if !ok || resCapacity <= 0 {
-			klog.V(l4).Info(" no capacity available for ", resName)
+			klog.V(logL4).Info(" no capacity available for ", resName)
 
 			return false
 		}
@@ -1139,7 +1173,7 @@ func checkResourceCapacity(neededResources, capacity, used resourceMap) bool {
 			return false
 		}
 
-		klog.V(l4).Info(" resource ", resName, " capacity:", strconv.FormatInt(resCapacity, base10), " used:",
+		klog.V(logL4).Info(" resource ", resName, " capacity:", strconv.FormatInt(resCapacity, base10), " used:",
 			strconv.FormatInt(resUsed, base10), " need:", strconv.FormatInt(resNeed, base10))
 
 		if resUsed+resNeed < 0 {
@@ -1149,13 +1183,13 @@ func checkResourceCapacity(neededResources, capacity, used resourceMap) bool {
 		}
 
 		if resCapacity < resUsed+resNeed {
-			klog.V(l4).Info(" not enough resources")
+			klog.V(logL4).Info(" not enough resources")
 
 			return false
 		}
 	}
 
-	klog.V(l4).Info(" there is enough resources")
+	klog.V(logL4).Info(" there is enough resources")
 
 	return true
 }
@@ -1178,18 +1212,75 @@ func (m *GASExtender) retrievePod(podName, podNamespace string, uid types.UID) (
 	return pod, nil
 }
 
+func createBindResult() *extender.BindingResult {
+	return &extender.BindingResult{
+		Error: "",
+	}
+}
+
+func createV1Binding(args *extender.BindingArgs) *v1.Binding {
+	return &v1.Binding{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "",
+			APIVersion: "",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            args.PodName,
+			GenerateName:    "",
+			Namespace:       "",
+			SelfLink:        "",
+			UID:             args.PodUID,
+			ResourceVersion: "",
+			Generation:      0,
+			CreationTimestamp: metav1.Time{
+				Time: time.Time{},
+			},
+			DeletionTimestamp: &metav1.Time{
+				Time: time.Time{},
+			},
+			DeletionGracePeriodSeconds: new(int64),
+			Labels:                     map[string]string{},
+			Annotations:                map[string]string{},
+			OwnerReferences:            []metav1.OwnerReference{},
+			Finalizers:                 []string{},
+			ManagedFields:              []metav1.ManagedFieldsEntry{},
+		},
+		Target: v1.ObjectReference{
+			Kind:            "Node",
+			Namespace:       "",
+			Name:            args.Node,
+			UID:             "",
+			APIVersion:      "",
+			ResourceVersion: "",
+			FieldPath:       "",
+		},
+	}
+}
+
+func createOptions() *metav1.CreateOptions {
+	return &metav1.CreateOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "",
+			APIVersion: "",
+		},
+		DryRun:          []string{},
+		FieldManager:    "",
+		FieldValidation: "",
+	}
+}
+
 func (m *GASExtender) bindNode(ctx context.Context, args *extender.BindingArgs) *extender.BindingResult {
-	result := extender.BindingResult{}
+	result := createBindResult()
 
 	pod, err := m.retrievePod(args.PodName, args.PodNamespace, args.PodUID)
 	if err != nil {
 		result.Error = err.Error()
 
-		return &result
+		return result
 	}
 
 	m.rwmutex.Lock()
-	klog.V(l5).Infof("bind %v:%v to node %v locked", args.PodNamespace, args.PodName, args.Node)
+	klog.V(logL5).Infof("bind %v:%v to node %v locked", args.PodNamespace, args.PodName, args.Node)
 	defer m.rwmutex.Unlock()
 
 	resourcesAdjusted := false
@@ -1213,42 +1304,60 @@ func (m *GASExtender) bindNode(ctx context.Context, args *extender.BindingArgs) 
 	// pod should always fit, but one never knows if something bad happens between filtering and binding
 	node, err := m.getNodeForName(args.Node)
 	if err != nil {
-		return &result
+		return result
 	}
 
 	cards, _, err := m.checkForSpaceAndRetrieveCards(pod, node)
 	if err != nil {
-		return &result
+		return result
 	}
 
 	annotation, tileAnnotation = m.convertNodeCardsToAnnotations(pod, node, cards)
 	if annotation == "" {
-		return &result
+		return result
 	}
 
-	klog.V(l3).Infof("bind %v:%v to node %v annotation %v tileAnnotation %v",
+	klog.V(logL3).Infof("bind %v:%v to node %v annotation %v tileAnnotation %v",
 		args.PodNamespace, args.PodName, args.Node, annotation, tileAnnotation)
 
 	err = iCache.AdjustPodResourcesL(m.cache, pod, add, annotation, tileAnnotation, args.Node)
 	if err != nil {
-		return &result
+		return result
 	}
 
 	resourcesAdjusted = true
 
 	err = m.annotatePodBind(ctx, annotation, tileAnnotation, pod) // annotate POD with per-container GPU selection
 	if err != nil {
-		return &result
+		return result
 	}
 
-	binding := &v1.Binding{
-		ObjectMeta: metav1.ObjectMeta{Name: args.PodName, UID: args.PodUID},
-		Target:     v1.ObjectReference{Kind: "Node", Name: args.Node},
-	}
-	opts := metav1.CreateOptions{}
-	err = m.clientset.CoreV1().Pods(args.PodNamespace).Bind(ctx, binding, opts)
+	binding := createV1Binding(args)
+	opts := createOptions()
+	err = m.clientset.CoreV1().Pods(args.PodNamespace).Bind(ctx, binding, *opts)
 
-	return &result
+	return result
+}
+
+func createFilterResult() *extender.FilterResult {
+	return &extender.FilterResult{
+		Nodes: &v1.NodeList{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "",
+				APIVersion: "",
+			},
+			ListMeta: metav1.ListMeta{
+				SelfLink:           "",
+				ResourceVersion:    "",
+				Continue:           "",
+				RemainingItemCount: new(int64),
+			},
+			Items: []v1.Node{},
+		},
+		NodeNames:   &[]string{},
+		FailedNodes: map[string]string{},
+		Error:       "",
+	}
 }
 
 // filterNodes takes in the arguments for the scheduler and filters nodes based on
@@ -1259,18 +1368,18 @@ func (m *GASExtender) filterNodes(args *extender.Args) *extender.FilterResult {
 	var preferredNodeNames []string
 
 	failedNodes := extender.FailedNodesMap{}
-	result := extender.FilterResult{}
+	result := createFilterResult()
 
 	if args.NodeNames == nil || len(*args.NodeNames) == 0 {
 		result.Error = "No nodes to compare. " +
 			"This should not happen, perhaps the extender is misconfigured with NodeCacheCapable == false."
 		klog.Error(result.Error)
 
-		return &result
+		return result
 	}
 
 	m.rwmutex.Lock()
-	klog.V(l5).Infof("filter %v:%v from %v locked", args.Pod.Namespace, args.Pod.Name, *args.NodeNames)
+	klog.V(logL5).Infof("filter %v:%v from %v locked", args.Pod.Namespace, args.Pod.Name, *args.NodeNames)
 	defer m.rwmutex.Unlock()
 
 	for _, nodeName := range *args.NodeNames {
@@ -1292,41 +1401,38 @@ func (m *GASExtender) filterNodes(args *extender.Args) *extender.FilterResult {
 		}
 	}
 
-	result = extender.FilterResult{
-		NodeNames:   &nodeNames,
-		FailedNodes: failedNodes,
-		Error:       "",
-	}
+	result.NodeNames = &nodeNames
+	result.FailedNodes = failedNodes
+	result.Error = ""
 
 	if len(preferredNodeNames) > 0 {
 		result.NodeNames = &preferredNodeNames
 	}
 
-	return &result
+	return result
 }
 
 // decodeRequest reads the json request into the given interface args.
 // It returns an error if the request is not in the required format.
-func (m *GASExtender) decodeRequest(args interface{}, r *http.Request) error {
-	if r.Body == nil {
+func (m *GASExtender) decodeRequest(args interface{}, request *http.Request) error {
+	if request.Body == nil {
 		return errEmptyBody
 	}
 
-	if klog.V(l5).Enabled() {
-		requestDump, err := httputil.DumpRequest(r, true)
+	if klog.V(logL5).Enabled() {
+		requestDump, err := httputil.DumpRequest(request, true)
 		if err == nil {
 			klog.Infof("http-request:\n%v", string(requestDump))
 		}
 	}
 
-	decoder := json.NewDecoder(r.Body)
+	decoder := json.NewDecoder(request.Body)
 
 	if err := decoder.Decode(&args); err != nil {
 		return errDecode
 	}
 
-	err := r.Body.Close()
-
+	err := request.Body.Close()
 	if err != nil {
 		err = fmt.Errorf("failed to close request body: %w", err)
 	}
@@ -1344,21 +1450,23 @@ func (m *GASExtender) writeResponse(w http.ResponseWriter, result interface{}) {
 
 // Prioritize manages all prioritize requests from the scheduler extender.
 // Not implemented yet by GAS, hence response with StatusNotFound.
-func (m *GASExtender) Prioritize(w http.ResponseWriter, r *http.Request) {
+func (m *GASExtender) Prioritize(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 }
 
 // Filter manages all filter requests from the scheduler. First it decodes the request,
 // then it calls the filter logic and writes a response to the scheduler.
-func (m *GASExtender) Filter(w http.ResponseWriter, r *http.Request) {
-	klog.V(l4).Info("filter request received")
+func (m *GASExtender) Filter(writer http.ResponseWriter, request *http.Request) {
+	klog.V(logL4).Info("filter request received")
 
+	// extenderArgs is too big of a struct for any sane create-function, funlen would fail
+	//nolint:exhaustruct
 	extenderArgs := extender.Args{}
-	err := m.decodeRequest(&extenderArgs, r)
 
+	err := m.decodeRequest(&extenderArgs, request)
 	if err != nil {
 		klog.Errorf("cannot decode request %v", err)
-		w.WriteHeader(http.StatusNotFound)
+		writer.WriteHeader(http.StatusNotFound)
 
 		return
 	}
@@ -1366,35 +1474,40 @@ func (m *GASExtender) Filter(w http.ResponseWriter, r *http.Request) {
 	filteredNodes := m.filterNodes(&extenderArgs)
 	if filteredNodes.Error != "" {
 		klog.Error("filtering failed")
-		w.WriteHeader(http.StatusNotFound)
+		writer.WriteHeader(http.StatusNotFound)
 	}
 
-	m.writeResponse(w, filteredNodes)
-	klog.V(l4).Info("filter function done, responded")
+	m.writeResponse(writer, filteredNodes)
+	klog.V(logL4).Info("filter function done, responded")
 }
 
 // Bind binds the pod to the node.
-func (m *GASExtender) Bind(w http.ResponseWriter, r *http.Request) {
-	klog.V(l4).Info("bind request received")
+func (m *GASExtender) Bind(writer http.ResponseWriter, request *http.Request) {
+	klog.V(logL4).Info("bind request received")
 
-	extenderArgs := extender.BindingArgs{}
-	err := m.decodeRequest(&extenderArgs, r)
+	extenderArgs := extender.BindingArgs{
+		PodName:      "",
+		PodNamespace: "",
+		PodUID:       "",
+		Node:         "",
+	}
 
+	err := m.decodeRequest(&extenderArgs, request)
 	if err != nil {
 		klog.Errorf("cannot decode request %v", err)
-		w.WriteHeader(http.StatusNotFound)
+		writer.WriteHeader(http.StatusNotFound)
 
 		return
 	}
 
-	result := m.bindNode(r.Context(), &extenderArgs)
+	result := m.bindNode(request.Context(), &extenderArgs)
 	if result.Error != "" {
 		klog.Error("bind failed")
-		w.WriteHeader(http.StatusNotFound)
+		writer.WriteHeader(http.StatusNotFound)
 	}
 
-	m.writeResponse(w, result)
-	klog.V(l4).Info("bind function done, responded")
+	m.writeResponse(writer, result)
+	klog.V(logL4).Info("bind function done, responded")
 }
 
 // error handler deals with requests sent to an invalid endpoint and returns a 404.
@@ -1455,14 +1568,15 @@ func containersRequestingSamegpu(pod *v1.Pod) (map[string]bool, error) {
 		samegpuMap[containerName] = true
 	}
 
-	klog.V(l4).Infof("Successfully parsed %v annotation in pod %v",
+	klog.V(logL4).Infof("Successfully parsed %v annotation in pod %v",
 		samegpuAnnotationName, pod.Name)
 
 	return samegpuMap, nil
 }
 
 func sanitizeSamegpuResourcesRequest(
-	samegpuIndexMap map[int]bool, allResourceRequests []resourceMap) error {
+	samegpuIndexMap map[int]bool, allResourceRequests []resourceMap,
+) error {
 	if len(samegpuIndexMap) == 0 {
 		return nil
 	}
