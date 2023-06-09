@@ -18,10 +18,47 @@ spec:
     spec:
       containers:
       - name: stressng
-        image: localhost:5000/stressng 
-        command: [ "/bin/bash", "-c", "--" ]
-        args: [ "sleep 30; stress-ng --cpu 12 --timeout 300s" ]
+        image: alexeiled/stress-ng:0.12.05
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          capabilities:
+            drop: [ 'ALL' ]
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
+          seccompProfile:
+            type: RuntimeDefault
+          allowPrivilegeEscalation: false
+          runAsUser: 10001
+          runAsGroup: 10001 
+        args: ["--cpu", "12","--timeout", "300s"]
         resources:
+          requests:
+            memory: "100Mi"
+            cpu: 12
           limits:
+            memory: "100Mi"
             telemetry/scheduling: 1
+            cpu: 12
+      initContainers:
+      - name: init-stress-ng
+        image: alpine:3.17.3
+        imagePullPolicy: IfNotPresent
+        command: ["sleep","30"]
+        securityContext:
+          capabilities:
+            drop: [ 'ALL' ]
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
+          seccompProfile:
+            type: RuntimeDefault
+          allowPrivilegeEscalation: false
+          runAsUser: 10001
+          runAsGroup: 10001
+        resources:
+          requests:
+            memory: "50Mi"
+            cpu: "50m"
+          limits:
+            memory: "50Mi"
+            cpu: "50m"
 

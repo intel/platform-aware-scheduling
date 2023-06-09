@@ -4,10 +4,12 @@ metadata:
   labels:
     app.kubernetes.io/name: collectd 
     app.kubernetes.io/version: v5.11
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port:   '9103'
   name: collectd
   namespace: monitoring
 spec:
-  clusterIP: None
   ports:
   - name: http
     port: 9103

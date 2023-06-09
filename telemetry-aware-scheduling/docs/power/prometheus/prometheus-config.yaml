@@ -27,8 +27,8 @@ data:
       scrape_interval: 5s
       scrape_timeout: 5s
     rule_files:
-    - /etc/config/alerting_rules.yml
-    - /etc/config/recording_rules.yml
+    - alerting_rules.yml
+    - recording_rules.yml
     scrape_configs:
     - bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
       job_name: kubernetes-apiservers
@@ -112,7 +112,7 @@ data:
     - job_name: 'collectd'
       scheme: http
       kubernetes_sd_configs:
-      - role: node
+      - role: endpoints
       relabel_configs:
       - source_labels: [__address__]
         regex: ^(.*):\d+$
@@ -120,6 +120,8 @@ data:
         replacement: $1:9103
       - target_label: __scheme__
         replacement: http
+      - source_labels: [__meta_kubernetes_pod_node_name]
+        target_label: instance
       metric_relabel_configs:
       - source_labels: [instance]
         target_label: node
@@ -168,5 +170,5 @@ metadata:
   labels:
     app: prometheus
     component: server
-  name: health-metrics-prometheus-server
+  name: prometheus-config
   namespace: monitoring

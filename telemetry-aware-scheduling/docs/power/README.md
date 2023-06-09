@@ -17,62 +17,50 @@ The power metrics used to drive placement and scaling decisions derive from [Int
 
 3) Clone and enter repo
 
-``git clone https://github.com/intel/telemetry-aware-scheduling/ && cd telemetry-aware-scheduling/docs/power``
+``git clone https://github.com/intel/platform-aware-scheduling/ && cd platform-aware-scheduling/telemetry-aware-scheduling/docs/power``
 
 4) Set the power directory (which contains this Readme) as an environment variable.
 
 ``export POW_DIR=$PWD``
 
-### 1: Build collectd and stress-ng docker images
-Two new docker images are required:
 
-1) **collectd** to read power metrics from each host in the cluster and expose them to the Prometheus metrics database.
-
-``cd $POW_DIR/collectd && docker build . -t localhost:5000/collectdpower && docker push localhost:5000/collectdpower``
-
-2) **stress-ng** to use as an example application for our deployment.
-
-``cd $POW_DIR && docker build . -t localhost:5000/stressng && docker push localhost:5000/stressng``
-
-Using the above commands both of these images will be built and then pushed to the local docker registry preparing them for deployment on Kubernetes.
-
-### 2: Deploy collectd on Kubernetes
-Collectd can now be deployed on our Kubernetes cluster. Note that the collectd image is configured using a configmap and can be reconfigured by changing that file - located in `collectd/configmap.yaml`. In our default configuration collectd will only export stats on the node CPU package power. This is powered by the [Intel Comms Power Management collectd plugin](https://github.com/intel/CommsPowerManagement/tree/master/telemetry) 
+### 1: Deploy collectd on Kubernetes
+Collectd can now be deployed on our Kubernetes cluster. Note that the collectd image is configured using a configmap and can be reconfigured by changing that file - located in `collectd/configmap.yaml`. In our default configuration collectd will only export stats on the node CPU package power. This is powered by the [Intel Comms Power Management collectd plugin](https://github.com/intel/CommsPowerManagement/tree/master/telemetry). The collectd [intel/observability-collectd image](https://hub.docker.com/r/intel/observability-collectd) will need an extra python script for reading and exporting power values which can be grabbed with a curl command and will need to be added as a configmap.
 
 Deploy collectd using:
 
-``kubectl apply -f $POW_DIR/collectd/daemonset.yaml && kubectl apply -f $POW_DIR/collectd/configmap.yaml && kubectl apply -f $POW_DIR/collectd/service.yaml``
+1) ``curl https://raw.githubusercontent.com/intel/CommsPowerManagement/master/telemetry/pkgpower.py -o $POW_DIR/collectd/pkgpower.py && kubectl create configmap pkgpower --from-file $POW_DIR/collectd/pkgpower.py --namespace monitoring``
+
+2) ``kubectl apply -f $POW_DIR/collectd/daemonset.yaml && kubectl apply -f $POW_DIR/collectd/configmap.yaml && kubectl apply -f $POW_DIR/collectd/service.yaml``
 
 The agent should soon be up and running on each node in the cluster. This can be checked by running: 
 
 `kubectl get pods -nmonitoring -lapp.kubernetes.io/name=collectd`
 
-
-Additionally we can check that collectd is indeed serving metrics by running `curl localhost:9103` on any node where the agent is running. The output should resemble the below:
+Additionally we can check that collectd is indeed serving metrics by running `collectd_ip=$(kubectl get svc -n monitoring -o json | jq -r '.items[] | select(.metadata.name=="collectd").spec.clusterIP'); curl -x "" $collectd_ip:9103/metrics`. The output should look similar to the lines  below:
 
 ```
-    # HELP collectd_package_0_TDP_power_power write_prometheus plugin: 'package_0_TDP_power' Type: 'power', Dstype: 'gauge', Dsname: 'value'
-    # TYPE collectd_package_0_TDP_power_power gauge
-    collectd_package_0_TDP_power_power{instance="localhost"} 145 XXXXX
-    # HELP collectd_package_0_power_power write_prometheus plugin: 'package_0_power' Type: 'power', Dstype: 'gauge', Dsname: 'value'
-    # TYPE collectd_package_0_power_power gauge
-    collectd_package_0_power_power{instance="localhost"} 24.8610455766901 XXXXX
-    # HELP collectd_package_1_TDP_power_power write_prometheus plugin: 'package_1_TDP_power' Type: 'power', Dstype: 'gauge', Dsname: 'value'
-    # TYPE collectd_package_1_TDP_power_power gauge
-    collectd_package_1_TDP_power_power{instance="localhost"} 145 XXXXX
-    # HELP collectd_package_1_power_power write_prometheus plugin: 'package_1_power' Type: 'power', Dstype: 'gauge', Dsname: 'value'
-    # TYPE collectd_package_1_power_power gauge
-    collectd_package_1_power_power{instance="localhost"} 26.5859645878891 XXXXX
+# HELP collectd_package_0_TDP_power_power write_prometheus plugin: 'package_0_TDP_power' Type: 'power', Dstype: 'gauge', Dsname: 'value'
+# TYPE collectd_package_0_TDP_power_power gauge
+collectd_package_0_TDP_power_power{instance="collectd-llnxh"} 140 1686148275145
+# HELP collectd_package_0_power_power write_prometheus plugin: 'package_0_power' Type: 'power', Dstype: 'gauge', Dsname: 'value'
+# TYPE collectd_package_0_power_power gauge
+collectd_package_0_power_power{instance="collectd-llnxh"} 127.249769171414 1686148275145
+# HELP collectd_package_1_TDP_power_power write_prometheus plugin: 'package_1_TDP_power' Type: 'power', Dstype: 'gauge', Dsname: 'value'
+# TYPE collectd_package_1_TDP_power_power gauge
+collectd_package_1_TDP_power_power{instance="collectd-llnxh"} 140 1686148275145
+# HELP collectd_package_1_power_power write_prometheus plugin: 'package_1_power' Type: 'power', Dstype: 'gauge', Dsname: 'value'
+# TYPE collectd_package_1_power_power gauge
+collectd_package_1_power_power{instance="collectd-llnxh"} 117.843289048237 1686148275145
 
-    # collectd/write_prometheus 5.11.0.70.gd4c3c59 at localhost
 ```
 
-### 3: Install Kube State Metrics
+### 2: Install Kube State Metrics
 
 Kube State Metrics reads information from a Kubernetes cluster and makes it available to Prometheus. In our use case we're looking for basic information about the pods currently running on the cluster. Kube state metrics can be installed using helm, the Kubernetes package manager, which comes preinstalled in the BMRA.
  
 ``
-helm install "master" stable/kube-state-metrics
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts && helm install "master" prometheus-community/kube-state-metrics
 ``
 
 We can check to see that its running with:
@@ -82,15 +70,120 @@ kubectl get pods -l app.kubernetes.io/name=kube-state-metrics
 ``
 
 ### 3: Configure Prometheus and the Prometheus adapter
-Now that we have our metrics collections agents up and running, Prometheus and Prometheus Adapter, which makes Prometheus metrics available inside the cluster to Telemetry Aware Scheduling, need to be configured to scrape metrics from collectd and Kube State Metrics and to calculate the compound power metrics linking pods to power usage.
 
-``kubectl apply -f $POW_DIR/prometheus/prometheus-config.yaml && kubectl delete pods -nmonitoring -lapp=prometheus -lcomponent=server && kubectl apply -f $POW_DIR/prometheus/custom-metrics-config.yml && kubectl delete pods -n custom-metrics -lapp=prometheus-adapter``
+Now that we have our metrics collections agents up and running, Prometheus and Prometheus Adapter (it  makes Prometheus metrics available inside the cluster to Telemetry Aware Scheduling) need to be configured to scrape metrics from collectd and Kube State Metrics and to calculate the compound power metrics linking pods to power usage.
 
-The above command creates a new updated configuration and reboots Prometheus and the Prometheus Adapter. Collectd power metrics should now be available in the Prometheus database and, more importantly, inside the Kubernetes cluster itself. In order to confirm we can run a raw metrics query against the Kubernetes api.
+
+#### 3.1: Manually set-up and install new configuration
+
+The above command creates a new configuration and reboots Prometheus and the Prometheus Adapter. Collectd power metrics should now be available in the Prometheus database and, more importantly, inside the Kubernetes cluster itself. 
+
+``kubectl apply -f $POW_DIR/prometheus/prometheus-config.yaml && kubectl delete pods -nmonitoring -lapp=prometheus -lcomponent=server && kubectl apply -f $POW_DIR/prometheus/custom-metrics-config.yml && kubectl delete pods -n custom-metrics -lapp=custom-metrics-apiserver``
+
+
+#### 3.2: Helm and updating an existing configuration
+
+#### 3.2.1: Prometheus
+
+To add a new metrics into Prometheus, update [prometheus-config-map.yaml](https://github.com/intel/platform-aware-scheduling/blob/master/telemetry-aware-scheduling/deploy/charts/prometheus_helm_chart/templates/prometheus-config-map.yaml) in a similar manner to the below:
+
+1. Create a metric and add it to a Prometheus rule file
+```
+  recording_rules.yml: |
+   groups:
+   - name: k8s rules
+     rules:
+      - record: node_package_power_avg
+        expr: 100 * ((collectd_package_0_power_power/collectd_package_0_TDP_power_power) + (collectd_package_1_power_power/ collectd_package_1_TDP_power_power))/2
+      - record: node_package_power_per_pod
+        expr:  kube_pod_info * on (node) group_left node_package_power_avg
+```
+
+2. Add the rule file to Prometheus (if adding a completely new rule file). If the rule file has already been done (i.e.  ***/etc/prometheus/prometheus.rules***) move to step 3
+```
+    rule_files:
+       - /etc/prometheus/prometheus.rules
+       - recording_rules.yml
+```
+3. Inform prometheus to scrape kube-state-metrics and collectd and how to do do it
+
+```
+
+      - job_name: 'kube-state-metrics'
+        static_configs:
+        - targets: ['master-kube-state-metrics.default.svc.cluster.local:8080']
+
+      - job_name: 'collectd'
+        scheme: http
+        kubernetes_sd_configs:
+        - role: endpoints
+        relabel_configs:
+        - source_labels: [__address__]
+          regex: ^(.*):\d+$
+          target_label: __address__
+          replacement: $1:9103
+        - target_label: __scheme__
+          replacement: http
+        - source_labels: [__meta_kubernetes_pod_node_name]
+          target_label: instance
+        metric_relabel_configs:
+        - source_labels: [instance]
+          target_label: node
+
+```
+
+To check if the new metrics were scraped correctly you can look for the following in the Prometheus UI:
+* In the "Targets"/ "Service Discovery" sections the "kube-state-metrics" and "collectd" items should be present and should be "UP" 
+* In the main search page look for the "node_package_power_avg" and "node_package_power_per_pod". Each of these queries should return and non-empty answer
+
+
+4. Upgrade the HELM chart & restart the pods
+
+``helm upgrade  prometheus ../../../telemetry-aware-scheduling/deploy/charts/prometheus_helm_chart/ &&  kubectl delete pods -nmonitoring -lapp=prometheus-server``
+
+***The name of the helm chart and the path to charts/prometheus_helm_chart might differ depending on your installation of Prometheus (what name you gave to the chart) and your current path.***
+
+#### 3.2.2: Prometheus Adapter
+
+1. Query & process the metric before exposing it
+
+The newly created metrics now need to be exported from Prometheus to the Telemetry-Aware scheduler and to do so we need add two new rules in [custom-metrics-config-map.yaml](https://github.com/intel/platform-aware-scheduling/blob/master/telemetry-aware-scheduling/deploy/charts/prometheus_custom_metrics_helm_chart/templates/custom-metrics-config-map.yaml). 
+
+The config currently present in the [repo](https://github.com/intel/platform-aware-scheduling/blob/master/telemetry-aware-scheduling/deploy/charts/prometheus_custom_metrics_helm_chart/templates/custom-metrics-config-map.yaml)  will expose these metrics by default, but if the metrics are not showing (see commands below) you can try adding the following ( the first item is responsible for fetching the "node_package_power_avg" metric, whereas the second is for "node_package_power_per_pod"):
+
+```
+    - seriesQuery: '{__name__=~"^node_.*"}'
+      resources:
+        overrides:
+          instance:
+            resource: node
+      name:
+        matches: ^node_(.*)
+      metricsQuery: <<.Series>>
+    - seriesQuery: '{__name__=~"^node_.*",pod!=""}'
+      resources:
+        template: <<.Resource>>
+      metricsQuery: <<.Series>>
+
+```
+
+***Details about the rules and the schema are available [here](https://github.com/kubernetes-sigs/prometheus-adapter/blob/master/docs/config.md)***
+
+2. Upgrade the HELM chart & restart the pods
+
+``helm upgrade prometheus-adapter ../../../telemetry-aware-scheduling/deploy/charts/prometheus_custom_metrics_helm_chart/ && kubectl delete pods -n custom-metrics -lapp=custom-metrics-apiserver``
+
+***The name of the helm chart and the path to charts/prometheus_custom_metrics_helm_chart/ might differ depending on your installation of Prometheus (what name you have to the chart) and your current path.***
+
+
+After running the above commands (section 3.1 or 3.2) Collectd power metrics should now be available in the Prometheus database and, more importantly, inside the Kubernetes cluster itself. In order to confirm the changes, we can run a raw metrics query against the Kubernetes api.
+
+``kubectl get --raw /apis/custom.metrics.k8s.io/v1beta1/nodes/*/package_power_avg``
 
 ``kubectl get --raw "/apis/custom.metrics.k8s.io/v1beta1/namespaces/default/pods/*/node_package_power_per_pod"``
 
 This command should return some json objects containing pods and associated power metrics:
+
 
 ```json
   "kind": "MetricValueList",
@@ -183,7 +276,7 @@ TAS will schedule it to the node with the lowest power usage, and will avoid sch
 
 ```
 
- kubectl logs -l app.kubernetes.io/name=telemetry-aware-scheduling -c tas-extender 
+ kubectl logs -l app=tas
 
 2020/XX/XX XX:XX:XX filter request recieved
 2020/XX/XX XX:XX:XX node1 package_power_avg = 72.133
