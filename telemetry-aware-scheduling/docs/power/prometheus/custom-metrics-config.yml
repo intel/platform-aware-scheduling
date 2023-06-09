@@ -77,8 +77,6 @@ data:
             resource: node
       seriesQuery: '{__name__=~"^node_.*"}'
     - metricsQuery: <<.Series>>
-      name:
-        matches: ^node_(.*)
       resources:
         overrides:
           pod_name:
@@ -87,6 +85,6 @@ data:
 kind: ConfigMap
 metadata:
   labels:
-    app: prometheus-adapter
-  name: custom-metrics-prometheus-adapter
+    app: custom-metrics-apiserver
+  name: adapter-config
   namespace: custom-metrics

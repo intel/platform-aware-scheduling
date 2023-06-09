@@ -18,10 +18,20 @@ spec:
         app.kubernetes.io/version: v5.11 
     spec:
       containers:
-      - image: localhost:5000/collectdpower
-        imagePullPolicy: Always
+      - image: intel/observability-collectd:1.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          capabilities:
+            drop: [ 'ALL' ]
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
+          allowPrivilegeEscalation: false
+          runAsGroup: 10001
+          seccompProfile:
+            type: RuntimeDefault
         name: collectd
-        command: [ "/bin/sh", "-c", "collectd; while :; do sleep 300; done" ]
+        command: ["/bin/sh", "-c","../../run_collectd.sh"]
         resources:
           limits:
             cpu: 150m
@@ -33,17 +43,16 @@ spec:
         - name: config
           mountPath: /opt/collectd/etc/collectd.conf
           subPath: collectd.conf
-        - mountPath: /host/sys/
-          name: sys
-          readOnly: true 
+        - name: pkgpower
+          mountPath: /opt/collectd/etc/python-scripts/pkgpower.py
+          subPath: pkgpower.py
         ports:
         - containerPort: 9103
-          hostPort: 9103
-          name: http
+          protocol: TCP
       volumes:
       - name: config
         configMap:
           name: collectd-config
-      - hostPath:
-          path: /sys
-        name: sys
+      - name: pkgpower
+        configMap:
+          name: pkgpower
