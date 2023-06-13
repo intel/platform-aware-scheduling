@@ -20,7 +20,7 @@ LDFLAGS = \
 -X main.goVersion=$(GOVERSION)
 
 
-.PHONY: test all build image release-image format clean licenses mock e2e lint
+.PHONY: test all build image release-image format clean licenses mock e2e lint update-baseimage
 
 test:
 	go test ./...  -v *_test.go
@@ -33,13 +33,16 @@ lint: format build
 build:
 	CGO_ENABLED=0 GO111MODULE=on go build -ldflags="$(LDFLAGS)" -o $(BUILD_OUTPUT_DIR)/extender ./cmd/gas-scheduler-extender
 
+update-baseimage:
+	docker pull golang:1.19
+
 #note: you can speed up subsequent docker builds by doing "go mod vendor"
 #note: you can further speed up subsequent docker builds by doing "make licenses"
-image:
+image: update-baseimage
 	docker build --build-arg GOLICENSES_VERSION=$(GOLICENSES_VERSION) --build-arg LOCAL_LICENSES=$(LOCAL_LICENSES) \
 	-f deploy/images/Dockerfile_gpu-extender ../ -t $(IMAGE_PATH)gpu-extender$(IMAGE_TAG)
 
-release-image: clean
+release-image: clean update-baseimage
 	docker build --build-arg GOLICENSES_VERSION=$(GOLICENSES_VERSION) -f deploy/images/Dockerfile_gpu-extender ../ \
 	-t $(IMAGE_PATH)gpu-extender$(IMAGE_TAG)
 
