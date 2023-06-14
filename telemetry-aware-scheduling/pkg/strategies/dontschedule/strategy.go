@@ -66,7 +66,7 @@ func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
 }
 
 // Enforce unimplemented for dontschedule.
-func (d *Strategy) Enforce(enforcer *core.MetricEnforcer, cache cache.Reader) (int, error) {
+func (d *Strategy) Enforce(_ *core.MetricEnforcer, _ cache.Reader) (int, error) {
 	return 0, nil
 }
 

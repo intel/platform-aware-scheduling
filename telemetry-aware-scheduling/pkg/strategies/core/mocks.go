@@ -24,12 +24,12 @@ type MockStrategy struct {
 }
 
 // Violated gets the cache values from MockStrategy and returns the map interface.
-func (v *MockStrategy) Violated(cache cache.Reader) map[string]interface{} {
+func (v *MockStrategy) Violated(_ cache.Reader) map[string]interface{} {
 	return map[string]interface{}{}
 }
 
 // Enforce returns 0 value and nil error.
-func (v *MockStrategy) Enforce(enforcer *MetricEnforcer, cache cache.Reader) (int, error) {
+func (v *MockStrategy) Enforce(_ *MetricEnforcer, _ cache.Reader) (int, error) {
 	return 0, nil
 }
 
@@ -79,7 +79,7 @@ func (v *MockStrategy) AddStrategy(i Interface, s string) {
 }
 
 // RemoveStrategy is a method in Mock strategy.
-func (v *MockStrategy) RemoveStrategy(i Interface, s string) {
+func (v *MockStrategy) RemoveStrategy(_ Interface, _ string) {
 	v.RemovedStrategies = nil
 }
 

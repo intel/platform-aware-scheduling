@@ -10,7 +10,7 @@ on:
       goVersion:
         required: false
         type: string
-        default: 1.19
+        default: 1.20.5
 
 jobs:
   build-test:
@@ -20,7 +20,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: ${{ inputs.goVersion }}
+          go-version: "${{ inputs.goVersion }}"
       - name: Build
         run: make build
       - name: Image

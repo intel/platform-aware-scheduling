@@ -228,7 +228,7 @@ func (m MetricsExtender) Filter(w http.ResponseWriter, r *http.Request) {
 }
 
 // Bind binds the pod to the node. Not implemented by TAS, hence response with StatusNotFound.
-func (m MetricsExtender) Bind(w http.ResponseWriter, r *http.Request) {
+func (m MetricsExtender) Bind(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 }
 
