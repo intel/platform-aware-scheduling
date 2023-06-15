@@ -1,5 +1,6 @@
 apiVersion: "descheduler/v1alpha1"
 kind: "DeschedulerPolicy"
+evictLocalStoragePods: true
 strategies:
   "RemovePodsViolatingNodeAffinity":
     enabled: true
