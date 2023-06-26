@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tile-resource-request-example
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tile-resource-request-example
+  template:
+    metadata:
+      labels:
+        app: tile-resource-request-example
+    spec:
+      containers:
+      - name: &containername tile-resource-request-example
+        image: busybox:1.33.1
+        env:
+        - name: MY_CONTAINER_NAME
+          value: *containername
+        command: ['sh', '-c', 'echo $MY_CONTAINER_NAME && ls -ltr /dev/dri && sleep 6000']
+        resources:
+          limits:
+            gpu.intel.com/i915: 1
+            gpu.intel.com/tiles: 1
