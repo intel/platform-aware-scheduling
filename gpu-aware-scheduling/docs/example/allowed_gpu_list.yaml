@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: allowed-gpu-list-example
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: allow-gpu-list-example
+  template:
+    metadata:
+      annotations:
+        #remember to enable allowlist and/or denylist via command line flags.
+        #--enableAllowlist true
+        #--enableDenylist true
+        gas-allow: card1,card2,card3
+        gas-deny: card0
+      labels:
+        app: allow-gpu-list-example
+    spec:
+      containers:
+      - name: &containername allow-gpu-list-example
+        image: busybox:1.33.1
+        env:
+        - name: MY_CONTAINER_NAME
+          value: *containername
+        command: ['sh', '-c', 'echo $MY_CONTAINER_NAME && ls -ltr /dev/dri && sleep 6000']
+        resources:
+          limits:
+            gpu.intel.com/i915: 1

@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memory-resource-example
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: memory-resource-example
+  template:
+    metadata:
+      labels:
+        app: memory-resource-example
+    spec:
+      containers:
+      - name: &containername memory-resource-example
+        image: busybox:1.33.1
+        env:
+        - name: MY_CONTAINER_NAME
+          value: *containername
+        command: ['sh', '-c', 'echo $MY_CONTAINER_NAME && ls -ltr /dev/dri && sleep 6000']
+        resources:
+          limits:
+            gpu.intel.com/i915: 1
+            gpu.intel.com/memory.max: 500M

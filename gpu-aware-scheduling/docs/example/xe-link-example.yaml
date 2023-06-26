@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xe-link-example
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: xe-link-example
+  template:
+    metadata:
+      labels:
+        app: xe-link-example
+      annotations:
+        gas-allocate-xelink: 'true'
+    spec:
+      containers:
+      - name: &containername xe-link-example
+        image: busybox:1.33.1
+        env:
+        - name: MY_CONTAINER_NAME
+          value: *containername
+        command: ['sh', '-c', 'echo $MY_CONTAINER_NAME && ls -ltr /dev/dri && sleep 6000']
+        resources:
+          limits:
+            gpu.intel.com/i915: 2
+            gpu.intel.com/tiles: 2
