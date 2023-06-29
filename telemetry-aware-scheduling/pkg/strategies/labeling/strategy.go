@@ -40,10 +40,7 @@ type violationResultType struct {
 	ruleResults []ruleResult
 }
 
-// Violated checks if the strategy is violated by searching for nodes that have metrics that don't accord with
-// the target in labeling strategy.
-// Returns a map of nodeNames as key with a slice of violated rules and metric quantities in the result type.
-func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
+func (d *Strategy) fetchRuleViolatingNodes(cache cache.Reader) map[string]interface{} {
 	violatingNodes := map[string]interface{}{}
 
 	for _, rule := range d.Rules {
@@ -83,6 +80,10 @@ func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
 		}
 	}
 
+	return violatingNodes
+}
+
+func (d *Strategy) filterViolatingNodeForAllLogicalOperator(violatingNodes map[string]interface{}) {
 	if d.LogicalOperator == "allOf" {
 		for nodeName := range violatingNodes {
 			if _, ok := violatingNodes[nodeName]; ok {
@@ -94,6 +95,14 @@ func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
 			}
 		}
 	}
+}
+
+// Violated checks if the strategy is violated by searching for nodes that have metrics that don't accord with
+// the target in labeling strategy.
+// Returns a map of nodeNames as key with a slice of violated rules and metric quantities in the result type.
+func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
+	violatingNodes := d.fetchRuleViolatingNodes(cache)
+	d.filterViolatingNodeForAllLogicalOperator(violatingNodes)
 
 	return violatingNodes
 }
