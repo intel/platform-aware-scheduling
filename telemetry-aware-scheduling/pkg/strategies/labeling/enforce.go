@@ -188,6 +188,12 @@ func (d *Strategy) updateNodeLabels(enforcer *strategy.MetricEnforcer,
 	return totalViolations, errOut
 }
 
+// Function  will choose the biggest/lowest value depending on the rule operator.
+func shouldUpdateRuleThreshold(result, olderRes ruleResult) bool {
+	return ((result.rule.Operator == "GreaterThan" && result.quantity.Cmp(olderRes.quantity) > 0) ||
+		(result.rule.Operator == "LessThan" && result.quantity.Cmp(olderRes.quantity) < 0))
+}
+
 // minMaxFilterViolatedRules filters out violated rules in case the same label name is being used.
 // When the name is equal, only the largest or smallest value having metric among the rules will be
 // returned in the result map, depending on the operator of the rule.
@@ -211,8 +217,7 @@ func minMaxFilterViolatedRules(violationResult interface{}) map[string]ruleResul
 				log.Panic()
 			}
 
-			if !old || old && ((result.rule.Operator == "GreaterThan" && result.quantity.Cmp(olderRes.quantity) > 0) ||
-				(result.rule.Operator == "LessThan" && result.quantity.Cmp(olderRes.quantity) < 0)) {
+			if !old || old && shouldUpdateRuleThreshold(result, olderRes) {
 				violatedRules[name] = result
 			}
 		}
