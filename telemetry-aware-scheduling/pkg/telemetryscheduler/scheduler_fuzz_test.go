@@ -12,10 +12,11 @@ import (
 	"io"
 	"math"
 	"math/big"
-	rnd "math/rand"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"regexp"
+	"sort"
 	"testing"
 
 	"github.com/intel/platform-aware-scheduling/extender"
@@ -29,6 +30,13 @@ import (
 )
 
 type RuleOperator int64
+
+// NodeMetricMappingForSort type is necessary in order to call the sort.Slice method.
+// Note lack of usage of time windows or stamps.
+type NodeMetricMappingForSort struct {
+	nodeName    string
+	metricValue int
+}
 
 const (
 	Unknown RuleOperator = iota
@@ -47,12 +55,15 @@ const (
 	HealthMetricDemoNamespaceName string = "health-metric-demo"
 	HealthMetricDemoPodName       string = "health-metric-demo-pod"
 	K8sResourceRegex              string = `^[a-z]{1,20}-[a-z]{1,20}-*[a-z]{0,20}-*[A-Za-z0-9_-]{0,20}$`
+	PolicyNameRegex               string = `[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*`
 	DefaultMetricValue            int    = 27
 )
 
 var (
-	operatorHandlers        = createRuleOperatorDontScheduleHandlers()
-	k8sResourceRegexCompile = regexp.MustCompile(K8sResourceRegex)
+	dontscheduleOperatorHandlers = createRuleOperatorDontScheduleHandlers()
+	scheduleOnOperatorHandlers   = createRuleOperatorScheduleOnMetricHandlers()
+	k8sResourceRegexCompile      = regexp.MustCompile(K8sResourceRegex)
+	policyNameRegexCompile       = regexp.MustCompile(PolicyNameRegex)
 )
 
 func (r RuleOperator) GetRuleOperatorName() string {
@@ -82,14 +93,43 @@ func createRuleOperatorDontScheduleHandlers() map[RuleOperator]func(resource.Qua
 	}
 }
 
+func createRuleOperatorScheduleOnMetricHandlers() map[RuleOperator]func(nodeToMetricMapping []NodeMetricMappingForSort) []NodeMetricMappingForSort {
+	return map[RuleOperator]func(nodeMetrics []NodeMetricMappingForSort) []NodeMetricMappingForSort{
+		LessThan: func(nodeMetrics []NodeMetricMappingForSort) []NodeMetricMappingForSort {
+			sort.Slice(nodeMetrics, func(i, j int) bool {
+				return nodeMetrics[i].metricValue < nodeMetrics[j].metricValue
+			})
+
+			return nodeMetrics
+		},
+		GreatherThan: func(nodeMetrics []NodeMetricMappingForSort) []NodeMetricMappingForSort {
+			sort.Slice(nodeMetrics, func(i, j int) bool {
+				return nodeMetrics[i].metricValue > nodeMetrics[j].metricValue
+			})
+
+			return nodeMetrics
+		},
+	}
+}
+
 func evaluateDontScheduleRule(value, target int64, operator RuleOperator) bool {
-	if _, ok := operatorHandlers[operator]; !ok {
+	if _, ok := dontscheduleOperatorHandlers[operator]; !ok {
 		klog.Warningf("Invalid operator type:" + operator.GetRuleOperatorName())
 
 		return false
 	}
 
-	return operatorHandlers[operator](*resource.NewQuantity(value, resource.DecimalSI), target)
+	return dontscheduleOperatorHandlers[operator](*resource.NewQuantity(value, resource.DecimalSI), target)
+}
+
+func evaluateScheduleOnMetricRule(operator RuleOperator, filteredNodeData []NodeMetricMappingForSort) []NodeMetricMappingForSort {
+	if _, ok := scheduleOnOperatorHandlers[operator]; !ok {
+		klog.Warningf("Invalid operator type:" + operator.GetRuleOperatorName())
+
+		return filteredNodeData
+	}
+
+	return scheduleOnOperatorHandlers[operator](filteredNodeData)
 }
 
 // The number of nodes available in a K8s cluster is a strict positive number.
@@ -97,9 +137,33 @@ func isNumberOfNodesInputValid(numberOfNodes int) bool {
 	return numberOfNodes > 0
 }
 
+// When trying to deploy a TAS policy with an invalid string
+// the CRD validation steps in an asks for a valid string and shows the user
+// the format it requires.
+func processPolicyNameInput(policyName string) string {
+	if policyNameRegexCompile.MatchString(policyName) {
+		// the CRD rejects even a partial match, adding this for feature parity
+		policyNameMatch := string(policyNameRegexCompile.Find([]byte(policyName)))
+		if policyNameMatch != policyName {
+			klog.Warningf("Policy name %s did not fully match %s, will use a partial match as a policyName instead: %s",
+				policyName, PolicyNameRegex, policyNameMatch)
+
+			return ""
+		}
+
+		return policyName
+	}
+
+	return ""
+}
+
+func isPolicyNameValid(policyName string) bool {
+	return len(policyName) > 0
+}
+
 // Basic regex check for K8s resource name to force the fuzzer to use
 // some valid values for the input parameters.
-// Tt's not the purpose of this test to check that K8s resource names
+// It's not the purpose of this test to check that K8s resource names
 // are valid.
 func isK8sResourceNameInputValid(k8sResourceName string) bool {
 	return k8sResourceRegexCompile.MatchString(k8sResourceName)
@@ -107,7 +171,14 @@ func isK8sResourceNameInputValid(k8sResourceName string) bool {
 
 func areFilterFuzzTestInputParametersValid(numberOfNodes int, policyName, namespaceName, podName string) bool {
 	return isNumberOfNodesInputValid(numberOfNodes) &&
-		isK8sResourceNameInputValid(policyName) &&
+		isPolicyNameValid(policyName) &&
+		isK8sResourceNameInputValid(namespaceName) &&
+		isK8sResourceNameInputValid(podName)
+}
+
+func arePrioritizeFuzzTestInputParametersValid(numberOfNodes int, policyName, namespaceName, podName string) bool {
+	return isNumberOfNodesInputValid(numberOfNodes) &&
+		isPolicyNameValid(policyName) &&
 		isK8sResourceNameInputValid(namespaceName) &&
 		isK8sResourceNameInputValid(podName)
 }
@@ -126,6 +197,43 @@ func getViolatingNodes(hasDontScheduleRule bool, nodeMetricValues []int, dontSch
 	}
 
 	return numberOfViolatingNodes
+}
+func getMetricsPerNode(t *testing.T, selfUpdatingCache *cache.AutoUpdatingCache, metricName string) map[string]int {
+	metricsInfo, err := selfUpdatingCache.ReadMetric(metricName)
+
+	if err != nil {
+		t.Errorf("Error when reading metric %s from self-updating cache %v", metricName, err)
+	}
+
+	nodeToMetricValueMapping := make(map[string]int)
+
+	for nodeName, nodeInfo := range metricsInfo {
+		value, _ := nodeInfo.Value.AsInt64()
+		nodeToMetricValueMapping[nodeName] = int(value)
+	}
+
+	return nodeToMetricValueMapping
+}
+
+func getPrioritizedNodes(hasScheduleOnRule bool, ruleOperator RuleOperator,
+	nodeMetrics map[string]int) extender.HostPriorityList {
+	if !hasScheduleOnRule {
+		return extender.HostPriorityList{}
+	}
+
+	filteredNodeData := []NodeMetricMappingForSort{}
+	for nodeName, nodeValue := range nodeMetrics {
+		filteredNodeData = append(filteredNodeData, NodeMetricMappingForSort{nodeName: nodeName, metricValue: nodeValue})
+	}
+
+	sortedNodeMetricValues := evaluateScheduleOnMetricRule(ruleOperator, filteredNodeData)
+	prioritizedNodes := extender.HostPriorityList{}
+
+	for _, item := range sortedNodeMetricValues {
+		prioritizedNodes = append(prioritizedNodes, extender.HostPriority{Host: item.nodeName, Score: 0})
+	}
+
+	return prioritizedNodes
 }
 
 func generateValidRandomMetricValue(value int) int {
@@ -149,26 +257,79 @@ func generateValidRandomMetricValue(value int) int {
 	return int(math.Pow(-1, float64(base))) * int(result.Int64())
 }
 
-func setUpMetricValues(numberOfNodes int, dontScheduleThreshold int) []int {
+func setUpMetricValues(numberOfNodes int, metricThreshold int) []int {
 	values := make([]int, numberOfNodes)
-	maxMetricValue := dontScheduleThreshold + generateValidRandomMetricValue(dontScheduleThreshold)
+	maxMetricValue := metricThreshold + generateValidRandomMetricValue(metricThreshold)
 
 	for i := 0; i < numberOfNodes; i++ {
 		values[i] = generateValidRandomMetricValue(maxMetricValue)
 	}
 
-	rnd.Shuffle(len(values), func(i, j int) {
-		values[i], values[j] = values[j], values[i]
-	})
+	// can't use math/rand.Shuffle as it's marked as a "weak method" by Checkmarx
+	// instead, decided to implement something similar
+	for i := 0; i < len(values); i++ {
+		j, err := rand.Int(rand.Reader, big.NewInt(int64(len(values))))
+		if err != nil {
+			klog.Warningf("Unable to generate a random int value for: %d. Will exit with current value", j)
+
+			continue
+		}
+
+		correspondingIndex := int(j.Int64())
+		values[i], values[correspondingIndex] = values[correspondingIndex], values[i]
+	}
 
 	return values
 }
 
-func setUpNodeCache(t *testing.T, metricName string, numberOfNodes int, values []int) *cache.AutoUpdatingCache {
+func getPolicyStrategy(policyName, metricName string, ruleOperator RuleOperator, threshold int) telpolv1.TASPolicyStrategy {
+	return telpolv1.TASPolicyStrategy{
+		PolicyName: policyName,
+		Rules: []telpolv1.TASPolicyRule{
+			{Metricname: metricName, Operator: ruleOperator.GetRuleOperatorName(), Target: int64(threshold)}},
+	}
+}
+
+func setupDontSchedulePolicy(policyName, policyNamespace, metricName string, hasDontScheduleRule bool,
+	dontScheduleThreshold int, ruleOperator RuleOperator) telpolv1.TASPolicy {
+	var policySpec = map[string]telpolv1.TASPolicyStrategy{
+		ScheduleonmetricStrategyName: getPolicyStrategy(policyName, metricName, ruleOperator, 0),
+	}
+
+	if hasDontScheduleRule {
+		policySpec[DontScheduleStrategyName] = getPolicyStrategy(policyName, metricName, ruleOperator, dontScheduleThreshold)
+	}
+
+	return telpolv1.TASPolicy{
+		TypeMeta:   metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{Name: policyName, Namespace: policyNamespace},
+		Spec: telpolv1.TASPolicySpec{
+			Strategies: policySpec},
+		Status: telpolv1.TASPolicyStatus{},
+	}
+}
+
+func setupScheduleOnPolicy(policyName, policyNamespace, metricName string, hasScheduleOnRule bool, ruleOperator RuleOperator) telpolv1.TASPolicy {
+	var policySpec = map[string]telpolv1.TASPolicyStrategy{}
+
+	if hasScheduleOnRule {
+		policySpec[ScheduleonmetricStrategyName] = getPolicyStrategy(policyName, metricName, ruleOperator, 0)
+	}
+
+	return telpolv1.TASPolicy{
+		TypeMeta:   metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{Name: policyName, Namespace: policyNamespace},
+		Spec: telpolv1.TASPolicySpec{
+			Strategies: policySpec},
+		Status: telpolv1.TASPolicyStatus{},
+	}
+}
+
+func setUpNodeCache(metricName string, numberOfNodes int, values []int) (*cache.AutoUpdatingCache, error) {
 	selfUpdatingCache := cache.MockEmptySelfUpdatingCache()
 
 	if numberOfNodes != len(values) {
-		return selfUpdatingCache.(*cache.AutoUpdatingCache)
+		return selfUpdatingCache.(*cache.AutoUpdatingCache), nil
 	}
 
 	nodeNames := []string{}
@@ -182,37 +343,10 @@ func setUpNodeCache(t *testing.T, metricName string, numberOfNodes int, values [
 
 	err := selfUpdatingCache.WriteMetric(metricName, metrics.TestNodeMetricCustomInfo(nodeNames, nodeValues))
 	if err != nil {
-		t.Errorf("Unable to write metric %s to cache. Error : %v", metricName, err)
+		return nil, fmt.Errorf("can't write metric to cache %s: %w", metricName, err)
 	}
 
-	return selfUpdatingCache.(*cache.AutoUpdatingCache)
-}
-
-func setupDontSchedulePolicy(policyName, policyNamespace, metricName string, hasDontScheduleRule bool,
-	dontScheduleThreshold int, ruleOperator RuleOperator) telpolv1.TASPolicy {
-	var policySpec = map[string]telpolv1.TASPolicyStrategy{
-		ScheduleonmetricStrategyName: {
-			PolicyName: policyName,
-			Rules: []telpolv1.TASPolicyRule{
-				{Metricname: metricName, Operator: ruleOperator.GetRuleOperatorName(), Target: 0}},
-		},
-	}
-
-	if hasDontScheduleRule {
-		policySpec[DontScheduleStrategyName] = telpolv1.TASPolicyStrategy{
-			PolicyName: policyName,
-			Rules: []telpolv1.TASPolicyRule{
-				{Metricname: metricName, Operator: ruleOperator.GetRuleOperatorName(), Target: int64(dontScheduleThreshold)}},
-		}
-	}
-
-	return telpolv1.TASPolicy{
-		TypeMeta:   metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{Name: policyName, Namespace: policyNamespace},
-		Spec: telpolv1.TASPolicySpec{
-			Strategies: policySpec},
-		Status: telpolv1.TASPolicyStatus{},
-	}
+	return selfUpdatingCache.(*cache.AutoUpdatingCache), nil
 }
 
 func setupPodSpec(podName, podNamespace, labelMapKey, labelMapValue string) v1.Pod {
@@ -296,6 +430,53 @@ func validateFilterExpectations(t *testing.T, w *httptest.ResponseRecorder, hasD
 	}
 }
 
+func validateMetricValues(nodeMetricValues map[string]int, expected, got extender.HostPriorityList) bool {
+	expectedValues := make([]int, 0)
+	gotValues := make([]int, 0)
+
+	for _, nodeName := range expected {
+		expectedValues = append(expectedValues, nodeMetricValues[nodeName.Host])
+	}
+
+	for _, nodeName := range got {
+		gotValues = append(gotValues, nodeMetricValues[nodeName.Host])
+	}
+
+	return reflect.DeepEqual(expectedValues, gotValues)
+}
+
+func validatePrioritizeExpectations(t *testing.T, hasDontScheduleRule bool, ruleOperator RuleOperator, numberOfNodes int,
+	nodeMetricValues map[string]int, prioritizedNodes extender.HostPriorityList, w *httptest.ResponseRecorder) {
+	result := extender.HostPriorityList{}
+	b := w.Body.Bytes()
+
+	err := json.Unmarshal(b, &result)
+	if err != nil {
+		t.Errorf("Error trying to serialize HostPriorityList into JSON %v", err)
+
+		return
+	}
+
+	if hasDontScheduleRule {
+		if len(result) != len(prioritizedNodes) {
+			t.Errorf("Different number of nodes were returned via Prioritize: expected %d, got %d", len(prioritizedNodes), len(result))
+		}
+
+		if _, ok := scheduleOnOperatorHandlers[ruleOperator]; ok {
+			if !validateMetricValues(nodeMetricValues, prioritizedNodes, result) {
+				t.Errorf("Host names not equal. Expected %q and got %q", prioritizedNodes, result)
+			}
+		}
+		// when Equals/Unknown is used we return an array with the nodes, in random order
+		if numberOfNodes != len(result) {
+			t.Errorf("Expected no nodes to be returned with %s operator: got %d", Equals.GetRuleOperatorName(), len(result))
+		}
+	} else if len(prioritizedNodes) != 0 {
+		// when an Unknown rule operator type is used, we return an empty list of nodes
+		t.Errorf("Expected 0 nodes to be returned with a missing scheduleonmetric rule: got %d", len(result))
+	}
+}
+
 func FuzzMetricsExtenderFilter(f *testing.F) {
 	f.Add(true, 0, 3, 1, HealthMetricName, TasPolicyName, HealthMetricDemoNamespaceName, HealthMetricDemoPodName)
 	f.Add(false, -20, 3, 1, HealthMetricName, TasPolicyName, HealthMetricDemoNamespaceName, HealthMetricDemoPodName)
@@ -311,16 +492,23 @@ func FuzzMetricsExtenderFilter(f *testing.F) {
 	f.Fuzz(func(t *testing.T, hasDontScheduleRule bool, dontScheduleThreshold, numberOfNodes, ruleOperatorType int,
 		metricName, policyName, namespaceName, podName string) {
 		ruleOperator := RuleOperator(ruleOperatorType)
-		if !areFilterFuzzTestInputParametersValid(numberOfNodes, policyName, namespaceName, podName) {
+		processedPolicyName := processPolicyNameInput(policyName)
+
+		if !areFilterFuzzTestInputParametersValid(numberOfNodes, processedPolicyName, namespaceName, podName) {
 			return
 		}
 
 		metricValues := setUpMetricValues(numberOfNodes, dontScheduleThreshold)
 		numberOfViolatingNodes := getViolatingNodes(hasDontScheduleRule, metricValues, dontScheduleThreshold, ruleOperator)
-		policy := setupDontSchedulePolicy(policyName, namespaceName, metricName, hasDontScheduleRule, dontScheduleThreshold, ruleOperator)
-		selfUpdatingCache := setUpNodeCache(t, metricName, numberOfNodes, metricValues)
+		policy := setupDontSchedulePolicy(processedPolicyName, namespaceName, metricName, hasDontScheduleRule, dontScheduleThreshold, ruleOperator)
+		selfUpdatingCache, err := setUpNodeCache(metricName, numberOfNodes, metricValues)
+		if err != nil {
+			// if we're here this most likely means we weren't able to add the metric values to the cache
+			// chances are the metric name was invalid, There's no point in continuing the test with an invalid metric name
+			return
+		}
 		m := setupMetricExtender(t, namespaceName, selfUpdatingCache, policy)
-		extenderArgs := convertExtenderArgsToJSON(t, numberOfNodes, podName, namespaceName, policyName)
+		extenderArgs := convertExtenderArgsToJSON(t, numberOfNodes, podName, namespaceName, processedPolicyName)
 
 		mockedRequest := &http.Request{}
 		mockedRequest.Body = io.NopCloser(bytes.NewReader(extenderArgs))
@@ -330,5 +518,53 @@ func FuzzMetricsExtenderFilter(f *testing.F) {
 		w := httptest.NewRecorder()
 		m.Filter(w, mockedRequest)
 		validateFilterExpectations(t, w, hasDontScheduleRule, numberOfNodes, numberOfViolatingNodes)
+	})
+}
+
+func FuzzMetricsExtenderPrioritize(f *testing.F) {
+	f.Add(true, 3, 80, 1, HealthMetricName, TasPolicyName, HealthMetricDemoNamespaceName, HealthMetricDemoPodName)
+	f.Add(true, 3, 1, 1, HealthMetricName, TasPolicyName, HealthMetricDemoNamespaceName, HealthMetricDemoPodName)
+	f.Add(false, 5, 30, 1, HealthMetricName, TasPolicyName, HealthMetricDemoNamespaceName, HealthMetricDemoPodName)
+	f.Add(false, 5, 3, 1, HealthMetricName, TasPolicyName, HealthMetricDemoNamespaceName, HealthMetricDemoPodName)
+	f.Add(false, 5, 5, 1, HealthMetricName, TasPolicyName, HealthMetricDemoNamespaceName, HealthMetricDemoPodName)
+	f.Add(true, 25, 2, 2, HealthMetricName, TasPolicyName, HealthMetricDemoNamespaceName, HealthMetricDemoPodName)
+	f.Add(false, 57, 5, 2, HealthMetricName, TasPolicyName, HealthMetricDemoNamespaceName, HealthMetricDemoPodName)
+	f.Add(true, 90, 40, 3, HealthMetricName, TasPolicyName, HealthMetricDemoNamespaceName, HealthMetricDemoPodName)
+	f.Add(false, 90, 5, 3, HealthMetricName, TasPolicyName, HealthMetricDemoNamespaceName, HealthMetricDemoPodName)
+	f.Add(true, 43, 9, -39, HealthMetricName, TasPolicyName, HealthMetricDemoNamespaceName, HealthMetricDemoPodName)
+	f.Add(false, 43, 1, -39, HealthMetricName, TasPolicyName, HealthMetricDemoNamespaceName, HealthMetricDemoPodName)
+
+	f.Fuzz(func(t *testing.T, hasScheduleOnRule bool, numberOfNodes, maxMetricValue, ruleOperatorType int,
+		metricName, policyName, namespaceName, podName string) {
+		ruleOperator := RuleOperator(ruleOperatorType)
+		processedPolicyName := processPolicyNameInput(policyName)
+
+		if !arePrioritizeFuzzTestInputParametersValid(numberOfNodes, processedPolicyName, namespaceName, podName) {
+			return
+		}
+
+		metricValues := setUpMetricValues(numberOfNodes, maxMetricValue)
+		policy := setupScheduleOnPolicy(processedPolicyName, namespaceName, metricName, hasScheduleOnRule, ruleOperator)
+		selfUpdatingCache, err := setUpNodeCache(metricName, numberOfNodes, metricValues)
+		if err != nil {
+			// if we're here this most likely means we weren't able to add the metric values to the cache
+			// chances are the metric name was invalid, There's no point in continuing the test with an invalid metric name
+			return
+		}
+		m := setupMetricExtender(t, namespaceName, selfUpdatingCache, policy)
+		nodeMetricValues := getMetricsPerNode(t, selfUpdatingCache, metricName)
+		prioritizedNodes := getPrioritizedNodes(hasScheduleOnRule, ruleOperator, nodeMetricValues)
+
+		extenderArgs := convertExtenderArgsToJSON(t, numberOfNodes, podName, namespaceName, processedPolicyName)
+
+		mockedRequest := &http.Request{}
+		mockedRequest.Body = io.NopCloser(bytes.NewReader(extenderArgs))
+		mockedRequest.Header = http.Header{}
+		mockedRequest.Header.Add("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		m.Prioritize(w, mockedRequest)
+
+		validatePrioritizeExpectations(t, hasScheduleOnRule, ruleOperator, numberOfNodes, nodeMetricValues, prioritizedNodes, w)
 	})
 }
