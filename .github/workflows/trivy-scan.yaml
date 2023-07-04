@@ -1,0 +1,56 @@
+name: trivy-scan
+on:
+  workflow_call:
+    inputs:
+      runsOn:
+        required: false
+        type: string
+        default: 'ubuntu-latest'
+      trivyVersion:
+        required: false
+        type: string
+        default: v0.35.0
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+jobs:  
+  vulnerability-scanners:
+    runs-on: ${{ inputs.runsOn }}
+    strategy:
+      matrix:
+        workingdir: [extender, telemetry-aware-scheduling]
+    name: vulnerability-scanners
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v3
+      - name: install Trivy
+        run: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin ${{ inputs.trivyVersion }}
+      - name: trivy fs $DIR  
+        run: |
+          cd ./${{ matrix.workingdir }}
+          echo "Running trivy fs for ${{ matrix.workingdir }} "
+          trivy fs ./
+          cd ..
+        shell: bash     
+      - name: trivy config $DIR
+        run: |
+          cd ./${{ matrix.workingdir }}
+          echo "Running trivy config for ${{ matrix.workingdir }} "
+          trivy config ./
+          output=$(trivy config ./)
+          if echo "$output" | grep -E "CRITICAL|HIGH"; then
+            echo "::warning::severities CRITICAL and HIGH found in ${{ matrix.workingdir }}"
+            return 1
+          else
+            echo "trivy config ./ ran successfully"
+          fi
+          cd ..
+        shell: bash     
+      - name: trivy fs --all packages 
+        run: |
+          cd ./${{ matrix.workingdir }}
+          echo "Running trivy fs --list-all-pkgs for ${{ matrix.workingdir }} "
+          trivy fs --list-all-pkgs  --format json .
+          cd ..
+        shell: bash
