@@ -20,7 +20,10 @@ const (
 	l2                = 2
 )
 
-var errNull = errors.New("")
+var (
+	errNull              = errors.New("")
+	errInvalidMetricName = errors.New("invalid metric name")
+)
 
 // AutoUpdatingCache holds a map of metrics of interest with their associated NodeMetricsInfo object.
 type AutoUpdatingCache struct {
@@ -119,6 +122,12 @@ func (n *AutoUpdatingCache) WritePolicy(namespace string, policyName string, pol
 // It also increments a counter showing how many strategies are using the metric -
 // protecting it from deletion until there are no more associated strategies.
 func (n *AutoUpdatingCache) WriteMetric(metricName string, data metrics.NodeMetricsInfo) error {
+	if len(metricName) == 0 {
+		klog.V(l2).ErrorS(errInvalidMetricName, "Failed to write metric with metric name: "+metricName, "component", "controller")
+
+		return errInvalidMetricName
+	}
+
 	payload := nilPayloadCheck(data)
 	n.add(fmt.Sprintf(metricPath, metricName), payload)
 
