@@ -201,6 +201,7 @@ func TestNodeMetricsCache_WriteMetric(t *testing.T) {
 		{"false name queried", MockEmptySelfUpdatingCache(), "memory_free", args{"memoryFREE"}, true},
 		{"number queried", MockEmptySelfUpdatingCache(), "1", args{"memoryFREE"}, true},
 		{"add existing metric", MockEmptySelfUpdatingCache(), "dummyMetric1", args{"dummyMetric1"}, false},
+		{"empty metric name", MockEmptySelfUpdatingCache(), "", args{""}, true},
 	}
 	for _, tt := range tests {
 		tt := tt
