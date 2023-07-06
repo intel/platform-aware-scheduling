@@ -2,10 +2,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: handle-policies
+  namespace: telemetry-aware-scheduling
 subjects:
   - kind: ServiceAccount
     name: telemetry-aware-scheduling-service-account
-    namespace: default
+    namespace: telemetry-aware-scheduling
 roleRef:
   kind: ClusterRole
   name: policy-handler
@@ -15,6 +16,7 @@ roleRef:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  namespace: telemetry-aware-scheduling
   name: policy-handler
 rules:
 - apiGroups: ["telemetry.intel.com"]
@@ -35,3 +37,4 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: telemetry-aware-scheduling-service-account
+  namespace: telemetry-aware-scheduling

@@ -25,13 +25,15 @@ Note, it may take some time for the metric to be initially scraped.
 
 ### Deploy a Telemetry Policy
 
+Create the appropriate namespace with: `kubectl create ns labeling-demo`
+
 ````
 cat <<EOF | kubectl create -f  -
 apiVersion: telemetry.intel.com/v1alpha1
 kind: TASPolicy
 metadata:
   name: labeling-policy
-  namespace: default
+  namespace: labeling-demo
 spec:
   strategies:
     labeling:
@@ -49,7 +51,7 @@ EOF
 
 The Telemetry Policy can be verified by using:
 
-````kubectl get taspolicy/labeling-policy````
+````kubectl get taspolicy/labeling-policy -n labeling-demo````
 
 Once the above policy is deployed TAS will begin to update metrics associated with it and label the nodes that are violating any of the strategy rules. The TAS logs may display:
 
@@ -107,6 +109,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: demo-app-label
+  namespace: labeling-demo
   labels:
     app: demo-label
 spec:
@@ -148,25 +151,25 @@ If any of the nodes is labeled with the telemetry.aware.scheduling.labeling-poli
 Verify by deploying the workload:
 
 ````
-kubectl get deploy/demo-app-label
+kubectl get deploy/demo-app-label -n labeling-demo
 ````
 
 Verify the Pod from the deployment:
 
 ````
-kubectl get po -l app=demo-label
+kubectl get po -l app=demo-label -n labeling-demo
 ````
 
 The pod will avoid being scheduled to node1 and will be scheduled on node2. This effect can be enhanced by scaling up:
 
 ````
-kubectl scale deploy demo-app-label --replicas=5
+kubectl scale deploy demo-app-label -n labeling-demo --replicas=5
 ````
 
 All the pods will be scheduled and deployed to node2, and this can be verified by:
 
 ````
-kubectl get po -l app=demo-label -o wide | awk {'print $1" "$2" "$3" "$5" "$7'} | column -t
+kubectl get po -l app=demo-label -o wide -n labeling-demo| awk {'print $1" "$2" "$3" "$5" "$7'} | column -t
 
 NAME                             READY  STATUS   AGE  NODE
 demo-app-label-68b4b587f9-8sxv7  1/1    Running  12s  node2
@@ -208,13 +211,13 @@ The output should display:
 When the deployment is now scaled up to 10 by:
 
 ````
-kubectl scale deploy demo-app-label --replicas=10
+kubectl scale deploy demo-app-label --replicas=10 -n labeling-demo
 ````
 
 All the new Pods are scheduled only on node1. Check this by:
 
 ````
-kubectl get po -l app=demo-label -o wide --sort-by=.spec.nodeName | awk {'print $1" "$2" "$3" "$5" "$7'} | column -t
+kubectl get po -l app=demo-label -o wide -n labeling-demo --sort-by=.spec.nodeName | awk {'print $1" "$2" "$3" "$5" "$7'} | column -t
 NAME                             READY  STATUS   AGE    NODE
 demo-app-label-68b4b587f9-2g96q  1/1    Running  42s    node1
 demo-app-label-68b4b587f9-sdzmc  1/1    Running  42s    node1
@@ -257,8 +260,15 @@ demo-app-label-68b4b587f9-xjll4  1/1    Running  5m13s  node2
 Once the metric changes for a given node, and it returns to a schedulable condition, i.e., non-violating the labeling rules, then the workloads will be scheduled to run at the node referred.
 
 
-### Descheduler
-[Kubernetes Descheduler](https://github.com/kubernetes-sigs/descheduler) allows control of pod evictions in the cluster after being bound to a node. Descheduler, based on its policy, finds pods that can be moved and evicted.  There are many ways to install and run the K8s [Descheduler](https://github.com/kubernetes-sigs/descheduler#quick-start). Here, we have executed it as a [deployment](https://github.com/kubernetes-sigs/descheduler#run-as-a-deployment) by using descheduler:v0.23.1.
+### Descheduler#
+[Kubernetes Descheduler](https://github.com/kubernetes-sigs/descheduler) allows control of pod evictions in the cluster after being bound to a node. Descheduler, based on its policy, finds pods that can be moved and evicted.  There are many ways to install and run the K8s [Descheduler](https://github.com/kubernetes-sigs/descheduler#quick-start). Here, we have executed it as a [deployment](https://github.com/kubernetes-sigs/descheduler#run-as-a-deployment) by using the latest available descheduler version.
+
+This demo has been tested with the following Descheduler versions:
+1. **v0.23.1** and older
+2. **v0.27.1**
+
+Telemetry Aware Scheduler and the following descheduler versions **v0.24.x** to **v0.26.x** seem to have compatibility issues (https://github.com/intel/platform-aware-scheduling/issues/90#issuecomment-1169012485 links to an issue cut to the Descheduler project team). The problem seems to have been fixed in Descheduler **v0.27.1**.
+
 In a shell terminal, deploy the Descheduler files:
 
 ````
@@ -320,13 +330,13 @@ node2:
 If the guide has continued immediately after the previous section, then scale down the number of pods to 0 and then scale it up to 3. Otherwise, execute the previous deployments for the policy and the demo-labelling app. Then, scale up to 3 pods.
 
 ````
-kubectl scale deploy demo-app-label --replicas=3
+kubectl scale deploy demo-app-label --replicas=3 -n labeling-demo
 ````
 
 All the pods will be scheduled and deployed to node2. You can verify by:
 
 ````
-kubectl get po -l app=demo-label -o wide | awk {'print $1" "$2" "$3" "$5" "$7'} | column -t
+kubectl get po -l app=demo-label -n labeling-demo -o wide | awk {'print $1" "$2" "$3" "$5" "$7'} | column -t
 NAME                             READY  STATUS   AGE  NODE
 demo-app-label-68b4b587f9-654kp  1/1    Running  97s  node2
 demo-app-label-68b4b587f9-6q2s5  1/1    Running  97s  node2
@@ -391,16 +401,48 @@ I1129 13:52:27.286503       1 event.go:291] "Event occurred" object="default/dem
 The pods are then located at node1:
 
 ````
-kubectl get po -l app=demo-label -o wide | awk {'print $1" "$2" "$3" "$5" "$7'} | column -t
+kubectl get po -l app=demo-label -n labeling-demo -o wide | awk {'print $1" "$2" "$3" "$5" "$7'} | column -t
 NAME                             READY  STATUS   AGE  NODE
 demo-app-label-68b4b587f9-5wrdt  1/1    Running  24s  node1
 demo-app-label-68b4b587f9-n4lgn  1/1    Running  24s  node1
 demo-app-label-68b4b587f9-wnpp7  1/1    Running  24s  node1
 ````
 
+#### Troubleshooting the descheduler
+
+If the pods are not moved to the non-violating node in the next descheduler cycle, please check the descheduler logs. Make sure the log level is set to **4** or higher.  This can be changed by modifying the corresponding value in the [deployment](https://github.com/kubernetes-sigs/descheduler/blob/master/kubernetes/deployment/deployment.yaml#L31-L32) file. A quick option is editing the value by:
+
+````
+kubectl edit deploy descheduler -n kube-system
+````
+
+##### Insufficient telemetry/scheduling
+
+Example error:
+````
+I0629 17:54:44.063789       1 node.go:168] "Pod does not fit on node" pod="labeling-demo/demo-app-label-6b9cc98bf4-rd9mx" node="NODE-A"
+I0629 17:54:44.063807       1 node.go:170] "insufficient telemetry/scheduling"
+````
+To address this error we need to patch all nodes in the cluster by adding the missing resource. To do so:
+
+1. On the control plane node, in a new window run:
+
+````
+kubectl proxy
+````
+2. On the control plane node, for each node run:
+
+````
+curl --header "Content-Type: application/json-patch+json" --request PATCH --data '[{"op": "add", "path": "/status/capacity/telemetry~1scheduling", "value": "10"}]' http://localhost:8001/api/v1/nodes/$NODE_NAME/status
+````
+
+**[NOTE]** The value chosen for this example is random. The only constraints are: the value has to be a positive integer (> 0) and high enough to be able to fulfill the all the resource specs that want this resource. More details [here](https://github.com/intel/platform-aware-scheduling/tree/master/telemetry-aware-scheduling#linking-a-workload-to-a-policy)
+
+
 ### For clean-up:
 ````
-kubectl delete deploy/demo-app-label taspolicy/labeling-policy
+kubectl delete deploy/demo-app-label taspolicy/labeling-policy -n labeling-demo
+kubectl delete ns labeling-demo
 kubectl delete cm descheduler-policy-configmap -n kube-system
 kubectl delete -f https://raw.githubusercontent.com/kubernetes-sigs/descheduler/master/kubernetes/base/rbac.yaml
 kubectl delete -f https://raw.githubusercontent.com/kubernetes-sigs/descheduler/master/kubernetes/deployment/deployment.yaml

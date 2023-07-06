@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: telemetry-aware-scheduling
-  namespace: default 
+  namespace: telemetry-aware-scheduling
   labels:
     app: tas
 spec:

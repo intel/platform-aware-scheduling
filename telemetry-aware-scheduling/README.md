@@ -62,7 +62,7 @@ kind: KubeSchedulerConfiguration
 clientConnection:
   kubeconfig: /etc/kubernetes/scheduler.conf
 extenders:
-  - urlPrefix: "https://tas-service.default.svc.cluster.local:9001"
+  - urlPrefix: "https://tas-service.telemetry-aware-scheduling.svc.cluster.local:9001"
     prioritizeVerb: "scheduler/prioritize"
     filterVerb: "scheduler/filter"
     weight: 1
@@ -91,14 +91,19 @@ Telemetry Aware Scheduling uses go modules. It requires Go 1.16+ with modules en
 TAS current version has been tested with the recent Kubernetes version at the released date. It maintains support to the three most recent K8s versions. 
 TAS was tested on Intel® Server Boards S2600WF and S2600WT-Based Systems.
 
-A yaml file for TAS is contained in the deploy folder along with its service and RBAC roles and permissions.
+A yaml file for TAS is contained in the deploy folder along with its service and RBAC roles and permissions. 
+The TAS components all reside in a custom namespace: **telemetry-aware-scheduling**, which means this namespace needs to be created first:
+
+``
+kubectl create namespace telemetry-aware-scheduling
+``
 
 A secret called extender-secret will need to be created with the cert and key for the TLS endpoint. TAS will not deploy if there is no secret available with the given deployment file.
 
 The secret can be created with:
 
 ``
-kubectl create secret tls extender-secret --cert /etc/kubernetes/<PATH_TO_CERT> --key /etc/kubernetes/<PATH_TO_KEY> 
+kubectl create secret tls extender-secret --cert /etc/kubernetes/<PATH_TO_CERT> --key /etc/kubernetes/<PATH_TO_KEY> -n telemetry-aware-scheduling
 ``
 <details>
 <summary>Cert selection tip for <a href="https://github.com/intel/platform-aware-scheduling/blob/24f25a38613e326b4830f5e647211df16060fe70/telemetry-aware-scheduling/deploy/extender-configuration/configure-scheduler.sh#L136-L137">configure-scheduler.sh</a> users</summary>
@@ -147,7 +152,7 @@ apiVersion: telemetry.intel.com/v1alpha1
 kind: TASPolicy
 metadata:
   name: scheduling-policy
-  namespace: default
+  namespace: health-metric-demo
 spec:
   strategies:
     deschedule:
@@ -214,7 +219,7 @@ apiVersion: telemetry.intel.com/v1alpha1
 kind: TASPolicy
 metadata:
   name: multirules-policy
-  namespace: default
+  namespace: health-metric-demo
 spec:
   strategies:
     deschedule:
@@ -264,6 +269,7 @@ For example,  in a deployment file:
 apiVersion: apps/v1 
 kind: Deployment
 metadata:
+  namespace: health-metric-demo
   name: demo-app
   labels:
     app: demo

@@ -2,7 +2,7 @@ apiVersion: telemetry.intel.com/v1alpha1
 kind: TASPolicy
 metadata:
   name: power-sensitive-scheduling-policy
-  namespace: default
+  namespace: power-demo
 spec:
   strategies:
     dontschedule:

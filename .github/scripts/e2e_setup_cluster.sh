@@ -247,8 +247,8 @@ mkdir "${mount_dir}/certs"
 docker cp kind-control-plane:/etc/kubernetes/pki/ca.crt "${mount_dir}/certs/client.crt"
 docker cp kind-control-plane:/etc/kubernetes/pki/ca.key "${mount_dir}/certs/client.key"
 
-
-kubectl create secret tls extender-secret --cert "${mount_dir}/certs/client.crt" --key "${mount_dir}/certs/client.key"
+kubectl create namespace telemetry-aware-scheduling
+kubectl create secret tls extender-secret --cert "${mount_dir}/certs/client.crt" --key "${mount_dir}/certs/client.key" -n telemetry-aware-scheduling
 sed "s/intel\/telemetry-aware-scheduling.*$/tasextender/g" "${root}/telemetry-aware-scheduling/deploy/tas-deployment.yaml" -i
 set_node_affinity_and_tolerations
 kubectl apply -f "${root}/telemetry-aware-scheduling/deploy/"
