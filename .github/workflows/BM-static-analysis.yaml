@@ -53,5 +53,7 @@ jobs:
         run: ansible-playbook -i  ${{ env.CI_CNO_ANSIBLE_FOLDER }}/inventory_cni.ini ${{ env.CI_CNO_PLAYBOOK_COMMON_FOLDER }}/commonTest.yml -e ${{ env.ANSIBLE_TELEMETRY_FOLDER_DESTINATION_PARAM }}
       - name: BM mtlsTest
         run: ansible-playbook -i  ${{ env.CI_CNO_ANSIBLE_FOLDER }}/inventory_cni.ini /${{ env.CI_CNO_PLAYBOOK_TAS_FOLDER }}/mtlsTest.yml -e ${{ env.ANSIBLE_TAS_FOLDER_DESTINATION_PARAM }}
+      - name: BM Clean-up TAS
+        run: ansible-playbook -i  ${{ env.CI_CNO_ANSIBLE_FOLDER }}/inventory_cni.ini ${{ env.CI_CNO_PLAYBOOK_TAS_FOLDER }}/clusterCleanup.yml -e ${{ env.ANSIBLE_TAS_FOLDER_DESTINATION_PARAM }}
       - name: BM Clean-up
         run: ansible-playbook -i  ${{ env.CI_CNO_ANSIBLE_FOLDER }}/inventory_cni.ini ${{ env.CI_CNO_PLAYBOOK_COMMON_FOLDER }}/commonCleanup.yml -e ${{ env.ANSIBLE_TELEMETRY_FOLDER_DESTINATION_PARAM }}

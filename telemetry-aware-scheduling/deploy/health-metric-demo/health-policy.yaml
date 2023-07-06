@@ -2,7 +2,7 @@ apiVersion: telemetry.intel.com/v1alpha1
 kind: TASPolicy
 metadata:
   name: demo-policy
-  namespace: default
+  namespace: health-metric-demo
 spec:
   strategies:
     deschedule:

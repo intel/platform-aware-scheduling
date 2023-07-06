@@ -211,6 +211,10 @@ This command should return some json objects containing pods and associated powe
 ### 4: Create TAS Telemetry Policy for power
 On the Kubernetes BMRA set up Telemetry Aware Scheduling is already installed and integrated with the Kubernetes control plane. In order to allow our cluster to make scheduling decisions based on current power usage we simply need to create a telemetry policy and associate appropriate pods with that policy.
 
+``kubectl create namespace power-demo``
+
+then
+
 ``kubectl apply -f $POW_DIR/tas-policy.yaml``
 
 We can see our policy by running:

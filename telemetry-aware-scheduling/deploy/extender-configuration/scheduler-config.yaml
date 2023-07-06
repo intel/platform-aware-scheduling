@@ -3,7 +3,7 @@ kind: KubeSchedulerConfiguration
 clientConnection:
   kubeconfig: /etc/kubernetes/scheduler.conf
 extenders:
-  - urlPrefix: "https://tas-service.default.svc.cluster.local:9001"
+  - urlPrefix: "https://tas-service.telemetry-aware-scheduling.svc.cluster.local:9001"
     prioritizeVerb: "scheduler/prioritize"
     filterVerb: "scheduler/filter"
     weight: 1
