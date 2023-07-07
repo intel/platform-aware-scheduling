@@ -72,6 +72,12 @@ var mockPolicy = telemetrypolicy.TASPolicy{
 var mockPolicy2 = telemetrypolicy.TASPolicy{
 	ObjectMeta: v1.ObjectMeta{Name: "not-mock-policy", Namespace: "default"},
 }
+var mockInvalidPolicyName1 = telemetrypolicy.TASPolicy{
+	ObjectMeta: v1.ObjectMeta{Name: "", Namespace: "default"},
+}
+var mockInvalidPolicyName2 = telemetrypolicy.TASPolicy{
+	ObjectMeta: v1.ObjectMeta{Name: "n", Namespace: "default"},
+}
 
 // ReadMetric is a method implemented for Mock cache.
 func (n MockCache) ReadMetric(string) (metrics.NodeMetricsInfo, error) {

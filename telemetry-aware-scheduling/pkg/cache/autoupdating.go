@@ -23,6 +23,7 @@ const (
 var (
 	errNull              = errors.New("")
 	errInvalidMetricName = errors.New("invalid metric name")
+	errInvalidPolicyName = errors.New("invalid policy name")
 )
 
 // AutoUpdatingCache holds a map of metrics of interest with their associated NodeMetricsInfo object.
@@ -113,6 +114,12 @@ func (n *AutoUpdatingCache) ReadPolicy(namespace string, policyName string) (tel
 
 // WritePolicy sends the passed object to be stored in the cache under the namespace/name.
 func (n *AutoUpdatingCache) WritePolicy(namespace string, policyName string, policy telemetrypolicy.TASPolicy) error {
+	if len(policyName) == 0 {
+		klog.V(l2).ErrorS(errInvalidPolicyName, "Failed to add policy with name: "+policyName, "component", "controller")
+
+		return errInvalidPolicyName
+	}
+
 	n.add(fmt.Sprintf(policyPath, namespace, policyName), policy)
 
 	return nil
