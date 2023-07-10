@@ -44,6 +44,10 @@ spec:
                          properties:
                            metricname:
                              type: string
+                             # don't match if the following characters are not present
+                             # can't match \ or / as that is what TAS uses as keys in
+                             # the metric cache and \ is to breakdown Unicode characters 
+                             pattern: '^[a-zA-Z0-9_-]+$'
                            operator:
                              type: string
                              enum: ["Equals","LessThan","GreaterThan"]
