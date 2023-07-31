@@ -40,10 +40,10 @@ update-baseimage:
 #note: you can further speed up subsequent docker builds by doing "make licenses"
 image: update-baseimage
 	docker build --build-arg GOLICENSES_VERSION=$(GOLICENSES_VERSION) --build-arg LOCAL_LICENSES=$(LOCAL_LICENSES) \
-	-f deploy/images/Dockerfile_gpu-extender ../ -t $(IMAGE_PATH)gpu-extender$(IMAGE_TAG)
+	-f deploy/images/Dockerfile ../ -t $(IMAGE_PATH)gpu-extender$(IMAGE_TAG)
 
 release-image: clean update-baseimage
-	docker build --build-arg GOLICENSES_VERSION=$(GOLICENSES_VERSION) -f deploy/images/Dockerfile_gpu-extender ../ \
+	docker build --build-arg GOLICENSES_VERSION=$(GOLICENSES_VERSION) -f deploy/images/Dockerfile ../ \
 	-t $(IMAGE_PATH)gpu-extender$(IMAGE_TAG)
 
 format:
