@@ -1,0 +1,95 @@
+apiVersion: addons.cluster.x-k8s.io/v1alpha3
+kind: ClusterResourceSet
+metadata:
+  name: prometheus
+spec:
+  clusterSelector:
+    matchLabels:
+      scheduler: tas
+  resources:
+    - kind: ConfigMap
+      name: prometheus-configmap
+---
+apiVersion: addons.cluster.x-k8s.io/v1alpha3
+kind: ClusterResourceSet
+metadata:
+  name: prometheus-node-exporter
+spec:
+  clusterSelector:
+    matchLabels:
+      scheduler: tas
+  resources:
+    - kind: ConfigMap
+      name: prometheus-node-exporter-configmap
+---
+apiVersion: addons.cluster.x-k8s.io/v1alpha3
+kind: ClusterResourceSet
+metadata:
+  name: custom-metrics
+spec:
+  clusterSelector:
+    matchLabels:
+      scheduler: tas
+  resources:
+    - kind: ConfigMap
+      name: custom-metrics-configmap
+---
+apiVersion: addons.cluster.x-k8s.io/v1alpha3
+kind: ClusterResourceSet
+metadata:
+  name: custom-metrics-tls-secret
+spec:
+  clusterSelector:
+    matchLabels:
+      scheduler: tas
+  resources:
+    - kind: ConfigMap
+      name: custom-metrics-tls-secret-configmap
+---
+apiVersion: addons.cluster.x-k8s.io/v1alpha3
+kind: ClusterResourceSet
+metadata:
+  name: tas
+spec:
+  clusterSelector:
+    matchLabels:
+      scheduler: tas
+  resources:
+    - kind: ConfigMap
+      name: tas-configmap
+---
+apiVersion: addons.cluster.x-k8s.io/v1alpha3
+kind: ClusterResourceSet
+metadata:
+  name: tas-tls-secret
+spec:
+  clusterSelector:
+    matchLabels:
+      scheduler: tas
+  resources:
+    - kind: ConfigMap
+      name: tas-tls-secret-configmap
+---
+apiVersion: addons.cluster.x-k8s.io/v1alpha3
+kind: ClusterResourceSet
+metadata:
+  name: extender
+spec:
+  clusterSelector:
+    matchLabels:
+      scheduler: tas
+  resources:
+    - kind: ConfigMap
+      name: extender-configmap
+---
+apiVersion: addons.cluster.x-k8s.io/v1alpha3
+kind: ClusterResourceSet
+metadata:
+  name: calico
+spec:
+  clusterSelector:
+    matchLabels:
+      cni: calico
+  resources:
+    - kind: ConfigMap
+      name: calico-configmap

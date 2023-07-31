@@ -1,0 +1,54 @@
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KubeadmControlPlane
+spec:
+  kubeadmConfigSpec:
+    files:
+      - path: /etc/kubernetes/schedulerconfig/scheduler-componentconfig.yaml
+        content: |
+          apiVersion: kubescheduler.config.k8s.io/v1
+          kind: KubeSchedulerConfiguration
+          clientConnection:
+            kubeconfig: /etc/kubernetes/scheduler.conf
+          extenders:
+            - urlPrefix: "https://tas-service.default.svc.cluster.local:9001"
+              prioritizeVerb: "scheduler/prioritize"
+              filterVerb: "scheduler/filter"
+              weight: 1
+              enableHTTPS: true
+              managedResources:
+                - name: "telemetry/scheduling"
+                  ignoredByScheduler: true
+              ignorable: true
+              tlsConfig:
+                insecure: false
+                certFile: "/host/certs/client.crt"
+                keyFile: "/host/certs/client.key"
+      - path: /tmp/kubeadm/patches/kube-scheduler+json.json
+        content: |-
+          [
+              {
+                  "op": "add",
+                  "path": "/spec/dnsPolicy",
+                  "value": "ClusterFirstWithHostNet"
+              }
+          ]
+    clusterConfiguration:
+      scheduler:
+        extraArgs:
+          config: "/etc/kubernetes/schedulerconfig/scheduler-componentconfig.yaml"
+        extraVolumes:
+          - hostPath: "/etc/kubernetes/schedulerconfig"
+            mountPath: "/etc/kubernetes/schedulerconfig"
+            name: schedulerconfig
+          - hostPath: "/etc/kubernetes/pki/ca.key"
+            mountPath: "/host/certs/client.key"
+            name: cacert
+          - hostPath: "/etc/kubernetes/pki/ca.crt"
+            mountPath: "/host/certs/client.crt"
+            name: clientcert
+    initConfiguration:
+      patches:
+        directory: /tmp/kubeadm/patches
+    joinConfiguration:
+      patches:
+        directory: /tmp/kubeadm/patches
