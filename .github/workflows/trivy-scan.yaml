@@ -19,7 +19,7 @@ jobs:
     runs-on: ${{ inputs.runsOn }}
     strategy:
       matrix:
-        workingdir: [extender, telemetry-aware-scheduling]
+        workingdir: [extender, telemetry-aware-scheduling, gpu-aware-scheduling]
     name: vulnerability-scanners
     steps:
       - name: Checkout project
@@ -36,15 +36,25 @@ jobs:
       - name: trivy config $DIR
         run: |
           cd ./${{ matrix.workingdir }}
-          echo "Running trivy config for ${{ matrix.workingdir }} "
-          trivy config ./
-          output=$(trivy config ./)
-          if echo "$output" | grep -E "CRITICAL|HIGH"; then
-            echo "::warning::severities CRITICAL and HIGH found in ${{ matrix.workingdir }}"
-            return 1
+          echo "Running trivy config for ${{ matrix.workingdir }}, looking for CRITICAL or HIGH severity items..."
+          trivy config ./ --severity=CRITICAL
+          output=$(trivy config ./ --severity=CRITICAL)
+          if [ -n "${output}" ]; then
+            echo "::warning::severities CRITICAL issues spotted by Trivy in ${{ matrix.workingdir }}"
+            exit 1
           else
-            echo "trivy config ./ ran successfully"
+            echo "trivy config ./ --severity=CRITICAL ran successfully"
           fi
+          # look for HIGH severity issues
+          trivy config ./ --severity=HIGH
+          output=$(trivy config ./ --severity=HIGH)
+          if [ -n "${output}" ]; then
+            echo "::warning::severities HIGH issues spotted by Trivy in ${{ matrix.workingdir }}"
+            exit 1
+          else
+            echo "trivy config ./ --severity=HIGH ran successfully"
+          fi
+
           cd ..
         shell: bash     
       - name: trivy fs --all packages 

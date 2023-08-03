@@ -83,7 +83,7 @@ jobs:
     runs-on: ${{ inputs.runsOn }}
     strategy:
       matrix:
-        workingdir: [extender, telemetry-aware-scheduling]
+        workingdir: [extender, telemetry-aware-scheduling, gpu-aware-scheduling]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
