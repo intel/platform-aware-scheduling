@@ -1,6 +1,6 @@
 module github.com/intel/platform-aware-scheduling/configurator
 
-go 1.19
+go 1.20
 
 require (
 	github.com/sergi/go-diff v1.3.1

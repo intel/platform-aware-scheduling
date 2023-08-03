@@ -1,9 +1,9 @@
-GO_VERSION = 1.19
 IMAGE_TAG = latest
 ifneq ($(TAG),)
 IMAGE_TAG = $(TAG)
 endif
 
+GO_VERSION = 1.20
 GOLICENSES_VERSION?=v1.6.0
 
 BUILD_OUTPUT_DIR?=./bin
@@ -40,10 +40,12 @@ update-baseimage:
 
 containerized-build: update-baseimage
 	DOCKER_BUILDKIT=1 docker build -o - --build-arg GOLICENSES_VERSION=$(GOLICENSES_VERSION) \
-	--build-arg LOCAL_LICENSES=$(LOCAL_LICENSES) -f Dockerfile ../ -t $(IMAGE_PATH)pas-configurator:$(IMAGE_TAG) | tar x bin/configurator
+	--build-arg GO_VERSION=$(GO_VERSION) --build-arg LOCAL_LICENSES=$(LOCAL_LICENSES) \
+	-f Dockerfile ../ -t $(IMAGE_PATH)pas-configurator:$(IMAGE_TAG) | tar x bin/configurator
 
 image: update-baseimage
-	docker build --build-arg GOLICENSES_VERSION=$(GOLICENSES_VERSION) --build-arg LOCAL_LICENSES=$(LOCAL_LICENSES) \
+	docker build --build-arg GOLICENSES_VERSION=$(GOLICENSES_VERSION) \
+	--build-arg GO_VERSION=$(GO_VERSION) --build-arg LOCAL_LICENSES=$(LOCAL_LICENSES) \
 	-f Dockerfile ../ -t $(IMAGE_PATH)pas-configurator:$(IMAGE_TAG)
 
 format:
