@@ -2,6 +2,7 @@ ifneq ($(TAG),)
 IMAGE_TAG=:$(TAG)
 endif
 
+GO_VERSION = 1.20
 GOLICENSES_VERSION?=v1.6.0
 BUILD_OUTPUT_DIR?=./bin
 
@@ -34,17 +35,18 @@ build:
 	CGO_ENABLED=0 GO111MODULE=on go build -ldflags="$(LDFLAGS)" -o $(BUILD_OUTPUT_DIR)/extender ./cmd/gas-scheduler-extender
 
 update-baseimage:
-	docker pull golang:1.19
+	docker pull golang:$(GO_VERSION)
 
 #note: you can speed up subsequent docker builds by doing "go mod vendor"
 #note: you can further speed up subsequent docker builds by doing "make licenses"
 image: update-baseimage
-	docker build --build-arg GOLICENSES_VERSION=$(GOLICENSES_VERSION) --build-arg LOCAL_LICENSES=$(LOCAL_LICENSES) \
+	docker build --build-arg GOLICENSES_VERSION=$(GOLICENSES_VERSION) \
+	--build-arg LOCAL_LICENSES=$(LOCAL_LICENSES) --build-arg GO_VERSION=$(GO_VERSION) \
 	-f deploy/images/Dockerfile ../ -t $(IMAGE_PATH)gpu-extender$(IMAGE_TAG)
 
 release-image: clean update-baseimage
-	docker build --build-arg GOLICENSES_VERSION=$(GOLICENSES_VERSION) -f deploy/images/Dockerfile ../ \
-	-t $(IMAGE_PATH)gpu-extender$(IMAGE_TAG)
+	docker build --build-arg GOLICENSES_VERSION=$(GOLICENSES_VERSION) --build-arg GO_VERSION=$(GO_VERSION) \
+	-f deploy/images/Dockerfile ../ -t $(IMAGE_PATH)gpu-extender$(IMAGE_TAG)
 
 format:
 	gofmt -w -s .

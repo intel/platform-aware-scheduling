@@ -1,7 +1,8 @@
 # Copyright (C) 2023 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-FROM golang:1.19 as builder
+ARG GO_VERSION
+FROM golang:${GO_VERSION} as builder
 ARG GOLICENSES_VERSION
 ARG LOCAL_LICENSES
 COPY . /src_root
