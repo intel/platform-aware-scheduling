@@ -249,8 +249,9 @@ func TestSchedulingLogicBadParams(t *testing.T) {
 
 	Convey("When I call getNodeForName with empty params", t, func() {
 		mockCache.On("FetchNode", mock.Anything, mock.Anything).Return(nil, errMock).Once()
+		var nilNode *v1.Node
 		result, err := gas.getNodeForName("")
-		So(result, ShouldEqual, nil)
+		So(result, ShouldEqual, nilNode)
 		So(err, ShouldNotBeNil)
 	})
 
@@ -554,7 +555,7 @@ func TestDecodeRequest(t *testing.T) {
 
 	Convey("When decoding something not really JSON", t, func() {
 		request, err := http.NewRequestWithContext(context.Background(),
-			http.MethodPost, "http://foo/bar", bytes.NewBuffer([]byte("foo")))
+			http.MethodPost, "http://foo/bar", bytes.NewBufferString("foo"))
 		So(err, ShouldBeNil)
 		request.Header.Set("Content-Type", "application/json")
 		err = gas.decodeRequest("foo", request)
@@ -1117,6 +1118,8 @@ func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.
 
 	Convey("When running scheduling logic with multi-container pod with tile request", t, func() {
 		for _, testCase := range testCases {
+			t.Logf("test %v", testCase.description)
+
 			pod := getFakePod()
 			mockNode := getMockNode(4, 4, "card0", "card1", "card2", "card3")
 			pod.Spec = *getMockPodSpecMultiContXeLinked(2)
