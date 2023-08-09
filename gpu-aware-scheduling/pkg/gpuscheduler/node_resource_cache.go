@@ -729,13 +729,11 @@ func (c *Cache) startPodWork(stopChannel <-chan struct{}) {
 }
 
 func (c *Cache) podWorkerRun() {
-	//nolint:revive
 	for c.podWork() {
 	}
 }
 
 func (c *Cache) nodeWorkerRun() {
-	//nolint:revive
 	for c.nodeWork() {
 	}
 }
