@@ -1,21 +1,21 @@
 # Usage with NFD and GPU-plugin
 This document explains how to get GAS working together with [Node Feature Discovery](https://github.com/kubernetes-sigs/node-feature-discovery) (NFD) and the [GPU-plugin](https://github.com/intel/intel-device-plugins-for-kubernetes/blob/main/cmd/gpu_plugin/README.md).
 
-To begin with, it will help a lot if you have been successful already using the Intel GPU-plugin with
-some deployments. That means your HW and cluster is most likely fine with GAS also.
+It will help a lot if you have already been successfully using the Intel GPU-plugin with
+some deployments. That means your HW and cluster is most likely fine also with GAS.
 
 ## Enabling fractional resource support in GPU-plugin and NFD
-Resource management is required to be enabled in GPU-plugin currently to run GAS. With resource
-management enabled, GPU-plugin can read the necessary annotations of the Pods. Without reading
-those annotations, GPU allocations will not work correctly. NFD needs to be configured to create
-the node extended resources which are then used by GAS.
+Resource management must be enabled in GPU-plugin to run GAS. With resource
+management enabled, GPU-plugin will use annotations GAS adds to Pods,
+otherwise GPU allocations will not work correctly. NFD needs also to be
+configured for node extended resources used by GAS to be created.
 
 The easiest way to setup both the Intel GPU device plugin and NFD is to follow the
 [installation instructions of the Intel GPU-plugin](https://github.com/intel/intel-device-plugins-for-kubernetes/blob/main/cmd/gpu_plugin/README.md#install-to-nodes-with-intel-gpus-with-fractional-resources).
 
 ## Cluster nodes
 
-You need some i915 GPUs in the nodes. Integrated GPUs work fine for testing GAS, most recent NUCs are good enough.
+You need some Intel GPUs in the nodes. Even integrated GPUs work fine for testing GAS.
 
 ## Pods
 
@@ -68,9 +68,9 @@ the rule is `PCI_GROUP` which has a special meaning, explained separately. Examp
 ### PCI Groups
 
 If GAS finds a node label `gas-disable-GPUNAME=PCI_GROUP`[^2] the disabling will impact a
-group of GPUs which is defined in the node label `gpu.intel.com/pci-groups`. The syntax of the
-pci group node label is easiest to explain with an example: `gpu.intel.com/pci-groups=0.1_2.3.4`
-would indicate there are two pci-groups in the node separated with an underscore, in which card0
+group of GPUs which is defined in the node label `gpu.intel.com/pci-groups`.
+For example the PCI-group node label `gpu.intel.com/pci-groups=0.1_2.3.4`
+would indicate there are two PCI-groups in the node separated with an underscore, in which card0
 and card1 form the first group, and card2, card3 and card4 form the second group. If GAS would
 find the node label `gas-disable-card3=PCI_GROUP` in a node with the previous example PCI-group
 label, GAS would stop using card2, card3 and card4 for new allocations, as card3 belongs in that
@@ -102,7 +102,7 @@ GPUs allocated to them.
 
 In case two or more containers of the same Pod require to use the same GPU, GAS supports
 `gas-same-gpu` Pod annotation (value is a list of container names) that tells GAS which containers
-should only be given the same GPU. In case if neither of the GPUs on the node have enough available
+should only be given the same GPU. In case none of the GPUs on the node have enough available
 resources for all containers listed in such annotation, the current node will not be used for
 scheduling.
 
@@ -170,7 +170,9 @@ allocating a pair of GPUs and tiles which have an Xe Link between them, because 
 
 For clusters which have nodes that have only some of the GPUs connected with Xe Links, GAS offers the
 possibility to allocate from only those GPUs which happen to have an Xe Link between them. Such cluster nodes
-need to have the label `gpu.intel.com/xe-links`, which describes the xe-links of the node. Label example:
+need to have the label `gpu.intel.com/xe-links`, which describes the xe-links of the node.
+
+Label example:
 `gpu.intel.com/xe-links=0.0-1.0_2.0-3.0`, where `_` separates link descriptions, `-` separates linked GPUs and `.`
 separates a Level-Zero deviceId from a subdeviceId number. Thus that examples reads: GPU device with id 0 subdevice
 id 0 is connected with an Xe Link to GPU device with id 1 and subdevice id 0. GPU Device with id 2 subdevice id 0
@@ -222,30 +224,35 @@ spec:
 
 - In Pods with `gas-allocate-xelink` annotation, every GPU-using container within the same Pod:
   - Must request an even (not odd) amount of `gpu.intel.com/i915` resources
-  - Must request as many `gpu.intel.com/tiles` as the `gpu.intel.com/i915` resources
+  - Must request as many `gpu.intel.com/tiles`[^3] as the `gpu.intel.com/i915` resources
   - Cannot request `gpu.intel.com/i915_monitoring` resource
 - Pods cannot use (single-GPU) `gas-same-gpu` annotation with (multi-GPU) `gas-allocate-xelink` annotation
 
+[^3]: Requires Pod spec to specify Level-Zero hierarchy mode expected by the workload (as that affects format of affinity mask set by the `tiles` resource), see [GPU-Plugin documentation](https://github.com/intel/intel-device-plugins-for-kubernetes/blob/main/cmd/gpu_plugin/README.md)
+
 ## Single-Numa GPU requests
 
-When allocating multiple GPUs, you can request allocating from the same numa node by adding annotation `gas-allocate-single-numa` with value `true`
-to the Pod. The Kubernetes Topology Manager can't be used with Pods that get GPUs assigned by GAS, but you can use
+When allocating multiple GPUs, Pod can request them to be from the same Numa node by adding annotation `gas-allocate-single-numa` with value `true`
+to the Pod. The Kubernetes Topology Manager cannot be used with Pods that get GPUs assigned by GAS, but you can use
 [CRI-RM](https://github.com/intel/cri-resource-manager) instead of the Topology Manager to get similar performance gains with CPUs selected from the
-same numa node.
+same Numa node.
 
 ## Summary in a chronological order
 
-- GPU-plugin initcontainer installs an NFD hook which prints labels for you, based on the Intel GPUs it finds
-- NFD creates extended resources for you, and labels the nodes, based on the labels the hook prints
+- GPU-plugin itself, or its initcontainer, and a GPU monitor sidecar, provide label information to NFD based on the found Intel GPU properties
+- NFD creates extended resources and labels the nodes, based on the given information
 - Your Pod specs must include resource limits for GPU
-- GAS filters out nodes from deployments when necessary, and it annotates Pods
-- GPU-plugin reads annotations from the Pods and selects the GPU based on those
+- GAS filters out nodes from deployments when necessary, and annotates Pods
+- GPU-plugin reads annotations from the Pods and selects the GPU(s) based on those
 
 ## Some troubleshooting tips
 
 Check the logs (kubectl logs podname -n namespace) from all of these when in trouble. Also check k8s scheduler logs. Finally check the Pod description and logs for your deployments.
 
-- Check that GPU-plugin initcontainer runs happily, and installs the hook at /etc/kubernetes/node-feature-discovery/source.d/
+- Check that GPU-plugin either:
+  - Runs initcontainer which installs hook binary to `/etc/kubernetes/node-feature-discovery/source.d/`
+  - Or GPU-plugin itself saves NFD feature file to `/etc/kubernetes/node-feature-discovery/features.d/`
+- And for Xe Link connnectivity, check XPU Manager having a sidecar saving NFD feature file to same place
 - Check that NFD picks up the labels without complaints, no errors in NFD workers or the master
 - Check that your GPU-enabled nodes have NFD-created GPU extended resources (kubectl describe node nodename) and GPU-labels
 - Check the log of GAS Pod. If the log does not show anything ending up happening during deploying of i915 resource consuming Pods, your scheduler extender setup may be incorrect. Verify that you have successfully run all the deployment steps and the related cluster setup script.
