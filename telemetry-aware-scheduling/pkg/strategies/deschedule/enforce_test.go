@@ -6,7 +6,6 @@ package deschedule
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -279,7 +278,7 @@ func TestDescheduleStrategy_Cleanup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.d.Cleanup(tt.args.enforcer, tt.d.PolicyName)
 			if (err != nil) != tt.wantErr {
-				if !strings.Contains(fmt.Sprint(err.Error()), tt.wantErrMessageToken) {
+				if !strings.Contains(err.Error(), tt.wantErrMessageToken) {
 					t.Errorf("Expecting output to match wantErr %v, instead got %v", tt.wantErrMessageToken, err)
 
 					return

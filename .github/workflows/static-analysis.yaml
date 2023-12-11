@@ -22,7 +22,7 @@ on:
       goVersion:
         required: false
         type: string
-        default: 1.20.5
+        default: 1.21.5
       hadolintVersion:
         required: false
         type: string
@@ -30,11 +30,11 @@ on:
       goLangCIVersion:
         required: false
         type: string
-        default: v1.53.1
+        default: v1.55.2
       goImportsVersion:
         required: false
         type: string
-        default: v0.9.3
+        default: v0.16.0
 jobs:
   shellcheck:
     name: Shellcheck

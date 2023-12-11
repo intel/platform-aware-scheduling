@@ -47,13 +47,13 @@ func (d *Strategy) Violated(cache cache.Reader) map[string]interface{} {
 
 				if d.LogicalOperator == "allOf" {
 					if nodeMetricViol[nodeName] == len(d.Rules) {
-						msg := fmt.Sprint(nodeName + " violating all the rules in " + d.StrategyType() + " strategy")
+						msg := nodeName + " violating all the rules in " + d.StrategyType() + " strategy"
 						klog.V(l2).InfoS(msg, "component", "controller")
 
 						violatingNodes[nodeName] = nil
 					}
 				} else {
-					msg := fmt.Sprint(nodeName + " violating " + d.PolicyName + ": " + ruleToString(rule))
+					msg := nodeName + " violating " + d.PolicyName + ": " + ruleToString(rule)
 					klog.V(l2).InfoS(msg, "component", "controller")
 
 					violatingNodes[nodeName] = nil

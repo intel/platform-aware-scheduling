@@ -36,24 +36,12 @@ jobs:
           else
             echo "BRANCH=INVALID_EVENT_BRANCH_UNKNOWN" >> $GITHUB_OUTPUT
           fi
-
-
-  end-to-end-test-local-K8s-v20:
+  end-to-end-test-local-K8s-v21:
     uses: ./.github/workflows/end-to-end-test.yaml
     needs: [ current_branch  ]
     with:
       runson: self-hosted-kind
       cleanup: true
-      isLocal: "true"
-      codeBranch: ${{ needs.current_branch.outputs.extract_branch }}
-      imageHash: "kindest/node:v1.20.15@sha256:a32bf55309294120616886b5338f95dd98a2f7231519c7dedcec32ba29699394"
-
-  end-to-end-test-local-K8s-v21:
-    uses: ./.github/workflows/end-to-end-test.yaml
-    needs: [ end-to-end-test-local-K8s-v20  ]
-    with:
-      runson: self-hosted-kind
-      cleanup: false
       isLocal: "true"
       codeBranch: ${{ needs.current_branch.outputs.extract_branch }}
       imageHash: "kindest/node:v1.21.14@sha256:9d9eb5fb26b4fbc0c6d95fa8c790414f9750dd583f5d7cee45d92e8c26670aa1"
@@ -119,4 +107,14 @@ jobs:
       isLocal: "true"
       codeBranch: ${{ needs.current_branch.outputs.extract_branch }}
       imageHash: "kindest/node:v1.27.1@sha256:b7d12ed662b873bd8510879c1846e87c7e676a79fefc93e17b2a52989d3ff42b"
-                                                                                                                            
+
+  end-to-end-test-local-K8s-v28:
+    uses: ./.github/workflows/end-to-end-test.yaml
+    needs: [ end-to-end-test-local-K8s-v27  ]
+    with:
+      runson: self-hosted-kind
+      cleanup: false
+      isLocal: "true"
+      codeBranch: ${{ needs.current_branch.outputs.extract_branch }}
+      imageHash: "kindest/node:v1.28.0@sha256:dad5a6238c5e41d7cac405fae3b5eda2ad1de6f1190fa8bfc64ff5bb86173213"
+                                                                                                                          
