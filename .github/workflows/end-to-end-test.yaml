@@ -6,7 +6,7 @@ on:
       goVersion:
         required: false
         type: string
-        default: 1.20.5
+        default: 1.21.5
       kindversion:
         required: false
         type: string
@@ -14,7 +14,7 @@ on:
       imagehash:
         required: false
         type: string
-        default: kindest/node:v1.27.1@sha256:b7d12ed662b873bd8510879c1846e87c7e676a79fefc93e17b2a52989d3ff42b
+        default: kindest/node:v1.28.0@sha256:dad5a6238c5e41d7cac405fae3b5eda2ad1de6f1190fa8bfc64ff5bb86173213
       runson:
         required: false
         type: string

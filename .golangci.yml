@@ -28,12 +28,12 @@ linters:
     - typecheck
     - gochecknoglobals
     - nosnakecase
-
+    - depguard
 linters-settings:
   gofmt:
     simplify: true
   gofumpt:
-    lang-version: "1.20"
+    lang-version: "1.21"
   golint:
     min-confidence: 0.9
   govet:
@@ -52,19 +52,6 @@ linters-settings:
     line-length: 160
   nestif:
     min-complexity: 7
-  depguard:
-    rules:
-      Main:
-        files:
-        - $all
-        allow:
-        - $gostd
-        - k8s.io/klog
-        - k8s.io/client-go
-        - k8s.io/api
-        - k8s.io/apimachinery
-        - k8s.io/metrics
-        - github.com/intel/platform-aware-scheduling
 
 issues:
   exclude-rules:
@@ -77,3 +64,7 @@ issues:
         - goimports
         - gofmt
         - dupword
+        - gosec
+    - path: _deepcopy\.go
+      linters:
+        - nolintlint

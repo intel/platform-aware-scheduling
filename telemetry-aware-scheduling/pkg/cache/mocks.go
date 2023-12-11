@@ -22,8 +22,9 @@ type MockCache struct {
 }
 
 const (
-	timeSec = 100
-	timeNs  = 1
+	timeSec                         = 100
+	timeNs                          = 1
+	unableToCreateDummyMetricString = "Unable to create a dummymetric"
 )
 
 // MockEmptySelfUpdatingCache returns auto updating cache.
@@ -40,17 +41,17 @@ func MockSelfUpdatingCache() *AutoUpdatingCache {
 
 	err := n.WriteMetric("dummyMetric1", TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{50, 30}))
 	if err != nil {
-		klog.InfoS("Unable to create a dummymetric: "+err.Error(), "component", "testing")
+		klog.InfoS(unableToCreateDummyMetricString+err.Error(), "component", "testing")
 	}
 
 	err = n.WriteMetric("dummyMetric2", TestNodeMetricCustomInfo([]string{"node 1", "node2"}, []int64{100, 200}))
 	if err != nil {
-		klog.InfoS("Unable to create a dummymetric: "+err.Error(), "component", "testing")
+		klog.InfoS(unableToCreateDummyMetricString+err.Error(), "component", "testing")
 	}
 
 	err = n.WriteMetric("dummyMetric3", TestNodeMetricCustomInfo([]string{"node Z", "node Y"}, []int64{8, 40000000}))
 	if err != nil {
-		klog.InfoS("Unable to create a dummymetric: "+err.Error(), "component", "testing")
+		klog.InfoS(unableToCreateDummyMetricString+err.Error(), "component", "testing")
 	}
 
 	return n.(*AutoUpdatingCache)
