@@ -75,7 +75,7 @@ func containerRequests(pod *v1.Pod, samegpuContainerNames map[string]bool) (
 func addPCIGroupGPUs(node *v1.Node, card string, cards []string) []string {
 	pciGroupGPUNums := getPCIGroup(node, card)
 	for _, gpuNum := range pciGroupGPUNums {
-		groupedCard := "card" + gpuNum
+		groupedCard := cardPrefix + gpuNum
 		if found := containsString(cards, groupedCard); !found {
 			cards = append(cards, groupedCard)
 		}
@@ -93,7 +93,7 @@ func extractCardAndTile(cardTileCombo string) (string, int, error) {
 		return card, tile, errExtractFail
 	}
 
-	card = "card" + values[1]
+	card = cardPrefix + values[1]
 	tile, _ = strconv.Atoi(values[2])
 
 	return card, tile, nil
@@ -209,7 +209,7 @@ func labelWithoutTASNS(label string) (string, bool) {
 func isGPUInPCIGroup(gpuName, pciGroupGPUName string, node *v1.Node) bool {
 	gpuNums := getPCIGroup(node, pciGroupGPUName)
 	for _, gpuNum := range gpuNums {
-		if gpuName == "card"+gpuNum {
+		if gpuName == cardPrefix+gpuNum {
 			return true
 		}
 	}
@@ -247,7 +247,7 @@ func getPCIGroup(node *v1.Node, gpuName string) []string {
 		for _, group := range slicedGroups {
 			gpuNums := strings.Split(group, ".")
 			for _, gpuNum := range gpuNums {
-				if "card"+gpuNum == gpuName {
+				if cardPrefix+gpuNum == gpuName {
 					return gpuNums
 				}
 			}
@@ -463,7 +463,7 @@ func gpuNameToLZeroDeviceID(gpuName string, node *v1.Node) int {
 	gpuNumSlice := numSortedGpuNums(node)
 
 	for i, gpuNum := range gpuNumSlice {
-		if "card"+gpuNum == gpuName {
+		if cardPrefix+gpuNum == gpuName {
 			return i
 		}
 	}
@@ -478,7 +478,7 @@ func lZeroDeviceIDToGpuName(lZeroID int, node *v1.Node) string {
 		return ""
 	}
 
-	return "card" + gpuNumSlice[lZeroID]
+	return cardPrefix + gpuNumSlice[lZeroID]
 }
 
 func numSortedGpuNums(node *v1.Node) []string {
@@ -525,7 +525,7 @@ func convertPodTileAnnotationToCardTileMap(podTileAnnotation string) map[string]
 			}
 
 			// extract card index by moving forward in slice
-			cardIndexStr := cardTileSplit[0][len("card"):]
+			cardIndexStr := cardTileSplit[0][len(cardPrefix):]
 
 			_, err := strconv.ParseInt(cardIndexStr, digitBase, desiredIntBits)
 			if err != nil {

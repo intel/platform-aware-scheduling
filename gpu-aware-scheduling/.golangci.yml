@@ -45,3 +45,4 @@ issues:
         - exhaustruct
         - gocyclo
         - cyclop
+        - revive
