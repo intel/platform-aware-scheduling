@@ -2,7 +2,7 @@ ifneq ($(TAG),)
 IMAGE_TAG=:$(TAG)
 endif
 
-GO_VERSION = 1.20
+GO_VERSION = 1.21
 GOLICENSES_VERSION?=v1.6.0
 BUILD_OUTPUT_DIR?=./bin
 

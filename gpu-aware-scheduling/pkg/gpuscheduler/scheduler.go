@@ -17,12 +17,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/intel/platform-aware-scheduling/extender"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+	ev1 "k8s.io/kube-scheduler/extender/v1"
 )
 
 const (
@@ -43,6 +43,8 @@ const (
 	tileDeschedLabelPrefix   = "gas-tile-deschedule-"
 	tilePrefLabelPrefix      = "gas-tile-preferred-"
 	gpuPrefix                = "gpu.intel.com/"
+	metadataAnnotations      = "/metadata/annotations/"
+	cardPrefix               = "card"
 	gpuListLabel             = gpuPrefix + "cards"
 	gpuMonitoringResource    = gpuPrefix + "i915_monitoring"
 	gpuNumbersLabel          = gpuPrefix + "gpu-numbers"
@@ -143,27 +145,27 @@ func (m *GASExtender) annotatePodBind(ctx context.Context, annotation, tileAnnot
 
 	payload = append(payload, patchValue{
 		Op:    "add",
-		Path:  "/metadata/annotations/" + tsAnnotationName,
+		Path:  metadataAnnotations + tsAnnotationName,
 		Value: timeStamp,
 	})
 
 	payload = append(payload, patchValue{
 		Op:    "add",
-		Path:  "/metadata/annotations/" + cardAnnotationName,
+		Path:  metadataAnnotations + cardAnnotationName,
 		Value: annotation,
 	})
 
 	if tileAnnotation != "" {
 		payload = append(payload, patchValue{
 			Op:    "add",
-			Path:  "/metadata/annotations/" + tileAnnotationName,
+			Path:  metadataAnnotations + tileAnnotationName,
 			Value: tileAnnotation,
 		})
 	}
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		klog.Errorf("Json marshal failed for pod %v")
+		klog.Errorf("Json marshal failed for pod %v", pod.Name)
 
 		return fmt.Errorf("pod %s annotation failed: %w", pod.GetName(), err)
 	}
@@ -185,7 +187,7 @@ func getCardNameSlice(gpuNumbers string) []string {
 	cards := make([]string, 0, len(indexes))
 
 	for _, index := range indexes {
-		cards = append(cards, "card"+index)
+		cards = append(cards, cardPrefix+index)
 	}
 
 	return cards
@@ -744,7 +746,7 @@ func addUnavailableToUsedResources(nodeResourcesUsed nodeResources, unavailableR
 		if usedResources := nodeResourcesUsed[card]; usedResources != nil {
 			err := usedResources.addRM(res)
 			if err != nil {
-				klog.Warningf("failed to add unavailable resources to used: %w", err)
+				klog.Warningf("failed to add unavailable resources to used: %v", err)
 			}
 		}
 	}
@@ -814,7 +816,7 @@ func createGPUMaps(pod *v1.Pod, node *v1.Node, allGPUs []string) []map[string]bo
 			numaGroupSplit := strings.Split(numaGroup, "-")
 
 			if len(numaGroupSplit) != numaSplitParts {
-				klog.Error("node %v bad numa group in label %s", node.Name, gpuNumaInformation)
+				klog.Errorf("node %v bad numa group in label %s", node.Name, gpuNumaInformation)
 
 				return []map[string]bool{}
 			}
@@ -1212,13 +1214,13 @@ func (m *GASExtender) retrievePod(podName, podNamespace string, uid types.UID) (
 	return pod, nil
 }
 
-func createBindResult() *extender.BindingResult {
-	return &extender.BindingResult{
+func createBindResult() *ev1.ExtenderBindingResult {
+	return &ev1.ExtenderBindingResult{
 		Error: "",
 	}
 }
 
-func createV1Binding(args *extender.BindingArgs) *v1.Binding {
+func createV1Binding(args *ev1.ExtenderBindingArgs) *v1.Binding {
 	return &v1.Binding{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "",
@@ -1269,7 +1271,7 @@ func createOptions() *metav1.CreateOptions {
 	}
 }
 
-func (m *GASExtender) bindNode(ctx context.Context, args *extender.BindingArgs) *extender.BindingResult {
+func (m *GASExtender) bindNode(ctx context.Context, args *ev1.ExtenderBindingArgs) *ev1.ExtenderBindingResult {
 	result := createBindResult()
 
 	pod, err := m.retrievePod(args.PodName, args.PodNamespace, args.PodUID)
@@ -1339,8 +1341,8 @@ func (m *GASExtender) bindNode(ctx context.Context, args *extender.BindingArgs) 
 	return result
 }
 
-func createFilterResult() *extender.FilterResult {
-	return &extender.FilterResult{
+func createFilterResult() *ev1.ExtenderFilterResult {
+	return &ev1.ExtenderFilterResult{
 		Nodes: &v1.NodeList{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "",
@@ -1354,20 +1356,21 @@ func createFilterResult() *extender.FilterResult {
 			},
 			Items: []v1.Node{},
 		},
-		NodeNames:   &[]string{},
-		FailedNodes: map[string]string{},
-		Error:       "",
+		NodeNames:                  &[]string{},
+		FailedNodes:                map[string]string{},
+		FailedAndUnresolvableNodes: map[string]string{},
+		Error:                      "",
 	}
 }
 
 // filterNodes takes in the arguments for the scheduler and filters nodes based on
 // whether the POD resource request fits into each node.
-func (m *GASExtender) filterNodes(args *extender.Args) *extender.FilterResult {
+func (m *GASExtender) filterNodes(args *ev1.ExtenderArgs) *ev1.ExtenderFilterResult {
 	var nodeNames []string
 
 	var preferredNodeNames []string
 
-	failedNodes := extender.FailedNodesMap{}
+	failedNodes := ev1.FailedNodesMap{}
 	result := createFilterResult()
 
 	if args.NodeNames == nil || len(*args.NodeNames) == 0 {
@@ -1390,7 +1393,7 @@ func (m *GASExtender) filterNodes(args *extender.Args) *extender.FilterResult {
 			continue
 		}
 
-		if _, preferred, err := m.checkForSpaceAndRetrieveCards(&args.Pod, node); err == nil {
+		if _, preferred, err := m.checkForSpaceAndRetrieveCards(args.Pod, node); err == nil {
 			if preferred {
 				preferredNodeNames = append(preferredNodeNames, nodeName)
 			} else {
@@ -1461,7 +1464,7 @@ func (m *GASExtender) Filter(writer http.ResponseWriter, request *http.Request) 
 
 	// extenderArgs is too big of a struct for any sane create-function, funlen would fail
 	//nolint:exhaustruct
-	extenderArgs := extender.Args{}
+	extenderArgs := ev1.ExtenderArgs{}
 
 	err := m.decodeRequest(&extenderArgs, request)
 	if err != nil {
@@ -1485,7 +1488,7 @@ func (m *GASExtender) Filter(writer http.ResponseWriter, request *http.Request) 
 func (m *GASExtender) Bind(writer http.ResponseWriter, request *http.Request) {
 	klog.V(logL4).Info("bind request received")
 
-	extenderArgs := extender.BindingArgs{
+	extenderArgs := ev1.ExtenderBindingArgs{
 		PodName:      "",
 		PodNamespace: "",
 		PodUID:       "",

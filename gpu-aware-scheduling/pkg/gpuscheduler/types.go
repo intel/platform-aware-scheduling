@@ -13,7 +13,7 @@ import (
 
 // CacheAPI is the mocked interface for the Cache used by the scheduler.
 type CacheAPI interface {
-	NewCache(kubernetes.Interface) *Cache
+	NewCache(client kubernetes.Interface) *Cache
 	FetchNode(cache *Cache, nodeName string) (*v1.Node, error)
 	FetchPod(cache *Cache, podNS, podName string) (*v1.Pod, error)
 	GetNodeResourceStatus(cache *Cache, nodeName string) nodeResources
