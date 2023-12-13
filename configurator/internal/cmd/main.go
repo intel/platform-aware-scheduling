@@ -530,8 +530,15 @@ func (ec *extenderConfigurator) SetCommand() {
 	container["command"] = newCommands
 }
 
+func numLevenshteinChanges(diffs []diffmatchpatch.Diff) int {
+	dmp := diffmatchpatch.New()
+
+	return dmp.DiffLevenshtein(diffs)
+}
+
 func printDiffs(diffs []diffmatchpatch.Diff) {
 	dmp := diffmatchpatch.New()
+
 	if dmp.DiffLevenshtein(diffs) == 0 {
 		klog.Info("no changes")
 	} else {
@@ -539,7 +546,7 @@ func printDiffs(diffs []diffmatchpatch.Diff) {
 	}
 }
 
-func (ec *extenderConfigurator) createConfig(minorVersion int) {
+func (ec *extenderConfigurator) createConfig(minorVersion int, numChanges *int) {
 	apiVersion, err := getSchedulerAPIVersion(minorVersion)
 	if err != nil {
 		panic(fmt.Errorf("error fetching scheduler API version: %w", err))
@@ -552,7 +559,27 @@ func (ec *extenderConfigurator) createConfig(minorVersion int) {
 
 	modified := strings.Replace(string(read), "XVERSIONX", apiVersion, 1)
 
-	if !ec.dryRun {
+	dmp := diffmatchpatch.New()
+
+	origConfigData, err := os.ReadFile(ec.configDestPath)
+	if err != nil {
+		origConfigData = []byte("")
+	}
+
+	diffs := dmp.DiffMain(string(origConfigData), modified, false)
+
+	if ec.dryRun {
+		klog.Infof("Scheduler config changes compared to %q:\n", ec.configDestPath)
+
+		printDiffs(diffs)
+
+		return
+	}
+
+	numNewChanges := numLevenshteinChanges(diffs)
+	*numChanges += numNewChanges
+
+	if numNewChanges > 0 {
 		err = os.WriteFile(ec.configDestPath, []byte(modified), perm0644)
 		if err != nil {
 			panic(fmt.Errorf("config %q writing failed with err %w", ec.configDestPath, err))
@@ -560,15 +587,7 @@ func (ec *extenderConfigurator) createConfig(minorVersion int) {
 
 		klog.Infof("Scheduler config written to %q", ec.configDestPath)
 	} else {
-		klog.Infof("Scheduler config changes compared to %q:\n", ec.configDestPath)
-
-		dmp := diffmatchpatch.New()
-		origConfigData, err := os.ReadFile(ec.configDestPath)
-		if err != nil {
-			origConfigData = []byte("")
-		}
-
-		printDiffs(dmp.DiffMain(string(origConfigData), modified, false))
+		klog.Infof("No changes needed, config not written.")
 	}
 }
 
@@ -590,30 +609,44 @@ func (ec *extenderConfigurator) modifyDeployments(minorVersion int) {
 
 		modified := strings.ReplaceAll(string(read), "control-plane", "master")
 
-		if !ec.dryRun {
+		if ec.dryRun {
+			klog.Infof("Deployment at %q changes:", deployment)
+
+			dmp := diffmatchpatch.New()
+			printDiffs(dmp.DiffMain(string(read), modified, false))
+		} else {
 			err = os.WriteFile(deployment, []byte(modified), perm0644)
 			if err != nil {
 				panic(fmt.Errorf("deployment %q yaml writing failed with err: %w", deployment, err))
 			}
 
 			klog.Infof("Deployment at %q modified", deployment)
-		} else {
-			klog.Infof("Deployment at %q changes:", deployment)
-			dmp := diffmatchpatch.New()
-			printDiffs(dmp.DiffMain(string(read), modified, false))
 		}
 	}
 }
 
 // writeManifest marshals the given manifest data map to proper yaml format and overwrites
 // the manifest yaml file with it.
-func (ec *extenderConfigurator) writeManifest() {
+func (ec *extenderConfigurator) writeManifest(numChanges *int) {
 	bytes, err := yaml.Marshal(ec.manifestData)
 	if err != nil {
 		panic(fmt.Errorf("marshaling failed: %w", err))
 	}
 
-	if !ec.dryRun {
+	dmp := diffmatchpatch.New()
+	diffs := dmp.DiffMain(ec.origManifest, string(bytes), false)
+
+	if ec.dryRun {
+		klog.Infof("Manifest changes at %q:", ec.manifestPath)
+		printDiffs(diffs)
+
+		return
+	}
+
+	numNewChanges := numLevenshteinChanges(diffs)
+	*numChanges += numNewChanges
+
+	if numNewChanges > 0 {
 		err = os.WriteFile(ec.manifestPath, bytes, perm0644)
 		if err != nil {
 			panic(fmt.Errorf("manifest %q yaml writing failed with err: %w", ec.manifestPath, err))
@@ -621,9 +654,7 @@ func (ec *extenderConfigurator) writeManifest() {
 
 		klog.Infof("Manifest written to %q", ec.manifestPath)
 	} else {
-		klog.Infof("Manifest changes at %q:", ec.manifestPath)
-		dmp := diffmatchpatch.New()
-		printDiffs(dmp.DiffMain(ec.origManifest, string(bytes), false))
+		klog.Infof("No changes needed, manifest not written.")
 	}
 }
 
@@ -652,11 +683,7 @@ func createExtenderConfigurator() *extenderConfigurator {
 	}
 }
 
-func run() (err error) {
-	klog.Infof("%s built on %s with go %s", version, buildDate, goVersion)
-
-	configurator := createExtenderConfigurator()
-
+func defineFlags(configurator *extenderConfigurator) {
 	flag.StringVar(&configurator.backupDestination, "b", "/etc/kubernetes",
 		"Specify the folder where backup- prefixed backup folders are created.\nUse /dev/null if you don't want backups.")
 
@@ -687,6 +714,14 @@ func run() (err error) {
 		"Specify the path to the TAS scheduler extender deployment file.\nRequired only for K8s v23 or older.")
 
 	flag.Parse()
+}
+
+func run() (err error) {
+	klog.Infof("%s built on %s with go %s", version, buildDate, goVersion)
+
+	configurator := createExtenderConfigurator()
+
+	defineFlags(configurator)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -696,13 +731,16 @@ func run() (err error) {
 		}
 	}()
 
+	numChanges := 0
+	backupFolder := ""
+
 	// in error situations execution bails with panic from the functions below
 	configurator.checkFileAccesses()
 	configurator.readManifest()
 	minorVer := configurator.readSchedulerMinorVersion()
 
 	if !configurator.dryRun {
-		configurator.createBackups()
+		backupFolder = configurator.createBackups()
 		configurator.copyCerts()
 	}
 
@@ -710,10 +748,15 @@ func run() (err error) {
 	configurator.SetCommand()
 	configurator.SetContainerVolumeMounts()
 	configurator.setVolumes()
-	configurator.createConfig(minorVer)
+	configurator.createConfig(minorVer, &numChanges)
 	configurator.modifyDeployments(minorVer)
 	configurator.spec["dnsPolicy"] = "ClusterFirstWithHostNet"
-	configurator.writeManifest()
+	configurator.writeManifest(&numChanges)
+
+	if !configurator.dryRun && numChanges == 0 && backupFolder != "" {
+		os.RemoveAll(backupFolder)
+		klog.Infof("No changes, backup folder %v removed.", backupFolder)
+	}
 
 	klog.Info("Done.")
 
