@@ -15,7 +15,6 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/intel/platform-aware-scheduling/extender"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
 	telpolv1 "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
@@ -24,18 +23,19 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
+	extenderV1 "k8s.io/kube-scheduler/extender/v1"
 )
 
-var prioritizerArgs1 = extender.Args{
-	Pod: v1.Pod{TypeMeta: metav1.TypeMeta{},
+var prioritizerArgs1 = extenderV1.ExtenderArgs{
+	Pod: &v1.Pod{TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{Name: "big pod", Labels: map[string]string{"telemetry-policy": "test-policy"}, Namespace: "default"}},
 	Nodes: &v1.NodeList{Items: []v1.Node{{TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{Name: "node A"}, Spec: v1.NodeSpec{}, Status: v1.NodeStatus{}}}},
 	NodeNames: &[]string{"node A", "node B"},
 }
 
-var twoNodeArgument = extender.Args{
-	Pod: v1.Pod{TypeMeta: metav1.TypeMeta{},
+var twoNodeArgument = extenderV1.ExtenderArgs{
+	Pod: &v1.Pod{TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{Name: "big pod", Labels: map[string]string{"telemetry-policy": "test-policy"}, Namespace: "default"}},
 	Nodes: &v1.NodeList{Items: []v1.Node{{TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{Name: "node A"}, Spec: v1.NodeSpec{}, Status: v1.NodeStatus{}}, {TypeMeta: metav1.TypeMeta{},
@@ -43,8 +43,8 @@ var twoNodeArgument = extender.Args{
 	NodeNames: &[]string{"node A", "node B"},
 }
 
-var noPolicyPod = extender.Args{
-	Pod: v1.Pod{TypeMeta: metav1.TypeMeta{},
+var noPolicyPod = extenderV1.ExtenderArgs{
+	Pod: &v1.Pod{TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{Name: "big pod", Labels: map[string]string{"useless-label": "test-policy"}, Namespace: "default"}},
 	Nodes: &v1.NodeList{Items: []v1.Node{{TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{Name: "node A"}, Spec: v1.NodeSpec{}, Status: v1.NodeStatus{}}}},
@@ -109,8 +109,8 @@ func TestMetricsExtender_prescheduleChecks(t *testing.T) {
 		fields         fields
 		args           args
 		metric         metrics.NodeMetricsInfo
-		prioritizeArgs extender.Args
-		wanted         extender.HostPriorityList
+		prioritizeArgs extenderV1.ExtenderArgs
+		wanted         extenderV1.HostPriorityList
 		wantErr        bool
 	}{
 		{name: "unlabelled pod",
@@ -121,7 +121,7 @@ func TestMetricsExtender_prescheduleChecks(t *testing.T) {
 				"node A": {Value: *resource.NewQuantity(100, resource.DecimalSI)},
 				"node B": {Value: *resource.NewQuantity(90, resource.DecimalSI)}},
 			prioritizeArgs: noPolicyPod,
-			wanted:         []extender.HostPriority{{Host: "node A", Score: 10}, {Host: "node B", Score: 9}},
+			wanted:         []extenderV1.HostPriority{{Host: "node A", Score: 10}, {Host: "node B", Score: 9}},
 			wantErr:        true,
 		},
 	}
@@ -149,7 +149,7 @@ func TestMetricsExtender_prescheduleChecks(t *testing.T) {
 			tt.args.r.Body = io.NopCloser(bytes.NewReader(argsAsJSON))
 			w := httptest.NewRecorder()
 			m.Prioritize(w, tt.args.r)
-			result := extender.HostPriorityList{}
+			result := extenderV1.HostPriorityList{}
 			b := w.Body.Bytes()
 			err = json.Unmarshal(b, &result)
 			msg := fmt.Sprint(result)
@@ -179,8 +179,8 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 		fields         fields
 		args           args
 		metric         metrics.NodeMetricsInfo
-		prioritizeArgs extender.Args
-		wanted         extender.HostPriorityList
+		prioritizeArgs extenderV1.ExtenderArgs
+		wanted         extenderV1.HostPriorityList
 		wantErr        bool
 	}{
 		{"get and return node test",
@@ -191,7 +191,7 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 				"node A": {Value: *resource.NewQuantity(100, resource.DecimalSI)},
 				"node B": {Value: *resource.NewQuantity(90, resource.DecimalSI)}},
 			twoNodeArgument,
-			[]extender.HostPriority{{Host: "node A", Score: 10}, {Host: "node B", Score: 9}},
+			[]extenderV1.HostPriority{{Host: "node A", Score: 10}, {Host: "node B", Score: 9}},
 			false,
 		},
 		{"policy not found",
@@ -202,7 +202,7 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 				"node A": {Value: *resource.NewQuantity(90, resource.DecimalSI)},
 				"node B": {Value: *resource.NewQuantity(100, resource.DecimalSI)}},
 			twoNodeArgument,
-			[]extender.HostPriority{},
+			[]extenderV1.HostPriority{},
 			true,
 		},
 		{"cache returns error if empty",
@@ -211,15 +211,15 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 			args{httptest.NewRequest(http.MethodPost, "http://localhost/scheduler/prioritize", nil)},
 			map[string]metrics.NodeMetric{"node A": {Value: *resource.NewQuantity(100, resource.DecimalSI)}},
 			prioritizerArgs1,
-			[]extender.HostPriority{{Host: "node B", Score: 10}},
+			[]extenderV1.HostPriority{{Host: "node B", Score: 10}},
 			true,
 		},
 		{"malformed arguments return error", fields{*dummyClient, cache.MockEmptySelfUpdatingCache(),
 			testPolicy1},
 			args{httptest.NewRequest(http.MethodPost, "http://localhost/scheduler/prioritize", nil)},
 			map[string]metrics.NodeMetric{"node A": {Value: *resource.NewQuantity(100, resource.DecimalSI)}},
-			extender.Args{},
-			[]extender.HostPriority{{Host: "node B", Score: 10}},
+			extenderV1.ExtenderArgs{},
+			[]extenderV1.HostPriority{{Host: "node B", Score: 10}},
 			true,
 		},
 	}
@@ -249,7 +249,7 @@ func TestMetricsExtender_Prioritize(t *testing.T) {
 			tt.args.r.Body = io.NopCloser(bytes.NewReader(argsAsJSON))
 			w := httptest.NewRecorder()
 			m.Prioritize(w, tt.args.r)
-			result := extender.HostPriorityList{}
+			result := extenderV1.HostPriorityList{}
 			b := w.Body.Bytes()
 			err = json.Unmarshal(b, &result)
 			if err != nil && tt.wantErr {
@@ -302,7 +302,7 @@ func TestMetricsExtender_Filter(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		wanted  extender.FilterResult
+		wanted  extenderV1.ExtenderFilterResult
 		wantErr bool
 	}{
 		{name: "get and return node test",
@@ -313,7 +313,7 @@ func TestMetricsExtender_Filter(t *testing.T) {
 			args: args{
 				httptest.NewRequest(http.MethodPost, "http://localhost/scheduler/prioritize", nil),
 				metrics.TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{10, 30})},
-			wanted: extender.FilterResult{Nodes: &v1.NodeList{}, NodeNames: &[]string{"node A"}, FailedNodes: map[string]string{}},
+			wanted: extenderV1.ExtenderFilterResult{Nodes: &v1.NodeList{}, NodeNames: &[]string{"node A"}, FailedNodes: map[string]string{}},
 		},
 		{name: "filter out one node",
 			fields: fields{*dummyClient, cache.MockSelfUpdatingCache(),
@@ -322,7 +322,7 @@ func TestMetricsExtender_Filter(t *testing.T) {
 			args: args{
 				httptest.NewRequest(http.MethodPost, "http://localhost/scheduler/prioritize", nil),
 				metrics.TestNodeMetricCustomInfo([]string{"node A", "node B"}, []int64{50, 30})},
-			wanted: extender.FilterResult{Nodes: &v1.NodeList{}, NodeNames: &[]string{"node A"}, FailedNodes: map[string]string{"node A": ""}},
+			wanted: extenderV1.ExtenderFilterResult{Nodes: &v1.NodeList{}, NodeNames: &[]string{"node A"}, FailedNodes: map[string]string{"node A": ""}},
 		},
 	}
 	for _, tt := range tests {
@@ -351,7 +351,7 @@ func TestMetricsExtender_Filter(t *testing.T) {
 			tt.args.r.Header.Add("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 			m.Filter(w, tt.args.r)
-			result := extender.FilterResult{}
+			result := extenderV1.ExtenderFilterResult{}
 			b := w.Body.Bytes()
 			err = json.Unmarshal(b, &result)
 			if err != nil {

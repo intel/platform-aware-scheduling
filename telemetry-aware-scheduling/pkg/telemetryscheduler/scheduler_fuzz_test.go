@@ -19,7 +19,6 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/intel/platform-aware-scheduling/extender"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
 	telpolv1 "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
@@ -27,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
+	extenderV1 "k8s.io/kube-scheduler/extender/v1"
 )
 
 type RuleOperator int64
@@ -216,9 +216,9 @@ func getMetricsPerNode(t *testing.T, selfUpdatingCache *cache.AutoUpdatingCache,
 }
 
 func getPrioritizedNodes(hasScheduleOnRule bool, ruleOperator RuleOperator,
-	nodeMetrics map[string]int) extender.HostPriorityList {
+	nodeMetrics map[string]int) extenderV1.HostPriorityList {
 	if !hasScheduleOnRule {
-		return extender.HostPriorityList{}
+		return extenderV1.HostPriorityList{}
 	}
 
 	filteredNodeData := []NodeMetricMappingForSort{}
@@ -227,10 +227,10 @@ func getPrioritizedNodes(hasScheduleOnRule bool, ruleOperator RuleOperator,
 	}
 
 	sortedNodeMetricValues := evaluateScheduleOnMetricRule(ruleOperator, filteredNodeData)
-	prioritizedNodes := extender.HostPriorityList{}
+	prioritizedNodes := extenderV1.HostPriorityList{}
 
 	for _, item := range sortedNodeMetricValues {
-		prioritizedNodes = append(prioritizedNodes, extender.HostPriority{Host: item.nodeName, Score: 0})
+		prioritizedNodes = append(prioritizedNodes, extenderV1.HostPriority{Host: item.nodeName, Score: 0})
 	}
 
 	return prioritizedNodes
@@ -349,12 +349,12 @@ func setUpNodeCache(metricName string, numberOfNodes int, values []int) (*cache.
 	return selfUpdatingCache.(*cache.AutoUpdatingCache), nil
 }
 
-func setupPodSpec(podName, podNamespace, labelMapKey, labelMapValue string) v1.Pod {
-	return v1.Pod{TypeMeta: metav1.TypeMeta{},
+func setupPodSpec(podName, podNamespace, labelMapKey, labelMapValue string) *v1.Pod {
+	return &v1.Pod{TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{Name: podName, Labels: map[string]string{labelMapKey: labelMapValue}, Namespace: podNamespace}}
 }
 
-func setupExtenderArgs(podName, podNamespace, labelMapKey, labelMapValue string, numberOfNodes int) extender.Args {
+func setupExtenderArgs(podName, podNamespace, labelMapKey, labelMapValue string, numberOfNodes int) extenderV1.ExtenderArgs {
 	nodes := make([]v1.Node, numberOfNodes)
 	nodeNames := make([]string, numberOfNodes)
 
@@ -364,7 +364,7 @@ func setupExtenderArgs(podName, podNamespace, labelMapKey, labelMapValue string,
 		nodeNames[i] = genericNodeName
 	}
 
-	return extender.Args{
+	return extenderV1.ExtenderArgs{
 		Pod:       setupPodSpec(podName, podNamespace, labelMapKey, labelMapValue),
 		Nodes:     &v1.NodeList{Items: nodes},
 		NodeNames: &nodeNames,
@@ -388,7 +388,7 @@ func convertExtenderArgsToJSON(t *testing.T, numberOfNodes int, podName, namespa
 		t.Errorf("Error trying to serialize extender.Args into JSON: %v ", err)
 	}
 
-	result := extender.FilterResult{}
+	result := extenderV1.ExtenderFilterResult{}
 	err = json.Unmarshal(argsAsJSON, &result)
 
 	if err != nil {
@@ -400,7 +400,7 @@ func convertExtenderArgsToJSON(t *testing.T, numberOfNodes int, podName, namespa
 
 func validateFilterExpectations(t *testing.T, w *httptest.ResponseRecorder, hasDontScheduleRule bool, expectedNumberOfNodes,
 	expectedNumberOfViolatingNodes int) {
-	result := extender.FilterResult{}
+	result := extenderV1.ExtenderFilterResult{}
 	b := w.Body.Bytes()
 
 	err := json.Unmarshal(b, &result)
@@ -430,7 +430,7 @@ func validateFilterExpectations(t *testing.T, w *httptest.ResponseRecorder, hasD
 	}
 }
 
-func validateMetricValues(nodeMetricValues map[string]int, expected, got extender.HostPriorityList) bool {
+func validateMetricValues(nodeMetricValues map[string]int, expected, got extenderV1.HostPriorityList) bool {
 	expectedValues := make([]int, 0)
 	gotValues := make([]int, 0)
 
@@ -446,8 +446,8 @@ func validateMetricValues(nodeMetricValues map[string]int, expected, got extende
 }
 
 func validatePrioritizeExpectations(t *testing.T, hasDontScheduleRule bool, ruleOperator RuleOperator, numberOfNodes int,
-	nodeMetricValues map[string]int, prioritizedNodes extender.HostPriorityList, w *httptest.ResponseRecorder) {
-	result := extender.HostPriorityList{}
+	nodeMetricValues map[string]int, prioritizedNodes extenderV1.HostPriorityList, w *httptest.ResponseRecorder) {
+	result := extenderV1.HostPriorityList{}
 	b := w.Body.Bytes()
 
 	err := json.Unmarshal(b, &result)

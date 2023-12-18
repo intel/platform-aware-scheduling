@@ -14,13 +14,13 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 
-	"github.com/intel/platform-aware-scheduling/extender"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/cache"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/metrics"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/core"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/dontschedule"
 	"github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/strategies/scheduleonmetric"
 	telemetrypolicy "github.com/intel/platform-aware-scheduling/telemetry-aware-scheduling/pkg/telemetrypolicy/api/v1alpha1"
+	extenderV1 "k8s.io/kube-scheduler/extender/v1"
 )
 
 const (
@@ -86,8 +86,8 @@ func (m MetricsExtender) Prioritize(w http.ResponseWriter, r *http.Request) {
 
 // DecodeExtenderRequest reads the json request into the expected struct.
 // It returns an error of the request is not in the required format.
-func (m MetricsExtender) DecodeExtenderRequest(r *http.Request) (extender.Args, error) {
-	var args extender.Args
+func (m MetricsExtender) DecodeExtenderRequest(r *http.Request) (extenderV1.ExtenderArgs, error) {
+	var args extenderV1.ExtenderArgs
 	if r.Body == nil {
 		return args, fmt.Errorf("%w", errReqBody)
 	}
@@ -108,26 +108,26 @@ func (m MetricsExtender) DecodeExtenderRequest(r *http.Request) (extender.Args, 
 }
 
 // prioritizeNodes implements the logic for the prioritize scheduler call.
-func (m MetricsExtender) prioritizeNodes(args extender.Args) *extender.HostPriorityList {
-	policy, err := m.getPolicyFromPod(&args.Pod)
+func (m MetricsExtender) prioritizeNodes(args extenderV1.ExtenderArgs) *extenderV1.HostPriorityList {
+	policy, err := m.getPolicyFromPod(args.Pod)
 	if err != nil {
 		klog.V(l2).InfoS("get policy from pod failed: "+err.Error(), "component", "extender")
 
-		return &extender.HostPriorityList{}
+		return &extenderV1.HostPriorityList{}
 	}
 
 	scheduleRule, err := m.getSchedulingRule(policy)
 	if err != nil {
 		klog.V(l2).InfoS("get scheduling rule from policy failed: "+err.Error(), "component", "extender")
 
-		return &extender.HostPriorityList{}
+		return &extenderV1.HostPriorityList{}
 	}
 
 	chosenNodes, err := m.prioritizeNodesForRule(scheduleRule, args.Nodes)
 	if err != nil {
 		klog.V(l2).InfoS(err.Error(), "component", "extender")
 
-		return &extender.HostPriorityList{}
+		return &extenderV1.HostPriorityList{}
 	}
 
 	msg := fmt.Sprintf("node priorities returned: %v", chosenNodes)
@@ -165,7 +165,7 @@ func (m MetricsExtender) getSchedulingRule(policy telemetrypolicy.TASPolicy) (te
 
 // prioritizeNodesForRule returns the nodes listed in order of priority after applying the appropriate telemetry rule.
 // Priorities are ordinal - there is no relationship between the outputted priorities and the metrics - simply an order of preference.
-func (m MetricsExtender) prioritizeNodesForRule(rule telemetrypolicy.TASPolicyRule, nodes *v1.NodeList) (extender.HostPriorityList, error) {
+func (m MetricsExtender) prioritizeNodesForRule(rule telemetrypolicy.TASPolicyRule, nodes *v1.NodeList) (extenderV1.HostPriorityList, error) {
 	filteredNodeData := metrics.NodeMetricsInfo{}
 
 	nodeData, err := m.cache.ReadMetric(rule.Metricname)
@@ -179,7 +179,7 @@ func (m MetricsExtender) prioritizeNodesForRule(rule telemetrypolicy.TASPolicyRu
 		}
 	}
 
-	outputNodes := extender.HostPriorityList{}
+	outputNodes := extenderV1.HostPriorityList{}
 
 	metricsOutput := fmt.Sprintf("%v for nodes: ", rule.Metricname)
 	orderedNodes := core.OrderedList(filteredNodeData, rule.Operator)
@@ -187,7 +187,7 @@ func (m MetricsExtender) prioritizeNodesForRule(rule telemetrypolicy.TASPolicyRu
 	for i, node := range orderedNodes {
 		metricsOutput = fmt.Sprint(metricsOutput, " [ ", node.NodeName, " :", node.MetricValue.AsDec(), "]")
 
-		outputNodes = append(outputNodes, extender.HostPriority{Host: node.NodeName, Score: maxScore - i})
+		outputNodes = append(outputNodes, extenderV1.HostPriority{Host: node.NodeName, Score: int64(maxScore - i)})
 	}
 
 	klog.V(l2).InfoS(metricsOutput, "component", "extender")
@@ -196,7 +196,7 @@ func (m MetricsExtender) prioritizeNodesForRule(rule telemetrypolicy.TASPolicyRu
 }
 
 // WritePrioritizeResponse writes out the results of prioritize in the response to the scheduler.
-func (m MetricsExtender) WritePrioritizeResponse(w http.ResponseWriter, result *extender.HostPriorityList) {
+func (m MetricsExtender) WritePrioritizeResponse(w http.ResponseWriter, result *extenderV1.HostPriorityList) {
 	encoder := json.NewEncoder(w)
 	if err := encoder.Encode(result); err != nil {
 		klog.V(l4).InfoS("Encode error: "+err.Error(), "component", "extender")
@@ -233,15 +233,15 @@ func (m MetricsExtender) Bind(w http.ResponseWriter, _ *http.Request) {
 }
 
 // filterNodes takes in the arguments for the scheduler and filters nodes based on the pod's dontschedule strategy - if it has one in an attached policy.
-func (m MetricsExtender) filterNodes(args extender.Args) *extender.FilterResult {
+func (m MetricsExtender) filterNodes(args extenderV1.ExtenderArgs) *extenderV1.ExtenderFilterResult {
 	availableNodeNames := ""
 
 	var filteredNodes []v1.Node
 
-	failedNodes := extender.FailedNodesMap{}
-	result := extender.FilterResult{}
+	failedNodes := extenderV1.FailedNodesMap{}
+	result := extenderV1.ExtenderFilterResult{}
 
-	policy, err := m.getPolicyFromPod(&args.Pod)
+	policy, err := m.getPolicyFromPod(args.Pod)
 	if err != nil {
 		klog.V(l2).InfoS("get policy from pod failed "+err.Error(), "component", "extender")
 
@@ -252,7 +252,7 @@ func (m MetricsExtender) filterNodes(args extender.Args) *extender.FilterResult 
 	if err != nil {
 		klog.V(l4).InfoS("Returning all nodes "+err.Error(), "component", "extender")
 
-		return &extender.FilterResult{
+		return &extenderV1.ExtenderFilterResult{
 			Nodes: args.Nodes,
 		}
 	}
@@ -275,7 +275,7 @@ func (m MetricsExtender) filterNodes(args extender.Args) *extender.FilterResult 
 	}
 
 	nodeNames := strings.Split(availableNodeNames, " ")
-	result = extender.FilterResult{
+	result = extenderV1.ExtenderFilterResult{
 		Nodes: &v1.NodeList{
 			Items: filteredNodes,
 		},
@@ -305,7 +305,7 @@ func (m MetricsExtender) getDontScheduleStrategy(policy telemetrypolicy.TASPolic
 }
 
 // WriteFilterResponse takes the ExtenderFilterResults struct and writes it as a http response if valid.
-func (m MetricsExtender) WriteFilterResponse(w http.ResponseWriter, result *extender.FilterResult) {
+func (m MetricsExtender) WriteFilterResponse(w http.ResponseWriter, result *extenderV1.ExtenderFilterResult) {
 	encoder := json.NewEncoder(w)
 	if err := encoder.Encode(result); err != nil {
 		klog.V(l4).InfoS("Encode error "+err.Error(), "component", "extender")
