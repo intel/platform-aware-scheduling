@@ -46,9 +46,11 @@ const (
 	metadataAnnotations      = "/metadata/annotations/"
 	cardPrefix               = "card"
 	gpuListLabel             = gpuPrefix + "cards"
-	gpuMonitoringResource    = gpuPrefix + "i915_monitoring"
+	i915MonitoringResource   = gpuPrefix + "i915_monitoring"
+	xeMonitoringResource     = gpuPrefix + "xe_monitoring"
 	gpuNumbersLabel          = gpuPrefix + "gpu-numbers"
-	gpuPluginResource        = gpuPrefix + "i915"
+	i915PluginResource       = gpuPrefix + "i915"
+	xePluginResource         = gpuPrefix + "xe"
 	gpuTileResource          = gpuPrefix + "tiles"
 	numaMappingLabel         = gpuPrefix + "numa-gpu-map"
 	logL1                    = klog.Level(1)
@@ -258,21 +260,29 @@ func getPerGPUResourceCapacity(node *v1.Node, gpuCount int) resourceMap {
 func getPerGPUResourceRequest(containerRequest resourceMap) (resourceMap, int64) {
 	perGPUResourceRequest := containerRequest.newCopy()
 
-	numI915 := getNumI915(containerRequest)
+	numGPUReq := getNumGPUReq(containerRequest)
 
-	if numI915 > 1 {
-		err := perGPUResourceRequest.divide(int(numI915))
+	if numGPUReq > 1 {
+		err := perGPUResourceRequest.divide(int(numGPUReq))
 		if err != nil {
 			return perGPUResourceRequest, 0
 		}
 	}
 
-	return perGPUResourceRequest, numI915
+	return perGPUResourceRequest, numGPUReq
 }
 
-func getNumI915(containerRequest resourceMap) int64 {
-	if numI915, ok := containerRequest[gpuPluginResource]; ok && numI915 > 0 {
-		return numI915
+func getPluginResourceName(containerRequest resourceMap) string {
+	if numXe, ok := containerRequest[xePluginResource]; ok && numXe > 0 {
+		return xePluginResource
+	}
+
+	return i915PluginResource
+}
+
+func getNumGPUReq(containerRequest resourceMap) int64 {
+	if numGPUReq, ok := containerRequest[getPluginResourceName(containerRequest)]; ok && numGPUReq > 0 {
+		return numGPUReq
 	}
 
 	return 0
@@ -606,9 +616,9 @@ func (m *GASExtender) getXELinkedCardsForContainerGPURequest(containerRequest, p
 	usedGPUmap := map[string]bool{}
 
 	// figure out container resources per gpu
-	perGPUResourceRequest, numI915 := getPerGPUResourceRequest(containerRequest)
+	perGPUResourceRequest, numGPUReq := getPerGPUResourceRequest(containerRequest)
 
-	if numI915%2 != 0 {
+	if numGPUReq%2 != 0 {
 		klog.Errorf("xe-linked allocations must have an even numbered gpu resource request")
 
 		return []Card{}, preferred, errBadArgs
@@ -616,7 +626,7 @@ func (m *GASExtender) getXELinkedCardsForContainerGPURequest(containerRequest, p
 
 	preferredCard := ""
 
-	for gpuNum := int64(0); gpuNum < numI915; gpuNum += 2 {
+	for gpuNum := int64(0); gpuNum < numGPUReq; gpuNum += 2 {
 		gpuNames := getSortedGPUNamesForNode(nodeResourcesUsed)
 
 		if m.balancedResource != "" {
@@ -764,7 +774,9 @@ func combineSamegpuResourceRequests(indexMap map[int]bool, resourceRequests []re
 		}
 	}
 
-	combinedResources[gpuPluginResource] = 1
+	pluginResourceName := getPluginResourceName(combinedResources)
+
+	combinedResources[pluginResourceName] = 1
 
 	return combinedResources, nil
 }
@@ -975,10 +987,12 @@ func (m *GASExtender) getCardForSamegpu(samegpuIndexMap map[int]bool, allContain
 		return []Card{}, false, fail
 	}
 
-	// combinedResourcesRequest ends up with a hard-coded 1 i915 resource only, so we prune the gpuMapCopy, if needed
-	reallyNeededI915Resources := len(samegpuIndexMap)
+	gpuPluginResource := getPluginResourceName(combinedResourcesRequest)
+
+	// combinedResourcesRequest ends up with a hard-coded 1 plugin resource only, so we prune the gpuMapCopy, if needed
+	reallyNeededPluginResources := len(samegpuIndexMap)
 	for gpuName, gpuUsedResources := range nodeResourcesUsed {
-		if perGPUCapacity[gpuPluginResource]-gpuUsedResources[gpuPluginResource] < int64(reallyNeededI915Resources) {
+		if perGPUCapacity[gpuPluginResource]-gpuUsedResources[gpuPluginResource] < int64(reallyNeededPluginResources) {
 			delete(gpuMapCopy, gpuName)
 		}
 	}
@@ -1584,7 +1598,7 @@ func sanitizeSamegpuResourcesRequest(
 		return nil
 	}
 
-	samegpuProhibitedResources := []string{gpuTileResource, gpuMonitoringResource}
+	samegpuProhibitedResources := []string{gpuTileResource, i915MonitoringResource, xeMonitoringResource}
 
 	for idx := range samegpuIndexMap {
 		request := allResourceRequests[idx]
@@ -1598,10 +1612,10 @@ func sanitizeSamegpuResourcesRequest(
 			}
 		}
 
-		if getNumI915(request) != samegpuMaxI915Request {
+		if getNumGPUReq(request) != samegpuMaxI915Request {
 			klog.Errorf(
-				"Exactly one %v resource has to be requested for containers listed in %v annotation",
-				gpuPluginResource, samegpuAnnotationName)
+				"Exactly one %v or %v resource has to be requested for containers listed in %v annotation",
+				i915PluginResource, xePluginResource, samegpuAnnotationName)
 
 			return errResConflict
 		}
