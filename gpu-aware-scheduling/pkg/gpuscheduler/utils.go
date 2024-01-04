@@ -272,10 +272,12 @@ func hasGPUCapacity(node *v1.Node) bool {
 		return false
 	}
 
-	if quantity, ok := node.Status.Capacity[gpuPluginResource]; ok {
-		numI915, _ := quantity.AsInt64()
-		if numI915 > 0 {
-			return true
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		if quantity, ok := node.Status.Capacity[v1.ResourceName(pluginResourceName)]; ok {
+			numGPU, _ := quantity.AsInt64()
+			if numGPU > 0 {
+				return true
+			}
 		}
 	}
 
