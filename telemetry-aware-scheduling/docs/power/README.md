@@ -37,6 +37,24 @@ The agent should soon be up and running on each node in the cluster. This can be
 
 `kubectl get pods -nmonitoring -lapp.kubernetes.io/name=collectd`
 
+Ensure the collectd pod(s) - one per each node in your cluster, have been set-up properly. Using `kubectl logs  collectd-**** -n monitoring` open the pod logs and ensure there are no errors/warning and that you see something similar to:
+
+```
+plugin_load: plugin "python" successfully loaded.
+plugin_load: plugin "write_prometheus" successfully loaded.
+write_prometheus plugin: Listening on [::]:9103.
+write_prometheus plugin: MHD_OPTION_EXTERNAL_LOGGER is not the first option specified for the daemon. Some messages may be printed by the standard MHD logger.
+
+Initialization complete, entering read-loop.
+```
+
+If you encounter errors like the one below in your collectd pod, check read permissions for the file in question. From running this demo so far, it seems like collectd requires at least read permissions for the ***'others'*** permission group in order to access sys energy files.
+
+```
+Unhandled python exception in read callback: PermissionError: [Errno 13] Permission denied: '/sys/devices/virtual/powercap/intel-rapl/intel-rapl:1/energy_uj'
+read-function of plugin `python.pkgpower' failed. Will suspend it for 20.000 seconds.
+```
+
 Additionally we can check that collectd is indeed serving metrics by running `collectd_ip=$(kubectl get svc -n monitoring -o json | jq -r '.items[] | select(.metadata.name=="collectd").spec.clusterIP'); curl -x "" $collectd_ip:9103/metrics`. The output should look similar to the lines  below:
 
 ```
@@ -208,6 +226,13 @@ This command should return some json objects containing pods and associated powe
 ```
 *Note* If the above command returns an error there is some issue in the metrics pipeline that requires resolution before continuing.
 
+If the `node_package_power_per_pod` metric is visible but it doesn't have a value ("items" is an empty array like in the response below) please check both the `node_package_power_per_pod` and `package_power_avg` metrics in Prometheus UI. Assuming the collectd and kube-state-metrics pods have been set-up correctly, you should see `node_package_power_per_pod` and `package_power_avg` metrics for each node in your cluster. Expect a similar behaviour for collectd metrics like `collectd_package_*_TDP_power`.
+If you notice metrics are missing for some nodes, start by investigating which nodes are affected and check logs for the pods in question.
+
+```json
+{"kind":"MetricValueList","apiVersion":"custom.metrics.k8s.io/v1beta1","metadata":{"selfLink":"/apis/custom.metrics.k8s.io/v1beta1/namespaces/default/pods/%2A/node_package_power_per_pod"},"items":[]}
+```
+
 ### 4: Create TAS Telemetry Policy for power
 On the Kubernetes BMRA set up Telemetry Aware Scheduling is already installed and integrated with the Kubernetes control plane. In order to allow our cluster to make scheduling decisions based on current power usage we simply need to create a telemetry policy and associate appropriate pods with that policy.
 
@@ -219,7 +244,7 @@ then
 
 We can see our policy by running:
 
-``kubectl describe taspolicy power-sensitive-scheduling-policy``
+``kubectl describe taspolicy power-sensitive-scheduling-policy -n power-demo``
 
 ### 5: Create horizontal autoscaler for power
 The Horizontal Pod Autoscaler is an in-built part of Kubernetes which allows scaling decisions to be made based on arbitrary metrics. In this case we're going to scale our workload based on the average power usage on nodes with current instances of our workload. 
@@ -230,7 +255,7 @@ To create this Autoscaler:
 
 We can see the details of our autoscaler with:
 
-``kubectl describe hpa power-autoscaler``
+``kubectl describe hpa power-autoscaler -n power-demo``
 
 Don't worry if the autoscaler shows errors at this point. It won't work until we've deployed an application it's interested in - based on the "scaleTargetRef" field in its specification file.
 
@@ -280,7 +305,7 @@ TAS will schedule it to the node with the lowest power usage, and will avoid sch
 
 ```
 
- kubectl logs -l app=tas
+ kubectl logs -l app=tas -n telemetry-aware-scheduling
 
 2020/XX/XX XX:XX:XX filter request recieved
 2020/XX/XX XX:XX:XX node1 package_power_avg = 72.133
@@ -297,7 +322,7 @@ Once the stressng pod starts to run the horizontal pod autoscaler will notice an
 
 ```
 
-watch kubectl describe hpa power-autoscaler
+watch kubectl describe hpa power-autoscaler -n power-demo
 
 Name:                                    power-autoscaler
 Namespace:                               default
