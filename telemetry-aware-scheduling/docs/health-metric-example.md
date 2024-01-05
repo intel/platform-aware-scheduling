@@ -155,6 +155,7 @@ We can see that only two of our three nodes was deemed suitable because it didn'
 Descheduler can be installed as a binary with the instructions from the [project repo](https://github.com/kubernetes-sigs/descheduler). This demo has been tested with the following Descheduler versions:
 1. **v0.23.1** and older
 2. **v0.27.1**
+3. **v0.28.1**
 
 Telemetry Aware Scheduler and the following Descheduler versions **v0.24.x** to **v0.26.x** seem to have compatibility issues (https://github.com/intel/platform-aware-scheduling/issues/90#issuecomment-1169012485 links to an issue cut to the Descheduler project team). The problem seems to have been fixed in Descheduler **v0.27.1**.
 
