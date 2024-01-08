@@ -12,6 +12,9 @@ on:
         type: string
         default: 1.20.5
 
+permissions:
+  contents: read
+
 jobs:
   build-test:
     runs-on: ${{ inputs.runsOn }}

@@ -11,6 +11,8 @@ on:
         required: true
         default: 'master'
 
+permissions:
+  contents: read
 
 jobs:
   private-repo-break-condition:

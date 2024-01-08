@@ -35,6 +35,10 @@ on:
         required: false
         type: string
         default: v0.16.0
+
+permissions:
+  contents: read
+
 jobs:
   shellcheck:
     name: Shellcheck

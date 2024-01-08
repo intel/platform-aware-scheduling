@@ -7,6 +7,9 @@ on:
   pull_request:
     branches: [ '**' ]
 
+permissions:
+  contents: read
+
 env:
   CI_CNO_ANSIBLE_FOLDER: /usr/src/ci_cno_ansible_telemetry_scheduler
   CI_CNO_TAS_FOLDER: /usr/src/telemetry-scheduler

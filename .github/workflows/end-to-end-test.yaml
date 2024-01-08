@@ -31,6 +31,9 @@ on:
         required: false
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   docker-image-cleanup:
     if: ${{ inputs.cleanup == 'true' }}
