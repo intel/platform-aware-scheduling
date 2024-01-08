@@ -15,3 +15,5 @@ COPY --from=builder /install_root /
 EXPOSE 9001/tcp
 USER tas
 ENTRYPOINT ["/extender"]
+
+HEALTHCHECK --interval=60s --start-period=30s --retries=5 CMD [ $(ps aux | grep "/extender --syncPeriod"  | wc -l) -eq 2 ] || exit 1
