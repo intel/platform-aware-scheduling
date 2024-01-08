@@ -10,10 +10,10 @@ on:
         required: false
         type: string
         default: v0.48.0
+
 permissions:
-  actions: read
   contents: read
-  security-events: write
+
 jobs:  
   vulnerability-scanners:
     runs-on: ${{ inputs.runsOn }}
