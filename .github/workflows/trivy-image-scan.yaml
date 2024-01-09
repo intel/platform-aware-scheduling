@@ -19,7 +19,7 @@ jobs:
     runs-on: ${{ inputs.runsOn }}
     strategy:
       matrix:
-        workingdir: [telemetry-aware-scheduling, gpu-aware-scheduling]
+        workingdir: [ telemetry-aware-scheduling ]
     name: image-vulnerability-scanners
     steps:
       - name: Checkout project
@@ -29,18 +29,20 @@ jobs:
       - name: install Trivy
         run: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin ${{ inputs.trivyVersion }}
       - name: trivy base image scan $DIR  
+        id: base_image_scan
         run: |
           cd ./${{ matrix.workingdir }}     
           base_image_suffix=$(grep "GO_VERSION = " Makefile | cut -d " " -f 3)
           base_image="golang:${base_image_suffix}"
           echo "[INFO] base image name is: ${base_image}"
           output=$(trivy image --severity HIGH,CRITICAL ${base_image} --exit-code=2)
-          if [ "${output}" -eq 2 ]; then
+          if [ "$?" ==  "2" ]; then
             echo "::warning::severities CRITICAL, HIGH issues spotted by Trivy in ${{ matrix.workingdir }} for base image: ${base_image}"
             exit 1
           else
             echo "trivy image ./ --severity=CRITICAL, HIGH  for base image: ${base_image} ran successfully"
           fi
+
           cd ..
         shell: bash  
       - name: make image
@@ -49,21 +51,40 @@ jobs:
           make image 
           cd ..  
       - name: trivy image scan $DIR
+        id: main_image_scan
         run: |
           cd ./${{ matrix.workingdir }}
           image_name="tasextender"
-          if [ ${{ matrix.workingdir}} -eq "gpu-aware-scheduling" ]; then
+          if [ "${{ matrix.workingdir}}" ==  "gpu-aware-scheduling" ]; then
             image_name="gpu-extender"
           fi
           echo "[INFO]image name is: ${image_name}"
           output=$(trivy image --severity HIGH,CRITICAL ${image_name} --exit-code=2)
-          if [ -n "${output}" ]; then
+          if [ "$?" ==  "2" ]; then
             echo "::warning::severities CRITICAL, HIGH issues spotted by Trivy in ${{ matrix.workingdir }} for image: ${image_name}"
             exit 1
           else
             echo "trivy image ./ --severity=CRITICAL, HIGH  for image ${image_name} ran successfully"
           fi
-          
+
+          # output module image name
+          echo "MAIN_IMAGE_NAME=$image_name" >> $GITHUB_OUTPUT
+
           cd ..
+        shell: bash
+      - name: clean-up generated images
+        id: clean_up_images
+        run: |
+          echo "clean-up before finishing..."
+          # trivy can run the scan on base images without pulling the images
+          # locally in Docker, so no point cleaning the base images
+          module_image_name=${{ steps.main_image_scan.outputs.MAIN_IMAGE_NAME }}
+          if [ -n "$module_image_name" ]; then
+            echo "clean-up module image: $module_image_name"
+            docker rmi $(docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "$module_image_name:latest")
+          fi
+
+          echo "clean-up finished."
+
         shell: bash
 
