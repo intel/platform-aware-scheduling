@@ -15,6 +15,9 @@ spec:
       #List containers that needs to be in same GPU
         gas-same-gpu: same-gpu-container1,same-gpu-container3
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: &container1 same-gpu-container1
         image: busybox:1.33.1
@@ -23,9 +26,22 @@ spec:
           value: *container1
         command: ['sh', '-c', 'echo $MY_CONTAINER_NAME && ls -ltr /dev/dri && sleep 6000']
         resources:
+          requests:
+            cpu: 10m
+            memory: 10Mi
           limits:
+            cpu: 100m
+            memory: 100Mi
             gpu.intel.com/i915: 1
             gpu.intel.com/millicores: 400
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          capabilities:
+            drop: [ "ALL" ]
       - name: &container2 same-gpu-container2
         image: busybox:1.33.1
         env:
@@ -33,9 +49,22 @@ spec:
           value: *container2
         command: ['sh', '-c', 'echo $MY_CONTAINER_NAME && ls -ltr /dev/dri && sleep 6000']
         resources:
+          requests:
+            cpu: 10m
+            memory: 10Mi
           limits:
+            cpu: 100m
+            memory: 100Mi
             gpu.intel.com/i915: 1
             gpu.intel.com/millicores: 300
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          capabilities:
+            drop: [ "ALL" ]
       - name: &container3 same-gpu-container3
         image: busybox:1.33.1
         env:
@@ -43,9 +72,22 @@ spec:
           value: *container3
         command: ['sh', '-c', 'echo $MY_CONTAINER_NAME && ls -ltr /dev/dri && sleep 6000']
         resources:
+          requests:
+            cpu: 10m
+            memory: 10Mi
           limits:
+            cpu: 100m
+            memory: 100Mi
             gpu.intel.com/i915: 1
             gpu.intel.com/millicores: 400
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          capabilities:
+            drop: [ "ALL" ]
       - name: &container4 same-gpu-container4
         image: busybox:1.33.1
         env:
@@ -53,6 +95,19 @@ spec:
           value: *container4
         command: ['sh', '-c', 'echo $MY_CONTAINER_NAME && ls -ltr /dev/dri && sleep 6000']
         resources:
+          requests:
+            cpu: 10m
+            memory: 10Mi
           limits:
+            cpu: 100m
+            memory: 100Mi
             gpu.intel.com/i915: 1
             gpu.intel.com/millicores: 300
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          capabilities:
+            drop: [ "ALL" ]

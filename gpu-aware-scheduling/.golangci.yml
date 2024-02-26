@@ -14,7 +14,7 @@ linters-settings:
   gofmt:
     simplify: true
   gofumpt:
-    lang-version: "1.19"
+    lang-version: "1.21"
   golint:
     min-confidence: 0.9
   govet:

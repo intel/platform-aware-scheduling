@@ -12,6 +12,9 @@ spec:
       labels:
         app: memory-resource-example
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: &containername memory-resource-example
         image: busybox:1.33.1
@@ -20,6 +23,19 @@ spec:
           value: *containername
         command: ['sh', '-c', 'echo $MY_CONTAINER_NAME && ls -ltr /dev/dri && sleep 6000']
         resources:
+          requests:
+            cpu: 10m
+            memory: 10Mi
           limits:
+            cpu: 100m
+            memory: 100Mi
             gpu.intel.com/i915: 1
             gpu.intel.com/memory.max: 500M
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          capabilities:
+            drop: [ "ALL" ]
