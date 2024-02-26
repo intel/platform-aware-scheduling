@@ -26,6 +26,10 @@ spec:
         - "--burst=100"
         - "--qps=50"
         - "--v=4"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 50Mi
         image: intel/gpu-extender
         imagePullPolicy: IfNotPresent
         securityContext:
