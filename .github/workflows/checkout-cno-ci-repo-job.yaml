@@ -21,6 +21,9 @@ on:
         required: true
         description: 'Token required to access the CNO-CI repo'
 
+permissions:
+  contents: read
+
 jobs:
   pull-ci:
     name: Pull ansible based scripts
