@@ -18,6 +18,8 @@ on:
         description: "CNO-CI branch name"
         value: ${{ jobs.exit-trigger.outputs.cno-ci-branch-name  }}
 
+permissions:
+  contents: read
 
 jobs:
   exit-trigger:
