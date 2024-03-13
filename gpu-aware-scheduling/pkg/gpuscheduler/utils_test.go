@@ -118,46 +118,48 @@ func TestGPUNameToLZeroDeviceId(t *testing.T) {
 }
 
 func TestPCIGroups(t *testing.T) {
-	defaultGroups := "0.1_2.3.4"
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		defaultGroups := "0.1_2.3.4"
 
-	Convey("When the GPU belongs to a PCI Group", t, func() {
-		node := getMockNode(1, 1)
-		node.Labels[pciGroupLabel] = defaultGroups
-		So(getPCIGroup(node, "card0"), ShouldResemble, []string{"0", "1"})
-		So(getPCIGroup(node, "card1"), ShouldResemble, []string{"0", "1"})
-		So(getPCIGroup(node, "card2"), ShouldResemble, []string{"2", "3", "4"})
-		So(getPCIGroup(node, "card3"), ShouldResemble, []string{"2", "3", "4"})
-		So(getPCIGroup(node, "card4"), ShouldResemble, []string{"2", "3", "4"})
-	})
+		Convey("When the GPU belongs to a PCI Group", t, func() {
+			node := getMockNode(1, 1, pluginResourceName)
+			node.Labels[pciGroupLabel] = defaultGroups
+			So(getPCIGroup(node, "card0"), ShouldResemble, []string{"0", "1"})
+			So(getPCIGroup(node, "card1"), ShouldResemble, []string{"0", "1"})
+			So(getPCIGroup(node, "card2"), ShouldResemble, []string{"2", "3", "4"})
+			So(getPCIGroup(node, "card3"), ShouldResemble, []string{"2", "3", "4"})
+			So(getPCIGroup(node, "card4"), ShouldResemble, []string{"2", "3", "4"})
+		})
 
-	Convey("When the GPU belongs to a PCI Group with multiple group labels", t, func() {
-		node := getMockNode(1, 1)
-		node.Labels[pciGroupLabel] = defaultGroups
-		node.Labels[pciGroupLabel+"2"] = "Z_5.6_7.8_11.12"
-		node.Labels[pciGroupLabel+"3"] = "Z_9.10"
-		So(getPCIGroup(node, "card6"), ShouldResemble, []string{"5", "6"})
-		So(getPCIGroup(node, "card9"), ShouldResemble, []string{"9", "10"})
-		So(getPCIGroup(node, "card20"), ShouldResemble, []string{})
-	})
+		Convey("When the GPU belongs to a PCI Group with multiple group labels", t, func() {
+			node := getMockNode(1, 1, pluginResourceName)
+			node.Labels[pciGroupLabel] = defaultGroups
+			node.Labels[pciGroupLabel+"2"] = "Z_5.6_7.8_11.12"
+			node.Labels[pciGroupLabel+"3"] = "Z_9.10"
+			So(getPCIGroup(node, "card6"), ShouldResemble, []string{"5", "6"})
+			So(getPCIGroup(node, "card9"), ShouldResemble, []string{"9", "10"})
+			So(getPCIGroup(node, "card20"), ShouldResemble, []string{})
+		})
 
-	Convey("When I call addPCIGroupGPUs with a proper node and cards map", t, func() {
-		node := getMockNode(1, 1)
-		node.Labels[pciGroupLabel] = defaultGroups
-		cards := []string{}
-		cards = addPCIGroupGPUs(node, "card3", cards)
+		Convey("When I call addPCIGroupGPUs with a proper node and cards map", t, func() {
+			node := getMockNode(1, 1, pluginResourceName)
+			node.Labels[pciGroupLabel] = defaultGroups
+			cards := []string{}
+			cards = addPCIGroupGPUs(node, "card3", cards)
 
-		So(len(cards), ShouldEqual, 3)
-		So(cards, ShouldContain, "card2")
-		So(cards, ShouldContain, "card3")
-		So(cards, ShouldContain, "card4")
+			So(len(cards), ShouldEqual, 3)
+			So(cards, ShouldContain, "card2")
+			So(cards, ShouldContain, "card3")
+			So(cards, ShouldContain, "card4")
 
-		cards2 := []string{}
-		cards2 = addPCIGroupGPUs(node, "card0", cards2)
+			cards2 := []string{}
+			cards2 = addPCIGroupGPUs(node, "card0", cards2)
 
-		So(len(cards2), ShouldEqual, 2)
-		So(cards2, ShouldContain, "card0")
-		So(cards2, ShouldContain, "card1")
-	})
+			So(len(cards2), ShouldEqual, 2)
+			So(cards2, ShouldContain, "card0")
+			So(cards2, ShouldContain, "card1")
+		})
+	}
 }
 
 func TestTASNamespaceStrip(t *testing.T) {
@@ -325,37 +327,41 @@ func TestSanitizeTiles(t *testing.T) {
 }
 
 func TestConcatenateSplitLabel(t *testing.T) {
-	Convey("When the label is split, it can be concatenated", t, func() {
-		node := getMockNode(1, 1)
-		node.Labels[pciGroupLabel] = "foo"
-		node.Labels[pciGroupLabel+"2"] = "Zbar"
-		node.Labels[pciGroupLabel+"3"] = "Zber"
-		result := concatenateSplitLabel(node, pciGroupLabel)
-		So(result, ShouldEqual, "foobarber")
-	})
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		Convey("When the label is split, it can be concatenated", t, func() {
+			node := getMockNode(1, 1, pluginResourceName)
+			node.Labels[pciGroupLabel] = "foo"
+			node.Labels[pciGroupLabel+"2"] = "Zbar"
+			node.Labels[pciGroupLabel+"3"] = "Zber"
+			result := concatenateSplitLabel(node, pciGroupLabel)
+			So(result, ShouldEqual, "foobarber")
+		})
+	}
 }
 
 func TestContainerRequestsNoSamegpu(t *testing.T) {
-	Convey(
-		"With empty same-gpu list, empty map and a full list of resource requests is expected",
-		t, func() {
-			pod := &v1.Pod{
-				Spec: *getMockPodSpecMultiContSamegpu(),
-			}
-			samegpuSearchmap, allResourceRequests := containerRequests(pod, map[string]bool{})
-			So(len(samegpuSearchmap), ShouldEqual, 0)
-			So(len(allResourceRequests), ShouldEqual, len(pod.Spec.Containers))
-		})
-	Convey(
-		"With same-gpu list, map of respective indexes should be returned and full list of resource requests",
-		t, func() {
-			pod := &v1.Pod{
-				Spec: *getMockPodSpecMultiContSamegpu(),
-			}
-			samegpuNames := map[string]bool{"container2": true, "container3": true}
-			samegpuSearchmap, allRequests := containerRequests(pod, samegpuNames)
-			So(len(samegpuSearchmap), ShouldEqual, len(samegpuNames))
-			So(len(allRequests), ShouldEqual, len(pod.Spec.Containers))
-			So(samegpuSearchmap, ShouldResemble, map[int]bool{1: true, 2: true})
-		})
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		Convey(
+			"With empty same-gpu list, empty map and a full list of resource requests is expected",
+			t, func() {
+				pod := &v1.Pod{
+					Spec: *getMockPodSpecMultiContSamegpu(pluginResourceName),
+				}
+				samegpuSearchmap, allResourceRequests := containerRequests(pod, map[string]bool{})
+				So(len(samegpuSearchmap), ShouldEqual, 0)
+				So(len(allResourceRequests), ShouldEqual, len(pod.Spec.Containers))
+			})
+		Convey(
+			"With same-gpu list, map of respective indexes should be returned and full list of resource requests",
+			t, func() {
+				pod := &v1.Pod{
+					Spec: *getMockPodSpecMultiContSamegpu(pluginResourceName),
+				}
+				samegpuNames := map[string]bool{"container2": true, "container3": true}
+				samegpuSearchmap, allRequests := containerRequests(pod, samegpuNames)
+				So(len(samegpuSearchmap), ShouldEqual, len(samegpuNames))
+				So(len(allRequests), ShouldEqual, len(pod.Spec.Containers))
+				So(samegpuSearchmap, ShouldResemble, map[int]bool{1: true, 2: true})
+			})
+	}
 }

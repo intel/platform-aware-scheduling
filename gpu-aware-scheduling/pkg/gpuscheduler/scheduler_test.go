@@ -53,22 +53,22 @@ func getEmptyExtender() *GASExtender {
 	return emptyExtender
 }
 
-func getFakePod() *v1.Pod {
+func getFakePod(pluginResourceName string) *v1.Pod {
 	return &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{"gas-ts": "1"},
 		},
-		Spec: *getMockPodSpec(),
+		Spec: *getMockPodSpec(pluginResourceName),
 	}
 }
 
-func getMockPodSpec() *v1.PodSpec {
+func getMockPodSpec(pluginResourceName string) *v1.PodSpec {
 	return &v1.PodSpec{
 		Containers: []v1.Container{
 			{
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
-						"gpu.intel.com/i915": resource.MustParse("1"),
+						v1.ResourceName(pluginResourceName): resource.MustParse("1"),
 					},
 				},
 			},
@@ -76,14 +76,14 @@ func getMockPodSpec() *v1.PodSpec {
 	}
 }
 
-func getMockPodSpecWithTile(tileCount int) *v1.PodSpec {
+func getMockPodSpecWithTile(tileCount int, pluginResourceName string) *v1.PodSpec {
 	return &v1.PodSpec{
 		Containers: []v1.Container{
 			{
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
-						"gpu.intel.com/i915":  resource.MustParse("1"),
-						"gpu.intel.com/tiles": resource.MustParse(strconv.Itoa(tileCount)),
+						v1.ResourceName(pluginResourceName): resource.MustParse("1"),
+						"gpu.intel.com/tiles":               resource.MustParse(strconv.Itoa(tileCount)),
 					},
 				},
 			},
@@ -91,22 +91,22 @@ func getMockPodSpecWithTile(tileCount int) *v1.PodSpec {
 	}
 }
 
-func getMockPodSpecMultiCont() *v1.PodSpec {
+func getMockPodSpecMultiCont(pluginResourceName string) *v1.PodSpec {
 	return &v1.PodSpec{
 		Containers: []v1.Container{
 			{
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
-						"gpu.intel.com/i915":  resource.MustParse("1"),
-						"gpu.intel.com/tiles": resource.MustParse("3"),
+						v1.ResourceName(pluginResourceName): resource.MustParse("1"),
+						"gpu.intel.com/tiles":               resource.MustParse("3"),
 					},
 				},
 			},
 			{
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
-						"gpu.intel.com/i915":  resource.MustParse("1"),
-						"gpu.intel.com/tiles": resource.MustParse("1"),
+						v1.ResourceName(pluginResourceName): resource.MustParse("1"),
+						"gpu.intel.com/tiles":               resource.MustParse("1"),
 					},
 				},
 			},
@@ -114,14 +114,14 @@ func getMockPodSpecMultiCont() *v1.PodSpec {
 	}
 }
 
-func getMockPodSpecMultiContXeLinked(containerCount int) *v1.PodSpec {
+func getMockPodSpecMultiContXeLinked(containerCount int, pluginResourceName string) *v1.PodSpec {
 	containers := []v1.Container{}
 	for i := 0; i < containerCount; i++ {
 		containers = append(containers, v1.Container{
 			Resources: v1.ResourceRequirements{
 				Requests: v1.ResourceList{
-					"gpu.intel.com/i915":  resource.MustParse("2"),
-					"gpu.intel.com/tiles": resource.MustParse("2"),
+					v1.ResourceName(pluginResourceName): resource.MustParse("2"),
+					"gpu.intel.com/tiles":               resource.MustParse("2"),
 				},
 			},
 		})
@@ -132,7 +132,7 @@ func getMockPodSpecMultiContXeLinked(containerCount int) *v1.PodSpec {
 	}
 }
 
-func getMockPodSpecNCont(containerCount int) *v1.PodSpec {
+func getMockPodSpecNCont(containerCount int, pluginResourceName string) *v1.PodSpec {
 	containers := []v1.Container{}
 
 	for i := 1; i <= containerCount; i++ {
@@ -140,8 +140,8 @@ func getMockPodSpecNCont(containerCount int) *v1.PodSpec {
 			Name: fmt.Sprintf("container%d", i),
 			Resources: v1.ResourceRequirements{
 				Requests: v1.ResourceList{
-					"gpu.intel.com/i915":       resource.MustParse("1"),
-					"gpu.intel.com/millicores": resource.MustParse("100"),
+					v1.ResourceName(pluginResourceName): resource.MustParse("1"),
+					"gpu.intel.com/millicores":          resource.MustParse("100"),
 				},
 			},
 		}
@@ -153,15 +153,15 @@ func getMockPodSpecNCont(containerCount int) *v1.PodSpec {
 	}
 }
 
-func getMockPodSpecMultiContSamegpu() *v1.PodSpec {
+func getMockPodSpecMultiContSamegpu(pluginResourceName string) *v1.PodSpec {
 	return &v1.PodSpec{
 		Containers: []v1.Container{
 			{
 				Name: "container1",
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
-						"gpu.intel.com/i915":  resource.MustParse("1"),
-						"gpu.intel.com/tiles": resource.MustParse("2"),
+						v1.ResourceName(pluginResourceName): resource.MustParse("1"),
+						"gpu.intel.com/tiles":               resource.MustParse("2"),
 					},
 				},
 			},
@@ -169,8 +169,8 @@ func getMockPodSpecMultiContSamegpu() *v1.PodSpec {
 				Name: "container2",
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
-						"gpu.intel.com/i915":       resource.MustParse("1"),
-						"gpu.intel.com/memory.max": resource.MustParse("8589934592"), // 8Gi
+						v1.ResourceName(pluginResourceName): resource.MustParse("1"),
+						"gpu.intel.com/memory.max":          resource.MustParse("8589934592"), // 8Gi
 					},
 				},
 			},
@@ -178,8 +178,8 @@ func getMockPodSpecMultiContSamegpu() *v1.PodSpec {
 				Name: "container3",
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
-						"gpu.intel.com/i915":       resource.MustParse("1"),
-						"gpu.intel.com/millicores": resource.MustParse("200"),
+						v1.ResourceName(pluginResourceName): resource.MustParse("1"),
+						"gpu.intel.com/millicores":          resource.MustParse("200"),
 					},
 				},
 			},
@@ -187,8 +187,8 @@ func getMockPodSpecMultiContSamegpu() *v1.PodSpec {
 				Name: "container4",
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{
-						"gpu.intel.com/i915":       resource.MustParse("1"),
-						"gpu.intel.com/millicores": resource.MustParse("200"),
+						v1.ResourceName(pluginResourceName): resource.MustParse("1"),
+						"gpu.intel.com/millicores":          resource.MustParse("200"),
 					},
 				},
 			},
@@ -196,7 +196,7 @@ func getMockPodSpecMultiContSamegpu() *v1.PodSpec {
 	}
 }
 
-func getMockNode(sharedDevCount, tileCountPerCard int, cardNames ...string) *v1.Node {
+func getMockNode(sharedDevCount, tileCountPerCard int, pluginResourceName string, cardNames ...string) *v1.Node {
 	if len(cardNames) == 0 {
 		cardNames = []string{card0}
 	}
@@ -214,9 +214,9 @@ func getMockNode(sharedDevCount, tileCountPerCard int, cardNames ...string) *v1.
 
 	cardCount := strconv.Itoa(len(cardNames) * sharedDevCount)
 	tileCount := strconv.Itoa(len(cardNames) * tileCountPerCard)
-	node.Status.Capacity["gpu.intel.com/i915"] = resource.MustParse(cardCount)
+	node.Status.Capacity[v1.ResourceName(pluginResourceName)] = resource.MustParse(cardCount)
 	node.Status.Capacity["gpu.intel.com/tiles"] = resource.MustParse(tileCount)
-	node.Status.Allocatable["gpu.intel.com/i915"] = resource.MustParse(cardCount)
+	node.Status.Allocatable[v1.ResourceName(pluginResourceName)] = resource.MustParse(cardCount)
 	node.Status.Allocatable["gpu.intel.com/tiles"] = resource.MustParse(tileCount)
 
 	delim := ""
@@ -350,198 +350,206 @@ func TestFilterNodes(t *testing.T) {
 }
 
 func TestBindNode(t *testing.T) {
-	pod := getFakePod()
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		pod := getFakePod(pluginResourceName)
 
-	gas := getDummyExtender(pod)
+		gas := getDummyExtender(pod)
 
-	mockCache := MockCacheAPI{}
-	origCacheAPI := iCache
-	iCache = &mockCache
-	args := extenderv1.ExtenderBindingArgs{}
-	ctx := context.TODO()
+		mockCache := MockCacheAPI{}
+		origCacheAPI := iCache
+		iCache = &mockCache
+		args := extenderv1.ExtenderBindingArgs{}
+		ctx := context.TODO()
 
-	Convey("When the args are empty", t, func() {
-		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(nil, errMock).Once()
-		result := gas.bindNode(ctx, &args)
-		So(result.Error, ShouldNotEqual, "")
-	})
-
-	args.Node = nodename
-
-	Convey("When node can't be read", t, func() {
-		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{}, nil).Once()
-		mockCache.On("FetchNode", mock.Anything, args.Node).Return(nil, errMock).Once()
-		result := gas.bindNode(ctx, &args)
-		So(result.Error, ShouldNotBeNil)
-	})
-
-	Convey("When node can be read, but has no capacity", t, func() {
-		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
-			Spec: *getMockPodSpec(),
-		}, nil).Once()
-		mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{
-					"gpu.intel.com/cards": card0,
-				},
-			},
-		}, nil).Once()
-		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}, nil).Once()
-		mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
-		result := gas.bindNode(ctx, &args)
-		So(result.Error, ShouldEqual, "will not fit")
-	})
-
-	Convey("When node can be read, and it has capacity", t, func() {
-		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
-			Spec: *getMockPodSpec(),
-		}, nil).Once()
-		mockCache.On("FetchNode", mock.Anything, args.Node).Return(getMockNode(1, 1), nil).Once()
-		mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
-		mockCache.On("AdjustPodResourcesL",
-			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
-		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}, nil).Once()
-		result := gas.bindNode(ctx, &args)
-		So(result.Error, ShouldEqual, "")
-	})
-
-	Convey("When pod has invalid UID", t, func() {
-		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
-			Spec: *getMockPodSpec(),
-			ObjectMeta: metav1.ObjectMeta{
-				UID: "foobar",
-			},
-		}, nil).Once()
-		result := gas.bindNode(ctx, &args)
-		So(result.Error, ShouldNotEqual, "")
-	})
-
-	iCache = origCacheAPI
-}
-
-func TestAllowlist(t *testing.T) {
-	pod := getFakePod()
-
-	gas := getDummyExtender(pod)
-	mockCache := MockCacheAPI{}
-	origCacheAPI := iCache
-	iCache = &mockCache
-	args := extenderv1.ExtenderBindingArgs{}
-	args.Node = nodename
-	ctx := context.TODO()
-
-	for _, cardName := range []string{card0, "card1"} {
-		cardName := cardName
-
-		Convey("When pod has an allowlist and the node card is in it", t, func() {
-			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{"gas-allow": cardName},
-				},
-				Spec: *getMockPodSpec(),
-			}, nil).Once()
-			mockCache.On("FetchNode", mock.Anything, args.Node).Return(getMockNode(1, 1), nil).Once()
-			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
-			mockCache.On("AdjustPodResourcesL",
-				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
+		Convey("When the args are empty", t, func() {
+			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(nil, errMock).Once()
 			result := gas.bindNode(ctx, &args)
-			if cardName == card0 {
-				So(result.Error, ShouldEqual, "")
-			} else {
-				So(result.Error, ShouldEqual, "will not fit")
-			}
+			So(result.Error, ShouldNotEqual, "")
 		})
-	}
 
-	iCache = origCacheAPI
-}
+		args.Node = nodename
 
-func TestDenylist(t *testing.T) {
-	pod := getFakePod()
-
-	gas := getDummyExtender(pod)
-	mockCache := MockCacheAPI{}
-	origCacheAPI := iCache
-	iCache = &mockCache
-	args := extenderv1.ExtenderBindingArgs{}
-	args.Node = nodename
-	ctx := context.TODO()
-
-	for _, cardName := range []string{card0, "card1"} {
-		cardName := cardName
-
-		Convey("When pod has a denylist", t, func() {
-			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{"gas-deny": cardName},
-				},
-				Spec: *getMockPodSpec(),
-			}, nil).Once()
-			mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
-				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"gpu.intel.com/cards": card0}},
-				Status: v1.NodeStatus{
-					Capacity:    v1.ResourceList{"gpu.intel.com/i915": resource.MustParse("1")},
-					Allocatable: v1.ResourceList{"gpu.intel.com/i915": resource.MustParse("1")},
-				},
-			}, nil).Once()
-			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
-			mockCache.On("AdjustPodResourcesL",
-				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
+		Convey("When node can't be read", t, func() {
+			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{}, nil).Once()
+			mockCache.On("FetchNode", mock.Anything, args.Node).Return(nil, errMock).Once()
 			result := gas.bindNode(ctx, &args)
-			if cardName != card0 {
-				So(result.Error, ShouldEqual, "")
-			} else {
-				So(result.Error, ShouldEqual, "will not fit")
-			}
+			So(result.Error, ShouldNotBeNil)
 		})
-	}
 
-	iCache = origCacheAPI
-}
-
-func TestGPUDisabling(t *testing.T) {
-	pod := getFakePod()
-
-	gas := getDummyExtender(pod)
-	mockCache := MockCacheAPI{}
-	origCacheAPI := iCache
-	iCache = &mockCache
-	args := extenderv1.ExtenderBindingArgs{}
-	args.Node = nodename
-	ctx := context.TODO()
-
-	for _, labelValue := range []string{pciGroupValue, trueValueString} {
-		labelValue := labelValue
-
-		Convey("When node has a disable-label and the node card is in it", t, func() {
+		Convey("When node can be read, but has no capacity", t, func() {
 			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
-				Spec: *getMockPodSpec(),
+				Spec: *getMockPodSpec(pluginResourceName),
 			}, nil).Once()
 			mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"gpu.intel.com/cards":                                card0,
-						tasNSPrefix + policy + gpuDisableLabelPrefix + card0: labelValue,
-						pciGroupLabel: "0",
+						"gpu.intel.com/cards": card0,
 					},
 				},
-				Status: v1.NodeStatus{
-					Capacity:    v1.ResourceList{"gpu.intel.com/i915": resource.MustParse("1")},
-					Allocatable: v1.ResourceList{"gpu.intel.com/i915": resource.MustParse("1")},
-				},
 			}, nil).Once()
+			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}, nil).Once()
 			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
-			mockCache.On("AdjustPodResourcesL",
-				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
 			result := gas.bindNode(ctx, &args)
 			So(result.Error, ShouldEqual, "will not fit")
 		})
-	}
 
-	iCache = origCacheAPI
+		Convey("When node can be read, and it has capacity", t, func() {
+			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+				Spec: *getMockPodSpec(pluginResourceName),
+			}, nil).Once()
+			mockCache.On("FetchNode", mock.Anything, args.Node).Return(getMockNode(1, 1, pluginResourceName), nil).Once()
+			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
+			mockCache.On("AdjustPodResourcesL",
+				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}, nil).Once()
+			result := gas.bindNode(ctx, &args)
+			So(result.Error, ShouldEqual, "")
+		})
+
+		Convey("When pod has invalid UID", t, func() {
+			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+				Spec: *getMockPodSpec(pluginResourceName),
+				ObjectMeta: metav1.ObjectMeta{
+					UID: "foobar",
+				},
+			}, nil).Once()
+			result := gas.bindNode(ctx, &args)
+			So(result.Error, ShouldNotEqual, "")
+		})
+
+		iCache = origCacheAPI
+	}
+}
+
+func TestAllowlist(t *testing.T) {
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		pod := getFakePod(pluginResourceName)
+
+		gas := getDummyExtender(pod)
+		mockCache := MockCacheAPI{}
+		origCacheAPI := iCache
+		iCache = &mockCache
+		args := extenderv1.ExtenderBindingArgs{}
+		args.Node = nodename
+		ctx := context.TODO()
+
+		for _, cardName := range []string{card0, "card1"} {
+			cardName := cardName
+
+			Convey("When pod has an allowlist and the node card is in it", t, func() {
+				mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{"gas-allow": cardName},
+					},
+					Spec: *getMockPodSpec(pluginResourceName),
+				}, nil).Once()
+				mockCache.On("FetchNode", mock.Anything, args.Node).Return(getMockNode(1, 1, pluginResourceName), nil).Once()
+				mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
+				mockCache.On("AdjustPodResourcesL",
+					mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
+				mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
+				result := gas.bindNode(ctx, &args)
+				if cardName == card0 {
+					So(result.Error, ShouldEqual, "")
+				} else {
+					So(result.Error, ShouldEqual, "will not fit")
+				}
+			})
+		}
+
+		iCache = origCacheAPI
+	}
+}
+
+func TestDenylist(t *testing.T) {
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		pod := getFakePod(pluginResourceName)
+
+		gas := getDummyExtender(pod)
+		mockCache := MockCacheAPI{}
+		origCacheAPI := iCache
+		iCache = &mockCache
+		args := extenderv1.ExtenderBindingArgs{}
+		args.Node = nodename
+		ctx := context.TODO()
+
+		for _, cardName := range []string{card0, "card1"} {
+			cardName := cardName
+
+			Convey("When pod has a denylist", t, func() {
+				mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{"gas-deny": cardName},
+					},
+					Spec: *getMockPodSpec(pluginResourceName),
+				}, nil).Once()
+				mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
+					ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"gpu.intel.com/cards": card0}},
+					Status: v1.NodeStatus{
+						Capacity:    v1.ResourceList{v1.ResourceName(pluginResourceName): resource.MustParse("1")},
+						Allocatable: v1.ResourceList{v1.ResourceName(pluginResourceName): resource.MustParse("1")},
+					},
+				}, nil).Once()
+				mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
+				mockCache.On("AdjustPodResourcesL",
+					mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
+				mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
+				result := gas.bindNode(ctx, &args)
+				if cardName != card0 {
+					So(result.Error, ShouldEqual, "")
+				} else {
+					So(result.Error, ShouldEqual, "will not fit")
+				}
+			})
+		}
+
+		iCache = origCacheAPI
+	}
+}
+
+func TestGPUDisabling(t *testing.T) {
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		pod := getFakePod(pluginResourceName)
+
+		gas := getDummyExtender(pod)
+		mockCache := MockCacheAPI{}
+		origCacheAPI := iCache
+		iCache = &mockCache
+		args := extenderv1.ExtenderBindingArgs{}
+		args.Node = nodename
+		ctx := context.TODO()
+
+		for _, labelValue := range []string{pciGroupValue, trueValueString} {
+			labelValue := labelValue
+
+			Convey("When node has a disable-label and the node card is in it", t, func() {
+				mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+					Spec: *getMockPodSpec(pluginResourceName),
+				}, nil).Once()
+				mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							"gpu.intel.com/cards":                                card0,
+							tasNSPrefix + policy + gpuDisableLabelPrefix + card0: labelValue,
+							pciGroupLabel: "0",
+						},
+					},
+					Status: v1.NodeStatus{
+						Capacity:    v1.ResourceList{v1.ResourceName(pluginResourceName): resource.MustParse("1")},
+						Allocatable: v1.ResourceList{v1.ResourceName(pluginResourceName): resource.MustParse("1")},
+					},
+				}, nil).Once()
+				mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
+				mockCache.On("AdjustPodResourcesL",
+					mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
+				mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
+				result := gas.bindNode(ctx, &args)
+				So(result.Error, ShouldEqual, "will not fit")
+			})
+		}
+
+		iCache = origCacheAPI
+	}
 }
 
 func TestWriteResponse(t *testing.T) {
@@ -568,47 +576,49 @@ func TestDecodeRequest(t *testing.T) {
 }
 
 func TestPreferredGPU(t *testing.T) {
-	gas := getEmptyExtender()
-	node := getMockNode(1, 1, card0, "card1", "card2")
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		gas := getEmptyExtender()
+		node := getMockNode(1, 1, pluginResourceName, card0, "card1", "card2")
 
-	pod := getFakePod()
+		pod := getFakePod(pluginResourceName)
 
-	containerRequest := resourceMap{"gpu.intel.com/i915": 1}
-	perGPUCapacity := resourceMap{"gpu.intel.com/i915": 1}
+		containerRequest := resourceMap{pluginResourceName: 1}
+		perGPUCapacity := resourceMap{pluginResourceName: 1}
 
-	nodeResourcesUsed := nodeResources{card0: resourceMap{}, "card1": resourceMap{}, "card2": resourceMap{}}
-	gpuMap := map[string]bool{card0: true, "card1": true, "card2": true}
+		nodeResourcesUsed := nodeResources{card0: resourceMap{}, "card1": resourceMap{}, "card2": resourceMap{}}
+		gpuMap := map[string]bool{card0: true, "card1": true, "card2": true}
 
-	Convey("When a gpu is not preferred, alphabetically first gpu should be selected", t, func() {
-		cards, preferred, err := gas.getCardsForContainerGPURequest(containerRequest, perGPUCapacity,
-			node, pod,
-			nodeResourcesUsed,
-			gpuMap)
+		Convey("When a gpu is not preferred, alphabetically first gpu should be selected", t, func() {
+			cards, preferred, err := gas.getCardsForContainerGPURequest(containerRequest, perGPUCapacity,
+				node, pod,
+				nodeResourcesUsed,
+				gpuMap)
 
-		So(len(cards), ShouldEqual, 1)
-		So(cards[0], ShouldResemble, Card{
-			gpuName:         card0,
-			xeLinkedTileIds: []int{},
+			So(len(cards), ShouldEqual, 1)
+			So(cards[0], ShouldResemble, Card{
+				gpuName:         card0,
+				xeLinkedTileIds: []int{},
+			})
+			So(err, ShouldBeNil)
+			So(preferred, ShouldBeFalse)
 		})
-		So(err, ShouldBeNil)
-		So(preferred, ShouldBeFalse)
-	})
 
-	Convey("When a gpu is preferred, it should be selected", t, func() {
-		node.Labels["telemetry.aware.scheduling.policy/gas-prefer-gpu"] = "card2"
-		cards, preferred, err := gas.getCardsForContainerGPURequest(containerRequest, perGPUCapacity,
-			node, pod,
-			nodeResourcesUsed,
-			gpuMap)
+		Convey("When a gpu is preferred, it should be selected", t, func() {
+			node.Labels["telemetry.aware.scheduling.policy/gas-prefer-gpu"] = "card2"
+			cards, preferred, err := gas.getCardsForContainerGPURequest(containerRequest, perGPUCapacity,
+				node, pod,
+				nodeResourcesUsed,
+				gpuMap)
 
-		So(len(cards), ShouldEqual, 1)
-		So(cards[0], ShouldResemble, Card{
-			gpuName:         "card2",
-			xeLinkedTileIds: []int{},
+			So(len(cards), ShouldEqual, 1)
+			So(cards[0], ShouldResemble, Card{
+				gpuName:         "card2",
+				xeLinkedTileIds: []int{},
+			})
+			So(err, ShouldBeNil)
+			So(preferred, ShouldBeTrue)
 		})
-		So(err, ShouldBeNil)
-		So(preferred, ShouldBeTrue)
-	})
+	}
 }
 
 func TestFilter(t *testing.T) {
@@ -812,228 +822,238 @@ func TestCreateTileAnnotation(t *testing.T) {
 }
 
 func TestArrangeGPUNamesPerResourceAvailibility(t *testing.T) {
-	nodeUsedRes := nodeResources{}
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		nodeUsedRes := nodeResources{}
 
-	nodeUsedRes[card0] = resourceMap{"gpu.intel.com/i915": 1, "gpu.intel.com/tiles": 2}
-	nodeUsedRes["card1"] = resourceMap{"gpu.intel.com/i915": 0, "gpu.intel.com/tiles": 0}
-	nodeUsedRes["card2"] = resourceMap{"gpu.intel.com/i915": 1, "gpu.intel.com/tiles": 1}
+		nodeUsedRes[card0] = resourceMap{pluginResourceName: 1, "gpu.intel.com/tiles": 2}
+		nodeUsedRes["card1"] = resourceMap{pluginResourceName: 0, "gpu.intel.com/tiles": 0}
+		nodeUsedRes["card2"] = resourceMap{pluginResourceName: 1, "gpu.intel.com/tiles": 1}
 
-	Convey("When arranging gpus by tiles, the one with least used tiles is at front", t, func() {
-		gpuNames := []string{card0, "card1", "card2"}
+		Convey("When arranging gpus by tiles, the one with least used tiles is at front", t, func() {
+			gpuNames := []string{card0, "card1", "card2"}
 
-		arrangeGPUNamesPerResourceAvailability(nodeUsedRes, gpuNames, "tiles")
-		So(gpuNames[0], ShouldEqual, "card1")
-		So(gpuNames[1], ShouldEqual, "card2")
-		So(gpuNames[2], ShouldEqual, card0)
-	})
+			arrangeGPUNamesPerResourceAvailability(nodeUsedRes, gpuNames, "tiles")
+			So(gpuNames[0], ShouldEqual, "card1")
+			So(gpuNames[1], ShouldEqual, "card2")
+			So(gpuNames[2], ShouldEqual, card0)
+		})
 
-	Convey("When arranging gpus by unknown, the order of the gpus shouldn't change", t, func() {
-		gpuNames := []string{card0, "card1", "card2"}
+		Convey("When arranging gpus by unknown, the order of the gpus shouldn't change", t, func() {
+			gpuNames := []string{card0, "card1", "card2"}
 
-		arrangeGPUNamesPerResourceAvailability(nodeUsedRes, gpuNames, "unknown")
-		So(gpuNames[0], ShouldEqual, card0)
-		So(gpuNames[1], ShouldEqual, "card1")
-		So(gpuNames[2], ShouldEqual, "card2")
-	})
+			arrangeGPUNamesPerResourceAvailability(nodeUsedRes, gpuNames, "unknown")
+			So(gpuNames[0], ShouldEqual, card0)
+			So(gpuNames[1], ShouldEqual, "card1")
+			So(gpuNames[2], ShouldEqual, "card2")
+		})
+	}
 }
 
 func TestResourceBalancedCardsForContainerGPURequest(t *testing.T) {
-	gas := getEmptyExtender()
-	gas.balancedResource = "foo"
-	node := getMockNode(1, 1, card0, "card1", "card2")
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		gas := getEmptyExtender()
+		gas.balancedResource = "foo"
+		node := getMockNode(1, 1, card0, "card1", "card2")
 
-	pod := getFakePod()
+		pod := getFakePod(pluginResourceName)
 
-	containerRequest := resourceMap{"gpu.intel.com/i915": 1, "gpu.intel.com/foo": 1}
-	perGPUCapacity := resourceMap{"gpu.intel.com/i915": 1, "gpu.intel.com/foo": 4}
+		containerRequest := resourceMap{pluginResourceName: 1, "gpu.intel.com/foo": 1}
+		perGPUCapacity := resourceMap{pluginResourceName: 1, "gpu.intel.com/foo": 4}
 
-	nodeResourcesUsed := nodeResources{
-		card0:   resourceMap{"gpu.intel.com/foo": 1},
-		"card1": resourceMap{"gpu.intel.com/foo": 2}, "card2": resourceMap{},
-	}
-	gpuMap := map[string]bool{card0: true, "card1": true, "card2": true}
+		nodeResourcesUsed := nodeResources{
+			card0:   resourceMap{"gpu.intel.com/foo": 1},
+			"card1": resourceMap{"gpu.intel.com/foo": 2}, "card2": resourceMap{},
+		}
+		gpuMap := map[string]bool{card0: true, "card1": true, "card2": true}
 
-	Convey("When GPUs are resource balanced, the least consumed GPU should be used", t, func() {
-		cards, preferred, err := gas.getCardsForContainerGPURequest(containerRequest, perGPUCapacity,
-			node, pod,
-			nodeResourcesUsed,
-			gpuMap)
+		Convey("When GPUs are resource balanced, the least consumed GPU should be used", t, func() {
+			cards, preferred, err := gas.getCardsForContainerGPURequest(containerRequest, perGPUCapacity,
+				node, pod,
+				nodeResourcesUsed,
+				gpuMap)
 
-		So(len(cards), ShouldEqual, 1)
-		So(cards[0], ShouldResemble, Card{
-			gpuName:         "card2",
-			xeLinkedTileIds: []int{},
+			So(len(cards), ShouldEqual, 1)
+			So(cards[0], ShouldResemble, Card{
+				gpuName:         "card2",
+				xeLinkedTileIds: []int{},
+			})
+			So(err, ShouldBeNil)
+			So(preferred, ShouldBeFalse)
 		})
-		So(err, ShouldBeNil)
-		So(preferred, ShouldBeFalse)
-	})
+	}
 }
 
 func TestFilterWithXeLinkedDisabledTiles(t *testing.T) {
-	pod := getFakePod()
-	pod.Spec = *getMockPodSpecMultiContXeLinked(1)
-	pod.Annotations[xelinkAnnotationName] = trueValueString
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		pod := getFakePod(pluginResourceName)
+		pod.Spec = *getMockPodSpecMultiContXeLinked(1, pluginResourceName)
+		pod.Annotations[xelinkAnnotationName] = trueValueString
 
-	clientset := fake.NewSimpleClientset(pod)
-	gas := NewGASExtender(clientset, false, false, "")
+		clientset := fake.NewSimpleClientset(pod)
+		gas := NewGASExtender(clientset, false, false, "")
 
-	mockCache := MockCacheAPI{}
-	origCacheAPI := iCache
-	iCache = &mockCache
-	args := extenderv1.ExtenderBindingArgs{}
-	args.Node = nodename
+		mockCache := MockCacheAPI{}
+		origCacheAPI := iCache
+		iCache = &mockCache
+		args := extenderv1.ExtenderBindingArgs{}
+		args.Node = nodename
 
-	type testCase struct {
-		extraLabels    map[string]string
-		description    string
-		expectedResult bool
-	}
-
-	testCases := []testCase{
-		{
-			description:    "when one tile is disabled and there is one good xe-link left",
-			extraLabels:    map[string]string{tasNSPrefix + policy + tileDisableLabelPrefix + card0Gt0: trueValueString},
-			expectedResult: false, // node does not fail (is not filtered)
-		},
-		{
-			description: "when two tiles are disabled and there are no good xe-links left",
-			extraLabels: map[string]string{
-				tasNSPrefix + policy + tileDisableLabelPrefix + card0Gt0:    trueValueString,
-				tasNSPrefix + policy + tileDisableLabelPrefix + "card2_gt1": trueValueString,
-			},
-			expectedResult: true, // node fails (is filtered)
-		},
-	}
-
-	Convey("When node has four cards with two xelinks and one disabled xe-linked tile, pod should still fit", t, func() {
-		for _, testCase := range testCases {
-			t.Logf("test %v", testCase.description)
-
-			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
-				Spec: *getMockPodSpecWithTile(1),
-			}, nil).Once()
-			node := v1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"gpu.intel.com/gpu-numbers": "0.1.2.3",
-						"gpu.intel.com/tiles":       "4",
-						xeLinksLabel:                "0.0-1.0_2.1",
-						xeLinksLabel + "2":          "Z-3.2",
-					},
-				},
-				Status: v1.NodeStatus{
-					Capacity: v1.ResourceList{
-						"gpu.intel.com/i915":  resource.MustParse("4"),
-						"gpu.intel.com/tiles": resource.MustParse("16"),
-					},
-					Allocatable: v1.ResourceList{
-						"gpu.intel.com/i915":  resource.MustParse("4"),
-						"gpu.intel.com/tiles": resource.MustParse("16"),
-					},
-				},
-			}
-			for key, value := range testCase.extraLabels {
-				node.Labels[key] = value
-			}
-			mockCache.On("FetchNode", mock.Anything, args.Node).Return(&node, nil).Once()
-
-			usedResources := nodeResources{card0: resourceMap{"gpu.intel.com/i915": 0, "gpu.intel.com/tiles": 0}}
-
-			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(usedResources).Once()
-			mockCache.On("AdjustPodResourcesL",
-				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Twice()
-			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
-			nodeNames := []string{nodename}
-			args := extenderv1.ExtenderArgs{}
-			args.NodeNames = &nodeNames
-			args.Pod = pod
-
-			result := gas.filterNodes(&args)
-			So(result.Error, ShouldEqual, "")
-			_, ok := result.FailedNodes[nodename]
-			So(ok, ShouldEqual, testCase.expectedResult)
+		type testCase struct {
+			extraLabels    map[string]string
+			description    string
+			expectedResult bool
 		}
-	})
 
-	iCache = origCacheAPI
+		testCases := []testCase{
+			{
+				description:    "when one tile is disabled and there is one good xe-link left",
+				extraLabels:    map[string]string{tasNSPrefix + policy + tileDisableLabelPrefix + card0Gt0: trueValueString},
+				expectedResult: false, // node does not fail (is not filtered)
+			},
+			{
+				description: "when two tiles are disabled and there are no good xe-links left",
+				extraLabels: map[string]string{
+					tasNSPrefix + policy + tileDisableLabelPrefix + card0Gt0:    trueValueString,
+					tasNSPrefix + policy + tileDisableLabelPrefix + "card2_gt1": trueValueString,
+				},
+				expectedResult: true, // node fails (is filtered)
+			},
+		}
+
+		Convey("When node has four cards with two xelinks and one disabled xe-linked tile, pod should still fit", t, func() {
+			for _, testCase := range testCases {
+				t.Logf("test %v", testCase.description)
+
+				mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+					Spec: *getMockPodSpecWithTile(1, pluginResourceName),
+				}, nil).Once()
+				node := v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							"gpu.intel.com/gpu-numbers": "0.1.2.3",
+							"gpu.intel.com/tiles":       "4",
+							xeLinksLabel:                "0.0-1.0_2.1",
+							xeLinksLabel + "2":          "Z-3.2",
+						},
+					},
+					Status: v1.NodeStatus{
+						Capacity: v1.ResourceList{
+							v1.ResourceName(pluginResourceName): resource.MustParse("4"),
+							"gpu.intel.com/tiles":               resource.MustParse("16"),
+						},
+						Allocatable: v1.ResourceList{
+							v1.ResourceName(pluginResourceName): resource.MustParse("4"),
+							"gpu.intel.com/tiles":               resource.MustParse("16"),
+						},
+					},
+				}
+				for key, value := range testCase.extraLabels {
+					node.Labels[key] = value
+				}
+				mockCache.On("FetchNode", mock.Anything, args.Node).Return(&node, nil).Once()
+
+				usedResources := nodeResources{card0: resourceMap{pluginResourceName: 0, "gpu.intel.com/tiles": 0}}
+
+				mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(usedResources).Once()
+				mockCache.On("AdjustPodResourcesL",
+					mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
+				mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Twice()
+				mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
+				nodeNames := []string{nodename}
+				args := extenderv1.ExtenderArgs{}
+				args.NodeNames = &nodeNames
+				args.Pod = pod
+
+				result := gas.filterNodes(&args)
+				So(result.Error, ShouldEqual, "")
+				_, ok := result.FailedNodes[nodename]
+				So(ok, ShouldEqual, testCase.expectedResult)
+			}
+		})
+
+		iCache = origCacheAPI
+	}
 }
 
 func TestFilterWithNContainerSameGPU(t *testing.T) {
-	pod := getFakePod()
-	pod.Spec = *getMockPodSpecNCont(5)
-	pod.Annotations[samegpuAnnotationName] = "container1,container2,container3,container4,container5"
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		pod := getFakePod(pluginResourceName)
+		pod.Spec = *getMockPodSpecNCont(5, pluginResourceName)
+		pod.Annotations[samegpuAnnotationName] = "container1,container2,container3,container4,container5"
 
-	clientset := fake.NewSimpleClientset(pod)
-	gas := NewGASExtender(clientset, false, false, "")
+		clientset := fake.NewSimpleClientset(pod)
+		gas := NewGASExtender(clientset, false, false, "")
 
-	mockCache := MockCacheAPI{}
-	origCacheAPI := iCache
-	iCache = &mockCache
-	args := extenderv1.ExtenderBindingArgs{}
-	args.Node = nodename
+		mockCache := MockCacheAPI{}
+		origCacheAPI := iCache
+		iCache = &mockCache
+		args := extenderv1.ExtenderBindingArgs{}
+		args.Node = nodename
 
-	type testCase struct {
-		extraLabels    map[string]string
-		description    string
-		expectedResult bool
-	}
-
-	testCases := []testCase{
-		{
-			description:    "when there are 3 i915 left in cards, pod with 5 same-gpu containers should not fit",
-			expectedResult: true,
-		},
-	}
-
-	Convey("When node has 3 i915 left in cards, pod should not fit", t, func() {
-		for _, testCase := range testCases {
-			t.Logf("test %v", testCase.description)
-			node := v1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"gpu.intel.com/gpu-numbers": "0.1",
-					},
-				},
-				Status: v1.NodeStatus{
-					Capacity: v1.ResourceList{
-						"gpu.intel.com/i915":       resource.MustParse("16"),
-						"gpu.intel.com/millicores": resource.MustParse("2000"),
-					},
-					Allocatable: v1.ResourceList{
-						"gpu.intel.com/i915":       resource.MustParse("16"),
-						"gpu.intel.com/millicores": resource.MustParse("2000"),
-					},
-				},
-			}
-			for key, value := range testCase.extraLabels {
-				node.Labels[key] = value
-			}
-			mockCache.On("FetchNode", mock.Anything, args.Node).Return(&node, nil).Once()
-
-			usedResources := nodeResources{
-				card0:   resourceMap{"gpu.intel.com/i915": 5, "gpu.intel.com/millicores": 500},
-				"card1": resourceMap{"gpu.intel.com/i915": 5, "gpu.intel.com/millicores": 500},
-			}
-
-			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(usedResources).Once()
-			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
-			nodeNames := []string{nodename}
-			args := extenderv1.ExtenderArgs{}
-			args.NodeNames = &nodeNames
-			args.Pod = pod
-
-			result := gas.filterNodes(&args)
-			So(result.Error, ShouldEqual, "")
-			_, ok := result.FailedNodes[nodename]
-			So(ok, ShouldEqual, testCase.expectedResult)
+		type testCase struct {
+			extraLabels    map[string]string
+			description    string
+			expectedResult bool
 		}
-	})
 
-	iCache = origCacheAPI
+		testCases := []testCase{
+			{
+				description:    "when there are 3 plugin resources left in cards, pod with 5 same-gpu containers should not fit",
+				expectedResult: true,
+			},
+		}
+
+		Convey("When node has 3 plugin resources left in cards, pod should not fit", t, func() {
+			for _, testCase := range testCases {
+				t.Logf("test %v", testCase.description)
+				node := v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							"gpu.intel.com/gpu-numbers": "0.1",
+						},
+					},
+					Status: v1.NodeStatus{
+						Capacity: v1.ResourceList{
+							v1.ResourceName(pluginResourceName): resource.MustParse("16"),
+							"gpu.intel.com/millicores":          resource.MustParse("2000"),
+						},
+						Allocatable: v1.ResourceList{
+							v1.ResourceName(pluginResourceName): resource.MustParse("16"),
+							"gpu.intel.com/millicores":          resource.MustParse("2000"),
+						},
+					},
+				}
+				for key, value := range testCase.extraLabels {
+					node.Labels[key] = value
+				}
+				mockCache.On("FetchNode", mock.Anything, args.Node).Return(&node, nil).Once()
+
+				usedResources := nodeResources{
+					card0:   resourceMap{pluginResourceName: 5, "gpu.intel.com/millicores": 500},
+					"card1": resourceMap{pluginResourceName: 5, "gpu.intel.com/millicores": 500},
+				}
+
+				mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(usedResources).Once()
+				mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
+				nodeNames := []string{nodename}
+				args := extenderv1.ExtenderArgs{}
+				args.NodeNames = &nodeNames
+				args.Pod = pod
+
+				result := gas.filterNodes(&args)
+				So(result.Error, ShouldEqual, "")
+				_, ok := result.FailedNodes[nodename]
+				So(ok, ShouldEqual, testCase.expectedResult)
+			}
+		})
+
+		iCache = origCacheAPI
+	}
 }
 
-func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.T) {
+func runSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.T, pluginResourceName string) {
+	t.Helper()
+
 	ctx := context.TODO()
 	origCacheAPI := iCache
 
@@ -1124,9 +1144,9 @@ func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.
 		for _, testCase := range testCases {
 			t.Logf("test %v", testCase.description)
 
-			pod := getFakePod()
-			mockNode := getMockNode(4, 4, card0, "card1", "card2", "card3")
-			pod.Spec = *getMockPodSpecMultiContXeLinked(2)
+			pod := getFakePod(pluginResourceName)
+			mockNode := getMockNode(4, 4, pluginResourceName, card0, "card1", "card2", "card3")
+			pod.Spec = *getMockPodSpecMultiContXeLinked(2, pluginResourceName)
 
 			clientset := fake.NewSimpleClientset(pod)
 			iCache = origCacheAPI
@@ -1134,7 +1154,7 @@ func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.
 			mockCache := MockCacheAPI{}
 			iCache = &mockCache
 
-			nodeRes := nodeResources{card0: resourceMap{"gpu.intel.com/i915": 0, "gpu.intel.com/tiles": 0}}
+			nodeRes := nodeResources{card0: resourceMap{pluginResourceName: 0, "gpu.intel.com/tiles": 0}}
 			noTilesInUse := nodeTiles{card0: []int{}}
 
 			for key, value := range testCase.extraLabels {
@@ -1206,491 +1226,511 @@ func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.
 	iCache = origCacheAPI
 }
 
+func TestRunSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t *testing.T) {
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		runSchedulingLogicWithMultiContainerXelinkedTileResourceReq(t, pluginResourceName)
+	}
+}
+
 func TestRunSchedulingLogicWithMultiContainerTileResourceReq(t *testing.T) {
-	pod := getFakePod()
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		pod := getFakePod(pluginResourceName)
 
-	clientset := fake.NewSimpleClientset(pod)
-	gas := NewGASExtender(clientset, false, false, "tiles")
-	mockNode := getMockNode(4, 4, card0)
+		clientset := fake.NewSimpleClientset(pod)
+		gas := NewGASExtender(clientset, false, false, "tiles")
+		mockNode := getMockNode(4, 4, pluginResourceName, card0)
 
-	pod.Spec = *getMockPodSpecMultiCont()
+		pod.Spec = *getMockPodSpecMultiCont(pluginResourceName)
 
-	mockCache := MockCacheAPI{}
-	origCacheAPI := iCache
-	iCache = &mockCache
+		mockCache := MockCacheAPI{}
+		origCacheAPI := iCache
+		iCache = &mockCache
 
-	args := extenderv1.ExtenderBindingArgs{}
-	args.Node = nodename
+		args := extenderv1.ExtenderBindingArgs{}
+		args.Node = nodename
 
-	nodeRes := nodeResources{card0: resourceMap{"gpu.intel.com/i915": 0, "gpu.intel.com/tiles": 0}}
-	noTilesInUse := nodeTiles{card0: []int{}}
+		nodeRes := nodeResources{card0: resourceMap{pluginResourceName: 0, "gpu.intel.com/tiles": 0}}
+		noTilesInUse := nodeTiles{card0: []int{}}
 
-	ctx := context.TODO()
+		ctx := context.TODO()
 
-	Convey("When running scheduling logic with multi-container pod with tile request", t, func() {
-		cardAnnotation := ""
-		tileAnnotation := ""
-		timestampFound := false
-		applyCheck := func(action k8stesting.Action) (bool, runtime.Object, error) {
-			patchAction, _ := action.(k8stesting.PatchAction)
-			patch := patchAction.GetPatch()
+		Convey("When running scheduling logic with multi-container pod with tile request", t, func() {
+			cardAnnotation := ""
+			tileAnnotation := ""
+			timestampFound := false
+			applyCheck := func(action k8stesting.Action) (bool, runtime.Object, error) {
+				patchAction, _ := action.(k8stesting.PatchAction)
+				patch := patchAction.GetPatch()
 
-			arr := []patchValue{}
-			merr := json.Unmarshal(patch, &arr)
-			if merr != nil {
-				return false, nil, fmt.Errorf("error %w", merr)
-			}
-
-			for _, patch := range arr {
-				switch {
-				case strings.Contains(patch.Path, tsAnnotationName):
-					timestampFound = true
-				case strings.Contains(patch.Path, cardAnnotationName):
-					cardAnnotation, _ = patch.Value.(string)
-				case strings.Contains(patch.Path, tileAnnotationName):
-					tileAnnotation, _ = patch.Value.(string)
+				arr := []patchValue{}
+				merr := json.Unmarshal(patch, &arr)
+				if merr != nil {
+					return false, nil, fmt.Errorf("error %w", merr)
 				}
+
+				for _, patch := range arr {
+					switch {
+					case strings.Contains(patch.Path, tsAnnotationName):
+						timestampFound = true
+					case strings.Contains(patch.Path, cardAnnotationName):
+						cardAnnotation, _ = patch.Value.(string)
+					case strings.Contains(patch.Path, tileAnnotationName):
+						tileAnnotation, _ = patch.Value.(string)
+					}
+				}
+
+				return true, nil, nil
 			}
 
-			return true, nil, nil
-		}
+			mockCache.On("FetchNode", mock.Anything, mock.Anything).Return(mockNode, nil).Once()
+			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeRes).Once()
+			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse)
+			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(pod, nil).Once()
+			mockCache.On("AdjustPodResourcesL",
+				mock.Anything, mock.Anything, mock.Anything,
+				mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 
-		mockCache.On("FetchNode", mock.Anything, mock.Anything).Return(mockNode, nil).Once()
-		mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeRes).Once()
-		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse)
-		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(pod, nil).Once()
-		mockCache.On("AdjustPodResourcesL",
-			mock.Anything, mock.Anything, mock.Anything,
-			mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+			clientset.Fake.PrependReactor("patch", "pods", applyCheck)
+			result := gas.bindNode(ctx, &args)
+			clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
 
-		clientset.Fake.PrependReactor("patch", "pods", applyCheck)
-		result := gas.bindNode(ctx, &args)
-		clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
+			So(cardAnnotation, ShouldEqual, "card0|card0")
+			split := strings.Split(tileAnnotation, "|")
+			// Check the tile split between containers
+			So(len(split), ShouldEqual, 2)
+			So(strings.Count(split[0], "gt"), ShouldEqual, 3)
+			So(strings.Count(split[1], "gt"), ShouldEqual, 1)
+			// NOTE: tile annotation should include all the available tiles. If one or
+			// more tiles are used twice then the tested code isn't working correctly
+			So(strings.Contains(tileAnnotation, "gt0"), ShouldEqual, true)
+			So(strings.Contains(tileAnnotation, "gt1"), ShouldEqual, true)
+			So(strings.Contains(tileAnnotation, "gt2"), ShouldEqual, true)
+			So(strings.Contains(tileAnnotation, "gt3"), ShouldEqual, true)
 
-		So(cardAnnotation, ShouldEqual, "card0|card0")
-		split := strings.Split(tileAnnotation, "|")
-		// Check the tile split between containers
-		So(len(split), ShouldEqual, 2)
-		So(strings.Count(split[0], "gt"), ShouldEqual, 3)
-		So(strings.Count(split[1], "gt"), ShouldEqual, 1)
-		// NOTE: tile annotation should include all the available tiles. If one or
-		// more tiles are used twice then the tested code isn't working correctly
-		So(strings.Contains(tileAnnotation, "gt0"), ShouldEqual, true)
-		So(strings.Contains(tileAnnotation, "gt1"), ShouldEqual, true)
-		So(strings.Contains(tileAnnotation, "gt2"), ShouldEqual, true)
-		So(strings.Contains(tileAnnotation, "gt3"), ShouldEqual, true)
+			So(timestampFound, ShouldEqual, true)
+			So(result.Error, ShouldEqual, "")
+		})
 
-		So(timestampFound, ShouldEqual, true)
-		So(result.Error, ShouldEqual, "")
-	})
-
-	iCache = origCacheAPI
+		iCache = origCacheAPI
+	}
 }
 
 func TestTileDisablingDeschedulingAndPreference(t *testing.T) {
-	pod := getFakePod()
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		pod := getFakePod(pluginResourceName)
 
-	clientset := fake.NewSimpleClientset(pod)
-	gas := NewGASExtender(clientset, false, false, "")
-	mockCache := MockCacheAPI{}
-	origCacheAPI := iCache
-	iCache = &mockCache
-	args := extenderv1.ExtenderBindingArgs{}
-	args.Node = nodename
-	ctx := context.TODO()
+		clientset := fake.NewSimpleClientset(pod)
+		gas := NewGASExtender(clientset, false, false, "")
+		mockCache := MockCacheAPI{}
+		origCacheAPI := iCache
+		iCache = &mockCache
+		args := extenderv1.ExtenderBindingArgs{}
+		args.Node = nodename
+		ctx := context.TODO()
 
-	for _, labelPart := range []string{tileDisableLabelPrefix, tileDeschedLabelPrefix} {
-		Convey("When node has a tile disabled/descheduled-label and the node card is in it", t, func() {
+		for _, labelPart := range []string{tileDisableLabelPrefix, tileDeschedLabelPrefix} {
+			Convey("When node has a tile disabled/descheduled-label and the node card is in it", t, func() {
+				mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+					Spec: *getMockPodSpecWithTile(1, pluginResourceName),
+				}, nil).Once()
+				mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{
+							"gpu.intel.com/cards":                       card0,
+							"gpu.intel.com/tiles":                       "1",
+							tasNSPrefix + policy + labelPart + card0Gt0: trueValueString,
+							pciGroupLabel:                               "0",
+						},
+					},
+					Status: v1.NodeStatus{
+						Capacity: v1.ResourceList{
+							v1.ResourceName(pluginResourceName): resource.MustParse("1"),
+							"gpu.intel.com/tiles":               resource.MustParse("1"),
+						},
+						Allocatable: v1.ResourceList{
+							v1.ResourceName(pluginResourceName): resource.MustParse("1"),
+							"gpu.intel.com/tiles":               resource.MustParse("1"),
+						},
+					},
+				}, nil).Once()
+				mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
+				mockCache.On("AdjustPodResourcesL",
+					mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
+				noTilesInUse := nodeTiles{card0: []int{}}
+				mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Once()
+
+				result := gas.bindNode(ctx, &args)
+				So(result.Error, ShouldEqual, "will not fit")
+			})
+		}
+
+		Convey("When node has a tile descheduled label but another card to use", t, func() {
 			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
-				Spec: *getMockPodSpecWithTile(1),
+				Spec: *getMockPodSpecWithTile(1, pluginResourceName),
 			}, nil).Once()
 			mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"gpu.intel.com/cards":                       card0,
-						"gpu.intel.com/tiles":                       "1",
-						tasNSPrefix + policy + labelPart + card0Gt0: trueValueString,
-						pciGroupLabel:                               "0",
+						"gpu.intel.com/cards": "card0.card1",
+						"gpu.intel.com/tiles": "2",
+						tasNSPrefix + policy + tileDeschedLabelPrefix + "card1_gt0": trueValueString,
+						pciGroupLabel: "0",
 					},
 				},
 				Status: v1.NodeStatus{
 					Capacity: v1.ResourceList{
-						"gpu.intel.com/i915":  resource.MustParse("1"),
-						"gpu.intel.com/tiles": resource.MustParse("1"),
+						v1.ResourceName(pluginResourceName): resource.MustParse("2"),
+						"gpu.intel.com/tiles":               resource.MustParse("2"),
 					},
 					Allocatable: v1.ResourceList{
-						"gpu.intel.com/i915":  resource.MustParse("1"),
-						"gpu.intel.com/tiles": resource.MustParse("1"),
+						v1.ResourceName(pluginResourceName): resource.MustParse("2"),
+						"gpu.intel.com/tiles":               resource.MustParse("2"),
 					},
 				},
 			}, nil).Once()
 			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
 			mockCache.On("AdjustPodResourcesL",
 				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-			noTilesInUse := nodeTiles{card0: []int{}}
-			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Once()
+			noTilesInUse := nodeTiles{card0: []int{}, "card1": []int{}}
+			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Twice()
 
 			result := gas.bindNode(ctx, &args)
-			So(result.Error, ShouldEqual, "will not fit")
+			So(result.Error, ShouldEqual, "")
 		})
+
+		Convey("When node has a preferred card label and fits", t, func() {
+			applied := false
+			applyCheck := func(action k8stesting.Action) (bool, runtime.Object, error) {
+				patchAction, _ := action.(k8stesting.PatchAction)
+				requiredStr := "card1"
+				patch := patchAction.GetPatch()
+				patchStr := string(patch)
+
+				if !strings.Contains(patchStr, requiredStr) {
+					return true, nil, errNotFound
+				}
+
+				applied = true
+
+				return true, nil, nil
+			}
+
+			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+				Spec: *getMockPodSpec(pluginResourceName),
+			}, nil).Once()
+			mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"gpu.intel.com/cards":                   "card0.card1",
+						tasNSPrefix + policy + "gas-prefer-gpu": "card1",
+						pciGroupLabel:                           "0_1",
+					},
+				},
+				Status: v1.NodeStatus{
+					Capacity:    v1.ResourceList{v1.ResourceName(pluginResourceName): resource.MustParse("2")},
+					Allocatable: v1.ResourceList{v1.ResourceName(pluginResourceName): resource.MustParse("2")},
+				},
+			}, nil).Once()
+			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
+			mockCache.On("AdjustPodResourcesL",
+				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
+			noTilesInUse := nodeTiles{card0: []int{}, "card1": []int{}}
+			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Once()
+
+			clientset.Fake.PrependReactor("patch", "pods", applyCheck)
+			result := gas.bindNode(ctx, &args)
+			clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
+
+			So(result.Error, ShouldEqual, "")
+			So(applied, ShouldEqual, true)
+		})
+
+		Convey("When node has a tile preferred-label", t, func() {
+			applied := false
+			applyCheck := func(action k8stesting.Action) (bool, runtime.Object, error) {
+				patchAction, _ := action.(k8stesting.PatchAction)
+				requiredStr := "card0:gt3"
+				patch := patchAction.GetPatch()
+				patchStr := string(patch)
+
+				if !strings.Contains(patchStr, requiredStr) {
+					return true, nil, errNotFound
+				}
+
+				applied = true
+
+				return true, nil, nil
+			}
+
+			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+				Spec: *getMockPodSpecWithTile(1, pluginResourceName),
+			}, nil).Once()
+			mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"gpu.intel.com/cards": card0,
+						"gpu.intel.com/tiles": "4",
+						tasNSPrefix + policy + tileDisableLabelPrefix + card0Gt0: trueValueString,
+						tasNSPrefix + policy + tilePrefLabelPrefix + card0:       "gt3",
+						pciGroupLabel: "0",
+					},
+				},
+				Status: v1.NodeStatus{
+					Capacity: v1.ResourceList{
+						v1.ResourceName(pluginResourceName): resource.MustParse("1"),
+						"gpu.intel.com/tiles":               resource.MustParse("4"),
+					},
+					Allocatable: v1.ResourceList{
+						v1.ResourceName(pluginResourceName): resource.MustParse("1"),
+						"gpu.intel.com/tiles":               resource.MustParse("4"),
+					},
+				},
+			}, nil).Once()
+			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
+			mockCache.On("AdjustPodResourcesL",
+				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
+
+			noTilesInUse := nodeTiles{card0: []int{}}
+			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Twice()
+
+			clientset.Fake.PrependReactor("patch", "pods", applyCheck)
+			result := gas.bindNode(ctx, &args)
+			clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
+
+			So(result.Error, ShouldEqual, "")
+			So(applied, ShouldEqual, true)
+		})
+
+		iCache = origCacheAPI
 	}
-
-	Convey("When node has a tile descheduled label but another card to use", t, func() {
-		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
-			Spec: *getMockPodSpecWithTile(1),
-		}, nil).Once()
-		mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{
-					"gpu.intel.com/cards": "card0.card1",
-					"gpu.intel.com/tiles": "2",
-					tasNSPrefix + policy + tileDeschedLabelPrefix + "card1_gt0": trueValueString,
-					pciGroupLabel: "0",
-				},
-			},
-			Status: v1.NodeStatus{
-				Capacity: v1.ResourceList{
-					"gpu.intel.com/i915":  resource.MustParse("2"),
-					"gpu.intel.com/tiles": resource.MustParse("2"),
-				},
-				Allocatable: v1.ResourceList{
-					"gpu.intel.com/i915":  resource.MustParse("2"),
-					"gpu.intel.com/tiles": resource.MustParse("2"),
-				},
-			},
-		}, nil).Once()
-		mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
-		mockCache.On("AdjustPodResourcesL",
-			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-		noTilesInUse := nodeTiles{card0: []int{}, "card1": []int{}}
-		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Twice()
-
-		result := gas.bindNode(ctx, &args)
-		So(result.Error, ShouldEqual, "")
-	})
-
-	Convey("When node has a preferred card label and fits", t, func() {
-		applied := false
-		applyCheck := func(action k8stesting.Action) (bool, runtime.Object, error) {
-			patchAction, _ := action.(k8stesting.PatchAction)
-			requiredStr := "card1"
-			patch := patchAction.GetPatch()
-			patchStr := string(patch)
-
-			if !strings.Contains(patchStr, requiredStr) {
-				return true, nil, errNotFound
-			}
-
-			applied = true
-
-			return true, nil, nil
-		}
-
-		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
-			Spec: *getMockPodSpec(),
-		}, nil).Once()
-		mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{
-					"gpu.intel.com/cards":                   "card0.card1",
-					tasNSPrefix + policy + "gas-prefer-gpu": "card1",
-					pciGroupLabel:                           "0_1",
-				},
-			},
-			Status: v1.NodeStatus{
-				Capacity:    v1.ResourceList{"gpu.intel.com/i915": resource.MustParse("2")},
-				Allocatable: v1.ResourceList{"gpu.intel.com/i915": resource.MustParse("2")},
-			},
-		}, nil).Once()
-		mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
-		mockCache.On("AdjustPodResourcesL",
-			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-		noTilesInUse := nodeTiles{card0: []int{}, "card1": []int{}}
-		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Once()
-
-		clientset.Fake.PrependReactor("patch", "pods", applyCheck)
-		result := gas.bindNode(ctx, &args)
-		clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
-
-		So(result.Error, ShouldEqual, "")
-		So(applied, ShouldEqual, true)
-	})
-
-	Convey("When node has a tile preferred-label", t, func() {
-		applied := false
-		applyCheck := func(action k8stesting.Action) (bool, runtime.Object, error) {
-			patchAction, _ := action.(k8stesting.PatchAction)
-			requiredStr := "card0:gt3"
-			patch := patchAction.GetPatch()
-			patchStr := string(patch)
-
-			if !strings.Contains(patchStr, requiredStr) {
-				return true, nil, errNotFound
-			}
-
-			applied = true
-
-			return true, nil, nil
-		}
-
-		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
-			Spec: *getMockPodSpecWithTile(1),
-		}, nil).Once()
-		mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{
-					"gpu.intel.com/cards": card0,
-					"gpu.intel.com/tiles": "4",
-					tasNSPrefix + policy + tileDisableLabelPrefix + card0Gt0: trueValueString,
-					tasNSPrefix + policy + tilePrefLabelPrefix + card0:       "gt3",
-					pciGroupLabel: "0",
-				},
-			},
-			Status: v1.NodeStatus{
-				Capacity: v1.ResourceList{
-					"gpu.intel.com/i915":  resource.MustParse("1"),
-					"gpu.intel.com/tiles": resource.MustParse("4"),
-				},
-				Allocatable: v1.ResourceList{
-					"gpu.intel.com/i915":  resource.MustParse("1"),
-					"gpu.intel.com/tiles": resource.MustParse("4"),
-				},
-			},
-		}, nil).Once()
-		mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(nodeResources{}, nil).Once()
-		mockCache.On("AdjustPodResourcesL",
-			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-
-		noTilesInUse := nodeTiles{card0: []int{}}
-		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(noTilesInUse).Twice()
-
-		clientset.Fake.PrependReactor("patch", "pods", applyCheck)
-		result := gas.bindNode(ctx, &args)
-		clientset.Fake.ReactionChain = clientset.Fake.ReactionChain[1:]
-
-		So(result.Error, ShouldEqual, "")
-		So(applied, ShouldEqual, true)
-	})
-
-	iCache = origCacheAPI
 }
 
 func TestTileSanitation(t *testing.T) {
-	pod := getFakePod()
-	pod.Spec = *getMockPodSpecWithTile(1)
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		pod := getFakePod(pluginResourceName)
+		pod.Spec = *getMockPodSpecWithTile(1, pluginResourceName)
 
-	clientset := fake.NewSimpleClientset(pod)
-	gas := NewGASExtender(clientset, false, false, "")
-	mockCache := MockCacheAPI{}
-	origCacheAPI := iCache
-	iCache = &mockCache
-	args := extenderv1.ExtenderBindingArgs{}
-	args.Node = nodename
+		clientset := fake.NewSimpleClientset(pod)
+		gas := NewGASExtender(clientset, false, false, "")
+		mockCache := MockCacheAPI{}
+		origCacheAPI := iCache
+		iCache = &mockCache
+		args := extenderv1.ExtenderBindingArgs{}
+		args.Node = nodename
 
-	Convey("When node has an invalid tile disabled and pod should still fit", t, func() {
-		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
-			Spec: *getMockPodSpecWithTile(1),
-		}, nil).Once()
-		mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{
-					"gpu.intel.com/cards": card0,
-					"gpu.intel.com/tiles": "1",
-					tasNSPrefix + policy + tileDisableLabelPrefix + "card0_gt6": trueValueString,
-					pciGroupLabel: "0",
+		Convey("When node has an invalid tile disabled and pod should still fit", t, func() {
+			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+				Spec: *getMockPodSpecWithTile(1, pluginResourceName),
+			}, nil).Once()
+			mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"gpu.intel.com/cards": card0,
+						"gpu.intel.com/tiles": "1",
+						tasNSPrefix + policy + tileDisableLabelPrefix + "card0_gt6": trueValueString,
+						pciGroupLabel: "0",
+					},
 				},
-			},
-			Status: v1.NodeStatus{
-				Capacity: v1.ResourceList{
-					"gpu.intel.com/i915":  resource.MustParse("1"),
-					"gpu.intel.com/tiles": resource.MustParse("1"),
+				Status: v1.NodeStatus{
+					Capacity: v1.ResourceList{
+						v1.ResourceName(pluginResourceName): resource.MustParse("1"),
+						"gpu.intel.com/tiles":               resource.MustParse("1"),
+					},
+					Allocatable: v1.ResourceList{
+						v1.ResourceName(pluginResourceName): resource.MustParse("1"),
+						"gpu.intel.com/tiles":               resource.MustParse("1"),
+					},
 				},
-				Allocatable: v1.ResourceList{
-					"gpu.intel.com/i915":  resource.MustParse("1"),
-					"gpu.intel.com/tiles": resource.MustParse("1"),
-				},
-			},
-		}, nil).Once()
+			}, nil).Once()
 
-		usedResources := nodeResources{card0: resourceMap{"gpu.intel.com/i915": 0, "gpu.intel.com/tiles": 0}}
+			usedResources := nodeResources{card0: resourceMap{pluginResourceName: 0, "gpu.intel.com/tiles": 0}}
 
-		mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(usedResources).Once()
-		mockCache.On("AdjustPodResourcesL",
-			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
+			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(usedResources).Once()
+			mockCache.On("AdjustPodResourcesL",
+				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
+			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Once()
 
-		nodeNames := []string{nodename}
-		args := extenderv1.ExtenderArgs{}
-		args.NodeNames = &nodeNames
-		args.Pod = pod
+			nodeNames := []string{nodename}
+			args := extenderv1.ExtenderArgs{}
+			args.NodeNames = &nodeNames
+			args.Pod = pod
 
-		result := gas.filterNodes(&args)
-		So(result.Error, ShouldEqual, "")
-		_, ok := result.FailedNodes[nodename]
-		So(ok, ShouldEqual, false)
-	})
+			result := gas.filterNodes(&args)
+			So(result.Error, ShouldEqual, "")
+			_, ok := result.FailedNodes[nodename]
+			So(ok, ShouldEqual, false)
+		})
 
-	iCache = origCacheAPI
+		iCache = origCacheAPI
+	}
 }
 
 func TestFilterWithDisabledTiles(t *testing.T) {
-	pod := getFakePod()
-	pod.Spec = *getMockPodSpecWithTile(1)
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		pod := getFakePod(pluginResourceName)
+		pod.Spec = *getMockPodSpecWithTile(1, pluginResourceName)
 
-	clientset := fake.NewSimpleClientset(pod)
-	gas := NewGASExtender(clientset, false, false, "")
-	mockCache := MockCacheAPI{}
-	origCacheAPI := iCache
-	iCache = &mockCache
-	args := extenderv1.ExtenderBindingArgs{}
-	args.Node = nodename
+		clientset := fake.NewSimpleClientset(pod)
+		gas := NewGASExtender(clientset, false, false, "")
+		mockCache := MockCacheAPI{}
+		origCacheAPI := iCache
+		iCache = &mockCache
+		args := extenderv1.ExtenderBindingArgs{}
+		args.Node = nodename
 
-	Convey("When node has two cards and one disabled tile, pod should still fit", t, func() {
-		mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
-			Spec: *getMockPodSpecWithTile(1),
-		}, nil).Once()
-		mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{
-					"gpu.intel.com/cards": "card0.card1",
-					"gpu.intel.com/tiles": "2",
-					tasNSPrefix + policy + tileDisableLabelPrefix + "card1_gt0": trueValueString,
+		Convey("When node has two cards and one disabled tile, pod should still fit", t, func() {
+			mockCache.On("FetchPod", mock.Anything, args.PodNamespace, args.PodName).Return(&v1.Pod{
+				Spec: *getMockPodSpecWithTile(1, pluginResourceName),
+			}, nil).Once()
+			mockCache.On("FetchNode", mock.Anything, args.Node).Return(&v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"gpu.intel.com/cards": "card0.card1",
+						"gpu.intel.com/tiles": "2",
+						tasNSPrefix + policy + tileDisableLabelPrefix + "card1_gt0": trueValueString,
+					},
 				},
-			},
-			Status: v1.NodeStatus{
-				Capacity: v1.ResourceList{
-					"gpu.intel.com/i915":  resource.MustParse("2"),
-					"gpu.intel.com/tiles": resource.MustParse("2"),
+				Status: v1.NodeStatus{
+					Capacity: v1.ResourceList{
+						v1.ResourceName(pluginResourceName): resource.MustParse("2"),
+						"gpu.intel.com/tiles":               resource.MustParse("2"),
+					},
+					Allocatable: v1.ResourceList{
+						v1.ResourceName(pluginResourceName): resource.MustParse("2"),
+						"gpu.intel.com/tiles":               resource.MustParse("2"),
+					},
 				},
-				Allocatable: v1.ResourceList{
-					"gpu.intel.com/i915":  resource.MustParse("2"),
-					"gpu.intel.com/tiles": resource.MustParse("2"),
-				},
-			},
-		}, nil).Once()
+			}, nil).Once()
 
-		usedResources := nodeResources{card0: resourceMap{"gpu.intel.com/i915": 0, "gpu.intel.com/tiles": 0}}
+			usedResources := nodeResources{card0: resourceMap{pluginResourceName: 0, "gpu.intel.com/tiles": 0}}
 
-		mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(usedResources).Once()
-		mockCache.On("AdjustPodResourcesL",
-			mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
-		mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Twice()
-		nodeNames := []string{nodename}
-		args := extenderv1.ExtenderArgs{}
-		args.NodeNames = &nodeNames
-		args.Pod = pod
+			mockCache.On("GetNodeResourceStatus", mock.Anything, mock.Anything).Return(usedResources).Once()
+			mockCache.On("AdjustPodResourcesL",
+				mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Twice()
+			mockCache.On("GetNodeTileStatus", mock.Anything, mock.Anything).Return(nodeTiles{}).Twice()
+			nodeNames := []string{nodename}
+			args := extenderv1.ExtenderArgs{}
+			args.NodeNames = &nodeNames
+			args.Pod = pod
 
-		result := gas.filterNodes(&args)
-		So(result.Error, ShouldEqual, "")
-		_, ok := result.FailedNodes[nodename]
-		So(ok, ShouldEqual, false)
-	})
+			result := gas.filterNodes(&args)
+			So(result.Error, ShouldEqual, "")
+			_, ok := result.FailedNodes[nodename]
+			So(ok, ShouldEqual, false)
+		})
 
-	iCache = origCacheAPI
+		iCache = origCacheAPI
+	}
 }
 
 func TestSanitizeSamegpulist(t *testing.T) {
-	pod := &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{},
-		},
-		Spec: *getMockPodSpecMultiContSamegpu(),
-	}
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		pod := &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{},
+			},
+			Spec: *getMockPodSpecMultiContSamegpu(pluginResourceName),
+		}
 
-	wrongValueReason := map[string]string{
-		"container1,container5":            "Listing absent containers makes gas-same-gpu ignored",
-		"container1":                       "Listing single container name makes gas-same-gpu ignored",
-		"":                                 "Empty gas-same-gpu annotation is ignored",
-		"container1,container2,container2": "gas-same-gpu with duplicates is ignored",
-	}
+		wrongValueReason := map[string]string{
+			"container1,container5":            "Listing absent containers makes gas-same-gpu ignored",
+			"container1":                       "Listing single container name makes gas-same-gpu ignored",
+			"":                                 "Empty gas-same-gpu annotation is ignored",
+			"container1,container2,container2": "gas-same-gpu with duplicates is ignored",
+		}
 
-	Convey("Ensure no gas-same-gpu annotation returns blank list with no error",
-		t, func() {
-			containerNames, err := containersRequestingSamegpu(pod)
-			So(len(containerNames), ShouldEqual, 0)
-			So(err, ShouldEqual, nil)
-		})
-
-	for wrongValue, reason := range wrongValueReason {
-		pod.ObjectMeta.Annotations["gas-same-gpu"] = wrongValue
-
-		Convey(reason,
+		Convey("Ensure no gas-same-gpu annotation returns blank list with no error",
 			t, func() {
 				containerNames, err := containersRequestingSamegpu(pod)
 				So(len(containerNames), ShouldEqual, 0)
-				So("malformed annotation", ShouldEqual, err.Error())
+				So(err, ShouldEqual, nil)
+			})
+
+		for wrongValue, reason := range wrongValueReason {
+			pod.ObjectMeta.Annotations["gas-same-gpu"] = wrongValue
+
+			Convey(reason,
+				t, func() {
+					containerNames, err := containersRequestingSamegpu(pod)
+					So(len(containerNames), ShouldEqual, 0)
+					So("malformed annotation", ShouldEqual, err.Error())
+				})
+		}
+
+		pod.ObjectMeta.Annotations["gas-same-gpu"] = "container2,container3"
+
+		Convey("Ensure correct annotation returns all listed container names with no error",
+			t, func() {
+				containerNames, err := containersRequestingSamegpu(pod)
+				So(containerNames, ShouldResemble, map[string]bool{"container2": true, "container3": true})
+				So(err, ShouldEqual, nil)
 			})
 	}
-
-	pod.ObjectMeta.Annotations["gas-same-gpu"] = "container2,container3"
-
-	Convey("Ensure correct annotation returns all listed container names with no error",
-		t, func() {
-			containerNames, err := containersRequestingSamegpu(pod)
-			So(containerNames, ShouldResemble, map[string]bool{"container2": true, "container3": true})
-			So(err, ShouldEqual, nil)
-		})
 }
 
 func TestSanitizeSamegpuResourcesRequest(t *testing.T) {
-	Convey("Tiles and monitoring resources are not allowed in same-gpu resourceRequests",
-		t, func() {
-			// fail because of tiles
-			samegpuIndexes := map[int]bool{0: true}
-			resourceRequests := []resourceMap{
-				{"gpu.intel.com/i915": 1, "gpu.intel.com/tiles": 2},
-			}
-			err := sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
-			So(err.Error(), ShouldEqual, "resources conflict")
+	for _, pluginResourceName := range []string{i915PluginResource, xePluginResource} {
+		for _, monitoringResourceName := range []string{xeMonitoringResource, i915MonitoringResource} {
+			Convey("Tiles and monitoring resources are not allowed in same-gpu resourceRequests",
+				t, func() {
+					// fail because of tiles
+					samegpuIndexes := map[int]bool{0: true}
+					resourceRequests := []resourceMap{
+						{pluginResourceName: 1, "gpu.intel.com/tiles": 2},
+					}
+					err := sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+					So(err.Error(), ShouldEqual, "resources conflict")
 
-			// fail because of monitoring
-			samegpuIndexes = map[int]bool{0: true}
-			resourceRequests = []resourceMap{
-				{"gpu.intel.com/i915": 1, "gpu.intel.com/i915_monitoring": 1},
-			}
-			err = sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
-			So(err.Error(), ShouldEqual, "resources conflict")
+					// fail because of monitoring
+					samegpuIndexes = map[int]bool{0: true}
+					resourceRequests = []resourceMap{
+						{pluginResourceName: 1, monitoringResourceName: 1},
+					}
+					err = sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+					So(err.Error(), ShouldEqual, "resources conflict")
 
-			// success
-			samegpuIndexes = map[int]bool{0: true}
-			resourceRequests = []resourceMap{
-				{
-					"gpu.intel.com/i915":       1,
-					"gpu.intel.com/millicores": 100,
-					"gpu.intel.com/memory.max": 8589934592,
-				},
-			}
-			err = sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
-			So(err, ShouldEqual, nil)
-		})
+					// success
+					samegpuIndexes = map[int]bool{0: true}
+					resourceRequests = []resourceMap{
+						{
+							pluginResourceName:         1,
+							"gpu.intel.com/millicores": 100,
+							"gpu.intel.com/memory.max": 8589934592,
+						},
+					}
+					err = sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+					So(err, ShouldEqual, nil)
+				})
 
-	Convey("Same-gpu containers should have exactly one device resource requested",
-		t, func() {
-			// failure heterogeneous
-			samegpuIndexes := map[int]bool{0: true, 1: true}
-			resourceRequests := []resourceMap{
-				{"gpu.intel.com/i915": 1, "gpu.intel.com/millicores": 200},
-				{"gpu.intel.com/i915": 2, "gpu.intel.com/millicores": 200},
-			}
-			err := sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
-			So(err.Error(), ShouldEqual, "resources conflict")
+			Convey("Same-gpu containers should have exactly one device resource requested",
+				t, func() {
+					// failure heterogeneous
+					samegpuIndexes := map[int]bool{0: true, 1: true}
+					resourceRequests := []resourceMap{
+						{pluginResourceName: 1, "gpu.intel.com/millicores": 200},
+						{pluginResourceName: 2, "gpu.intel.com/millicores": 200},
+					}
+					err := sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+					So(err.Error(), ShouldEqual, "resources conflict")
 
-			// Failure homogeneous
-			samegpuIndexes = map[int]bool{0: true, 1: true}
-			resourceRequests = []resourceMap{
-				{"gpu.intel.com/i915": 2, "gpu.intel.com/millicores": 200},
-				{"gpu.intel.com/i915": 2, "gpu.intel.com/millicores": 200},
-			}
-			err = sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
-			So(err.Error(), ShouldEqual, "resources conflict")
+					// Failure homogeneous
+					samegpuIndexes = map[int]bool{0: true, 1: true}
+					resourceRequests = []resourceMap{
+						{pluginResourceName: 2, "gpu.intel.com/millicores": 200},
+						{pluginResourceName: 2, "gpu.intel.com/millicores": 200},
+					}
+					err = sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+					So(err.Error(), ShouldEqual, "resources conflict")
 
-			// Success
-			samegpuIndexes = map[int]bool{0: true, 1: true}
-			resourceRequests = []resourceMap{
-				{"gpu.intel.com/i915": 1, "gpu.intel.com/millicores": 200},
-				{"gpu.intel.com/i915": 1, "gpu.intel.com/millicores": 300},
-			}
-			err = sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
-			So(err, ShouldEqual, nil)
-		})
+					// Success
+					samegpuIndexes = map[int]bool{0: true, 1: true}
+					resourceRequests = []resourceMap{
+						{pluginResourceName: 1, "gpu.intel.com/millicores": 200},
+						{pluginResourceName: 1, "gpu.intel.com/millicores": 300},
+					}
+					err = sanitizeSamegpuResourcesRequest(samegpuIndexes, resourceRequests)
+					So(err, ShouldEqual, nil)
+				})
+		}
+	}
 }
