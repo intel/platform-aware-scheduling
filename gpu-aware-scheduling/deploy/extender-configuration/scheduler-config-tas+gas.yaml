@@ -24,6 +24,8 @@ extenders:
     managedResources:
       - name: "gpu.intel.com/i915"
         ignoredByScheduler: false
+      - name: "gpu.intel.com/xe"
+        ignoredByScheduler: false
     ignorable: true
     tlsConfig:
       insecure: false
