@@ -1,3 +1,9 @@
+# PROJECT NOT UNDER ACTIVE MANAGEMENT
+This project will no longer be maintained by Intel.  
+Intel has ceased development and contributions including, but not limited to, maintenance, bug fixes, new releases, or updates, to this project.  
+Intel no longer accepts patches to this project.  
+If you have an ongoing need to use this project, are interested in independently developing it, or would like to maintain patches for the open source software community, please create your own fork of this project.  
+
 # Platform Aware Scheduling
 Platform Aware Scheduling (PAS) contains a group of related projects designed to expose platform specific attributes to the Kubernetes scheduler using a modular policy driven approach. The project contains a core library and information for building custom scheduler extensions as well as specific  implementations that can be used in a working cluster or leveraged as a reference for creating new Kubernetes scheduler extensions.
 
